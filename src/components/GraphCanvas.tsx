@@ -7,6 +7,9 @@ type GraphCanvasProps = {
   edges: CatechismEdge[];
   focusId?: number | null;
   onNodeClick: (id: number) => void;
+  showDirectionalArrows?: boolean;
+  caption?: string[];
+  initialScale?: number;
 };
 
 const partColors: Record<string, string> = {
@@ -17,9 +20,19 @@ const partColors: Record<string, string> = {
   'Christian Prayer': '#7e3f98',
 };
 
-const defaultTransform = { x: 0, y: 0, k: 0.42 };
+function createDefaultTransform(scale: number) {
+  return { x: 0, y: 0, k: scale };
+}
 
-export function GraphCanvas({ nodes, edges, focusId, onNodeClick }: GraphCanvasProps) {
+export function GraphCanvas({
+  nodes,
+  edges,
+  focusId,
+  onNodeClick,
+  showDirectionalArrows = false,
+  caption = ['Scroll to zoom', 'Drag to pan', 'Click a node for full paragraph detail'],
+  initialScale = 0.42,
+}: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ active: boolean; x: number; y: number }>({
@@ -29,11 +42,12 @@ export function GraphCanvas({ nodes, edges, focusId, onNodeClick }: GraphCanvasP
   });
 
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const [transform, setTransform] = useState(defaultTransform);
+  const [transform, setTransform] = useState(() => createDefaultTransform(initialScale));
   const [hoveredId, setHoveredId] = useState<number | null>(null);
   const [tooltip, setTooltip] = useState({ x: 0, y: 0 });
 
   const nodeMap = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
+  const edgeSet = useMemo(() => new Set(edges.map((edge) => `${edge.source}:${edge.target}`)), [edges]);
 
   const hoveredNode = hoveredId ? nodeMap.get(hoveredId) ?? null : null;
 
@@ -55,6 +69,10 @@ export function GraphCanvas({ nodes, edges, focusId, onNodeClick }: GraphCanvasP
 
     return active;
   }, [edges, hoveredId]);
+
+  useEffect(() => {
+    setTransform(createDefaultTransform(initialScale));
+  }, [initialScale]);
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -137,10 +155,38 @@ export function GraphCanvas({ nodes, edges, focusId, onNodeClick }: GraphCanvasP
       context.moveTo(source.position.x, source.position.y);
       context.lineTo(target.position.x, target.position.y);
       context.stroke();
+
+      if (showDirectionalArrows && !edgeSet.has(`${edge.target}:${edge.source}`)) {
+        const dx = target.position.x - source.position.x;
+        const dy = target.position.y - source.position.y;
+        const length = Math.sqrt(dx * dx + dy * dy);
+
+        if (length > 0.01) {
+          const unitX = dx / length;
+          const unitY = dy / length;
+          const arrowSize = 8 / transform.k;
+          const targetRadius = (target.visualRadius + 1.4) / transform.k;
+          const tipX = target.position.x - unitX * targetRadius;
+          const tipY = target.position.y - unitY * targetRadius;
+          const baseX = tipX - unitX * arrowSize;
+          const baseY = tipY - unitY * arrowSize;
+          const normalX = -unitY;
+          const normalY = unitX;
+
+          context.fillStyle = isActive ? 'rgba(24, 28, 35, 0.52)' : 'rgba(24, 28, 35, 0.18)';
+          context.beginPath();
+          context.moveTo(tipX, tipY);
+          context.lineTo(baseX + normalX * (arrowSize * 0.55), baseY + normalY * (arrowSize * 0.55));
+          context.lineTo(baseX - normalX * (arrowSize * 0.55), baseY - normalY * (arrowSize * 0.55));
+          context.closePath();
+          context.fill();
+        }
+      }
     }
 
     for (const node of nodes) {
       const isHovered = hoveredId === node.id;
+      const isFocused = focusId === node.id;
       const isConnected = highlighted.has(node.id);
       const fill = partColors[node.part] ?? '#6a6a6a';
       const radius = node.visualRadius / transform.k;
@@ -156,12 +202,29 @@ export function GraphCanvas({ nodes, edges, focusId, onNodeClick }: GraphCanvasP
         context.lineWidth = 3 / transform.k;
         context.strokeStyle = '#f5eedf';
         context.stroke();
+      } else if (isFocused) {
+        context.globalAlpha = 1;
+        context.lineWidth = 2.2 / transform.k;
+        context.strokeStyle = '#181c23';
+        context.stroke();
       }
     }
 
     context.restore();
     context.globalAlpha = 1;
-  }, [edges, highlighted, hoveredId, nodeMap, nodes, size.height, size.width, transform]);
+  }, [
+    edgeSet,
+    edges,
+    focusId,
+    highlighted,
+    hoveredId,
+    nodeMap,
+    nodes,
+    showDirectionalArrows,
+    size.height,
+    size.width,
+    transform,
+  ]);
 
   function findNode(clientX: number, clientY: number) {
     const canvas = canvasRef.current;
@@ -247,7 +310,7 @@ export function GraphCanvas({ nodes, edges, focusId, onNodeClick }: GraphCanvasP
     const pointerY = event.clientY - rect.top;
 
     setTransform((current) => {
-      const nextScale = Math.min(2.3, Math.max(0.18, current.k * (event.deltaY > 0 ? 0.92 : 1.08)));
+      const nextScale = Math.min(3.4, Math.max(0.14, current.k * (event.deltaY > 0 ? 0.92 : 1.08)));
       const worldX = (pointerX - current.x) / current.k;
       const worldY = (pointerY - current.y) / current.k;
 
@@ -270,9 +333,9 @@ export function GraphCanvas({ nodes, edges, focusId, onNodeClick }: GraphCanvasP
         onWheel={handleWheel}
       />
       <div className="graph-caption">
-        <span>Scroll to zoom</span>
-        <span>Drag to pan</span>
-        <span>Click a node for full paragraph detail</span>
+        {caption.map((label) => (
+          <span key={label}>{label}</span>
+        ))}
       </div>
       {hoveredNode ? (
         <div

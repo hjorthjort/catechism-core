@@ -27,6 +27,52 @@ function countExternalKinds(node: CatechismNode) {
   );
 }
 
+function collectNeighborhood(data: CatechismData, centerId: number, maxDepth = 2) {
+  const nodeMap = new Map(data.nodes.map((node) => [node.id, node]));
+  const outgoing = new Map<number, number[]>();
+  const incoming = new Map<number, number[]>();
+
+  for (const edge of data.edges) {
+    const outgoingTargets = outgoing.get(edge.source) ?? [];
+    outgoingTargets.push(edge.target);
+    outgoing.set(edge.source, outgoingTargets);
+
+    const incomingSources = incoming.get(edge.target) ?? [];
+    incomingSources.push(edge.source);
+    incoming.set(edge.target, incomingSources);
+  }
+
+  const visited = new Set<number>([centerId]);
+  const queue = [{ id: centerId, depth: 0 }];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || current.depth >= maxDepth) {
+      continue;
+    }
+
+    const neighbors = [...(outgoing.get(current.id) ?? []), ...(incoming.get(current.id) ?? [])];
+    for (const neighbor of neighbors) {
+      if (visited.has(neighbor)) {
+        continue;
+      }
+
+      visited.add(neighbor);
+      queue.push({ id: neighbor, depth: current.depth + 1 });
+    }
+  }
+
+  const nodes = Array.from(visited)
+    .map((id) => nodeMap.get(id))
+    .filter((node): node is CatechismNode => Boolean(node))
+    .sort((a, b) => a.id - b.id);
+  const edges = data.edges.filter(
+    (edge) => visited.has(edge.source) && visited.has(edge.target),
+  );
+
+  return { nodes, edges };
+}
+
 function Shell({ data }: { data: CatechismData }) {
   const nodeMap = useMemo(() => new Map(data.nodes.map((node) => [node.id, node])), [data.nodes]);
   const topNodes = useMemo(
@@ -51,7 +97,7 @@ function Shell({ data }: { data: CatechismData }) {
         <Routes>
           <Route path="/" element={<HomePage data={data} topNodes={topNodes} />} />
           <Route path="/explore" element={<ExplorePage data={data} />} />
-          <Route path="/paragraph/:id" element={<ParagraphPage nodeMap={nodeMap} />} />
+          <Route path="/paragraph/:id" element={<ParagraphPage data={data} nodeMap={nodeMap} />} />
         </Routes>
       </div>
     </BrowserRouter>
@@ -245,7 +291,14 @@ function ExplorePage({ data }: { data: CatechismData }) {
   );
 }
 
-function ParagraphPage({ nodeMap }: { nodeMap: Map<number, CatechismNode> }) {
+function ParagraphPage({
+  data,
+  nodeMap,
+}: {
+  data: CatechismData;
+  nodeMap: Map<number, CatechismNode>;
+}) {
+  const navigate = useNavigate();
   const params = useParams();
   const id = Number(params.id);
   const node = Number.isFinite(id) ? nodeMap.get(id) : undefined;
@@ -264,6 +317,7 @@ function ParagraphPage({ nodeMap }: { nodeMap: Map<number, CatechismNode> }) {
   }
 
   const externalCounts = countExternalKinds(node);
+  const localGraph = collectNeighborhood(data, node.id);
 
   return (
     <main className="page paragraph-page">
@@ -338,6 +392,21 @@ function ParagraphPage({ nodeMap }: { nodeMap: Map<number, CatechismNode> }) {
         </article>
 
         <aside className="paragraph-links">
+          <section className="paragraph-mini-map">
+            <h2>Local graph</h2>
+            <p>Two hops in every direction. One-way links carry arrows.</p>
+            <div className="paragraph-mini-map-canvas">
+              <GraphCanvas
+                caption={['Drag to pan', 'Scroll to zoom', 'Click to follow a paragraph']}
+                edges={localGraph.edges}
+                focusId={node.id}
+                initialScale={1.18}
+                nodes={localGraph.nodes}
+                onNodeClick={(targetId) => navigate(`/paragraph/${targetId}`)}
+                showDirectionalArrows
+              />
+            </div>
+          </section>
           <section>
             <h2>Links out</h2>
             <div className="link-cloud">

@@ -590,6 +590,30 @@ input {
   align-content: start;
 }
 
+.paragraph-mini-map p {
+  margin: 0 0 0.8rem;
+  color: var(--ink-soft);
+}
+
+.paragraph-mini-map-canvas {
+  min-height: 22rem;
+}
+
+.paragraph-mini-map-canvas .graph-shell,
+.paragraph-mini-map-canvas .graph-shell canvas {
+  min-height: 22rem;
+}
+
+.paragraph-mini-map-canvas .graph-caption {
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.75rem;
+}
+
+.paragraph-mini-map-canvas .graph-caption span {
+  font-size: 0.72rem;
+}
+
 .link-cloud {
   display: flex;
   gap: 0.5rem;

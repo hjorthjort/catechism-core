@@ -53,6 +53,38 @@ export type CatechismEdge = {
   target: number;
 };
 
+export type LocalizedFootnote = {
+  id: string;
+  number: number | string;
+  html: string;
+  text: string;
+};
+
+export type LocalizedNode = {
+  id: number;
+  title?: string;
+  text?: string;
+  textHtml?: string;
+  preview?: string;
+  breadcrumbs?: string[];
+  headings?: Heading[];
+  footnotes?: LocalizedFootnote[];
+  externalReferences?: ExternalReference[];
+  vaticanSource?: VaticanSource;
+};
+
+export type LanguagePack = {
+  language: string;
+  label: string;
+  source: {
+    corpus: string;
+  };
+  stats: {
+    paragraphs: number;
+  };
+  nodes: LocalizedNode[];
+};
+
 export type CatechismData = {
   generatedAt: string;
   source: {
