@@ -234,9 +234,11 @@ input {
 .feature-grid p,
 .ranking-item p,
 .search-result span,
+.search-result small,
 .focus-card p,
 .paragraph-text,
 .footnote-item,
+.external-reference p,
 .graph-tooltip p {
   color: var(--ink-soft);
 }
@@ -332,6 +334,10 @@ input {
   background: transparent;
   cursor: pointer;
   padding: 0;
+}
+
+.search-result small {
+  font-size: 0.78rem;
 }
 
 .focus-card {
@@ -491,8 +497,62 @@ input {
   color: var(--accent-dark);
 }
 
+.external-references-block,
 .footnotes-block {
   margin-top: 2rem;
+}
+
+.external-reference-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.external-reference {
+  padding: 0.95rem 1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(24, 28, 35, 0.08);
+  background: rgba(255, 255, 255, 0.56);
+}
+
+.external-reference.scripture {
+  background: rgba(27, 127, 121, 0.09);
+  border-color: rgba(27, 127, 121, 0.22);
+}
+
+.external-reference.document {
+  background: rgba(208, 107, 51, 0.08);
+  border-color: rgba(208, 107, 51, 0.2);
+}
+
+.reference-kind {
+  display: inline-block;
+  margin-bottom: 0.45rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.external-reference.scripture .reference-kind {
+  background: rgba(27, 127, 121, 0.12);
+  color: #0f645f;
+}
+
+.external-reference.document .reference-kind {
+  background: rgba(208, 107, 51, 0.12);
+  color: #9e4a1d;
+}
+
+.external-reference strong {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.external-reference p {
+  margin: 0;
 }
 
 .footnotes-list {
@@ -537,7 +597,8 @@ input {
   .hero,
   .feature-grid,
   .explore-page,
-  .paragraph-layout {
+  .paragraph-layout,
+  .external-reference-list {
     grid-template-columns: 1fr;
   }
 

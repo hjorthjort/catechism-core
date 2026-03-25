@@ -17,6 +17,16 @@ function fmtScore(score: number) {
   return score.toFixed(5);
 }
 
+function countExternalKinds(node: CatechismNode) {
+  return node.externalReferences.reduce(
+    (counts, reference) => {
+      counts[reference.kind] += 1;
+      return counts;
+    },
+    { scripture: 0, document: 0 },
+  );
+}
+
 function Shell({ data }: { data: CatechismData }) {
   const nodeMap = useMemo(() => new Map(data.nodes.map((node) => [node.id, node])), [data.nodes]);
   const topNodes = useMemo(
@@ -75,12 +85,12 @@ function HomePage({ data, topNodes }: { data: CatechismData; topNodes: Catechism
             <strong>{data.stats.paragraphs.toLocaleString()}</strong>
           </div>
           <div className="stat-card">
-            <span>References</span>
+            <span>Internal links</span>
             <strong>{data.stats.references.toLocaleString()}</strong>
           </div>
           <div className="stat-card">
-            <span>Highest ranked</span>
-            <strong>¶ {topNodes[0]?.id}</strong>
+            <span>External refs</span>
+            <strong>{data.stats.externalReferences.toLocaleString()}</strong>
           </div>
         </div>
       </section>
@@ -155,6 +165,7 @@ function ExplorePage({ data }: { data: CatechismData }) {
     () => data.nodes.find((node) => node.id === focusId) ?? null,
     [data.nodes, focusId],
   );
+  const focusedExternalCounts = focusedNode ? countExternalKinds(focusedNode) : null;
 
   return (
     <main className="explore-page">
@@ -179,6 +190,9 @@ function ExplorePage({ data }: { data: CatechismData }) {
               <button type="button" onClick={() => setFocusId(node.id)}>
                 <strong>¶ {node.id}</strong>
                 <span>{node.title}</span>
+                <small>
+                  {node.externalReferences.length} external refs
+                </small>
               </button>
               <Link to={`/paragraph/${node.id}`}>Open</Link>
             </div>
@@ -202,6 +216,14 @@ function ExplorePage({ data }: { data: CatechismData }) {
               <div>
                 <dt>Rank</dt>
                 <dd>{fmtScore(focusedNode.pagerank)}</dd>
+              </div>
+              <div>
+                <dt>Scripture</dt>
+                <dd>{focusedExternalCounts?.scripture ?? 0}</dd>
+              </div>
+              <div>
+                <dt>Documents</dt>
+                <dd>{focusedExternalCounts?.document ?? 0}</dd>
               </div>
             </dl>
             <button className="button" type="button" onClick={() => navigate(`/paragraph/${focusedNode.id}`)}>
@@ -241,6 +263,8 @@ function ParagraphPage({ nodeMap }: { nodeMap: Map<number, CatechismNode> }) {
     );
   }
 
+  const externalCounts = countExternalKinds(node);
+
   return (
     <main className="page paragraph-page">
       <section className="paragraph-hero">
@@ -253,6 +277,8 @@ function ParagraphPage({ nodeMap }: { nodeMap: Map<number, CatechismNode> }) {
           <span>PageRank {fmtScore(node.pagerank)}</span>
           <span>{node.xrefs.length} outgoing</span>
           <span>{node.incoming.length} incoming</span>
+          <span>{externalCounts.scripture} Scripture refs</span>
+          <span>{externalCounts.document} document refs</span>
         </div>
       </section>
 
@@ -267,6 +293,21 @@ function ParagraphPage({ nodeMap }: { nodeMap: Map<number, CatechismNode> }) {
           <div className="paragraph-text">
             <p dangerouslySetInnerHTML={{ __html: node.textHtml }} />
           </div>
+
+          <section className="external-references-block">
+            <h2>External references</h2>
+            <div className="external-reference-list">
+              {node.externalReferences.map((reference) => (
+                <div className={`external-reference ${reference.kind}`} key={reference.id}>
+                  <span className="reference-kind">
+                    {reference.kind === 'scripture' ? 'Scripture' : 'Document'}
+                  </span>
+                  <strong>Footnote {reference.footnoteNumber}</strong>
+                  <p>{reference.label}</p>
+                </div>
+              ))}
+            </div>
+          </section>
 
           <section className="footnotes-block">
             <h2>Footnotes</h2>

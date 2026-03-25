@@ -5,6 +5,14 @@ export type Footnote = {
   text: string;
 };
 
+export type ExternalReference = {
+  id: string;
+  footnoteId: string;
+  footnoteNumber: number | string;
+  label: string;
+  kind: 'scripture' | 'document';
+};
+
 export type Heading = {
   kind: 'major' | 'minor';
   text: string;
@@ -21,6 +29,7 @@ export type CatechismNode = {
   textHtml: string;
   preview: string;
   footnotes: Footnote[];
+  externalReferences: ExternalReference[];
   xrefs: number[];
   incoming: number[];
   pagerank: number;
@@ -46,6 +55,7 @@ export type CatechismData = {
   stats: {
     paragraphs: number;
     references: number;
+    externalReferences: number;
   };
   nodes: CatechismNode[];
   edges: CatechismEdge[];

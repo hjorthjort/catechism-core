@@ -19,6 +19,8 @@ const outputPath = path.join(rootDir, 'public', 'data', 'catechism-graph.json');
 
 const apiUrl = 'https://www.catholiccrossreference.online/catechism/';
 const sectionQueries = ['s0', 's1', 's2', 's3', 's4'];
+const scripturePattern =
+  /^(?:cf\.\s+|see\s+|see also\s+)?(?:[1-3i]{0,3}\s*)?(?:gen|ex|lev|num|deut|josh|judg|ruth|sam|kgs|chr|ezra|neh|tob|jdt|esth|macc|job|ps|pss|prov|eccl|song|wis|sir|isa|jer|lam|bar|ezek|dan|hos|joel|amos|obad|jon|mic|nah|hab|zeph|hag|zech|mal|mt|mk|lk|jn|acts|rom|cor|gal|eph|phil|col|thess|tim|titus|phlm|heb|jas|pet|jude|rev)\b/i;
 
 function cleanText(value) {
   return value
@@ -33,6 +35,38 @@ function slugTitle(value) {
     .replace(/\(\d+\s*-\s*\d+\)$/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function splitReferenceText(value) {
+  return cleanText(value)
+    .split(/\s*;\s*/)
+    .map((entry) => entry.replace(/\.$/, '').trim())
+    .filter(Boolean);
+}
+
+function classifyReference(value) {
+  return scripturePattern.test(value) ? 'scripture' : 'document';
+}
+
+function extractExternalReferences(footnotes) {
+  const references = [];
+
+  for (const note of footnotes) {
+    const segments = splitReferenceText(note.text);
+    const parts = segments.length > 0 ? segments : [note.text];
+
+    for (const [index, segment] of parts.entries()) {
+      references.push({
+        id: `${note.id}:${index + 1}`,
+        footnoteId: note.id,
+        footnoteNumber: note.number,
+        label: segment,
+        kind: classifyReference(segment),
+      });
+    }
+  }
+
+  return references;
 }
 
 async function postForm(params) {
@@ -131,6 +165,7 @@ function parseParagraphHtml(html) {
           text: cleanText(entry.find('.text').text()),
         };
       });
+    const externalReferences = extractExternalReferences(footnotes);
 
     paragraphs.push({
       id,
@@ -143,6 +178,7 @@ function parseParagraphHtml(html) {
       textHtml,
       preview,
       footnotes,
+      externalReferences,
       xrefs,
     });
   });
@@ -332,6 +368,10 @@ async function main() {
     stats: {
       paragraphs: enrichedNodes.length,
       references: edges.length,
+      externalReferences: enrichedNodes.reduce(
+        (count, node) => count + node.externalReferences.length,
+        0,
+      ),
     },
     nodes: enrichedNodes.map((node) => ({
       ...node,
