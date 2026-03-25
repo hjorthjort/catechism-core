@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -16,6 +16,7 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 const outputPath = path.join(rootDir, 'public', 'data', 'catechism-graph.json');
+const vaticanSourceDir = path.join(rootDir, 'data', 'source', 'vatican');
 
 const apiUrl = 'https://www.catholiccrossreference.online/catechism/';
 const sectionQueries = ['s0', 's1', 's2', 's3', 's4'];
@@ -69,6 +70,32 @@ function extractExternalReferences(footnotes) {
   return references;
 }
 
+async function buildVaticanPageLookup() {
+  const files = await readdir(vaticanSourceDir);
+  const lookup = new Map();
+
+  for (const file of files.filter((entry) => /^__.*\.HTM$/i.test(entry)).sort()) {
+    const filePath = path.join(vaticanSourceDir, file);
+    const html = await readFile(filePath, 'utf8');
+    const matches = html.matchAll(/<p class=MsoNormal>(\d{1,4})\r?\n/g);
+
+    for (const match of matches) {
+      const paragraphId = Number(match[1]);
+      if (!Number.isFinite(paragraphId) || lookup.has(paragraphId)) {
+        continue;
+      }
+
+      lookup.set(paragraphId, {
+        file,
+        localPath: filePath,
+        url: `https://www.vatican.va/archive/ENG0015/${file}`,
+      });
+    }
+  }
+
+  return lookup;
+}
+
 async function postForm(params) {
   const response = await fetch(apiUrl, {
     method: 'POST',
@@ -100,7 +127,7 @@ function inferPart(breadcrumbs) {
   return 'Prologue';
 }
 
-function parseParagraphHtml(html) {
+function parseParagraphHtml(html, vaticanLookup) {
   const $ = cheerio.load(html);
   const paragraphs = [];
 
@@ -166,6 +193,7 @@ function parseParagraphHtml(html) {
         };
       });
     const externalReferences = extractExternalReferences(footnotes);
+    const vaticanSource = vaticanLookup.get(id) ?? null;
 
     paragraphs.push({
       id,
@@ -179,6 +207,7 @@ function parseParagraphHtml(html) {
       preview,
       footnotes,
       externalReferences,
+      vaticanSource,
       xrefs,
     });
   });
@@ -186,7 +215,7 @@ function parseParagraphHtml(html) {
   return paragraphs;
 }
 
-async function fetchSection(query) {
+async function fetchSection(query, vaticanLookup) {
   const items = [];
   let offset = 0;
   let total = Number.POSITIVE_INFINITY;
@@ -200,7 +229,7 @@ async function fetchSection(query) {
       query,
     });
 
-    items.push(...parseParagraphHtml(payload.html));
+    items.push(...parseParagraphHtml(payload.html, vaticanLookup));
 
     total = parseTotalResults(payload.html);
     if (!payload.per || total === 0) {
@@ -314,10 +343,11 @@ function computeLayout(nodes, edges) {
 }
 
 async function main() {
+  const vaticanLookup = await buildVaticanPageLookup();
   const paragraphs = [];
 
   for (const query of sectionQueries) {
-    const sectionParagraphs = await fetchSection(query);
+    const sectionParagraphs = await fetchSection(query, vaticanLookup);
     paragraphs.push(...sectionParagraphs);
   }
 

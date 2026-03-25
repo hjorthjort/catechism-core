@@ -497,9 +497,25 @@ input {
   color: var(--accent-dark);
 }
 
+.source-link-block,
 .external-references-block,
 .footnotes-block {
   margin-top: 2rem;
+}
+
+.source-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 1rem 1.1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(24, 28, 35, 0.08);
+  background: rgba(44, 78, 161, 0.08);
+}
+
+.source-link span {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
 }
 
 .external-reference-list {

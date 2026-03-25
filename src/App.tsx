@@ -294,6 +294,21 @@ function ParagraphPage({ nodeMap }: { nodeMap: Map<number, CatechismNode> }) {
             <p dangerouslySetInnerHTML={{ __html: node.textHtml }} />
           </div>
 
+          {node.vaticanSource ? (
+            <section className="source-link-block">
+              <h2>Source material</h2>
+              <a
+                className="source-link"
+                href={node.vaticanSource.url}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Open the Vatican source page
+                <span>{node.vaticanSource.file}</span>
+              </a>
+            </section>
+          ) : null}
+
           <section className="external-references-block">
             <h2>External references</h2>
             <div className="external-reference-list">

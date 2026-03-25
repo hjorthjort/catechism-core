@@ -13,6 +13,12 @@ export type ExternalReference = {
   kind: 'scripture' | 'document';
 };
 
+export type VaticanSource = {
+  file: string;
+  localPath: string;
+  url: string;
+} | null;
+
 export type Heading = {
   kind: 'major' | 'minor';
   text: string;
@@ -30,6 +36,7 @@ export type CatechismNode = {
   preview: string;
   footnotes: Footnote[];
   externalReferences: ExternalReference[];
+  vaticanSource: VaticanSource;
   xrefs: number[];
   incoming: number[];
   pagerank: number;
