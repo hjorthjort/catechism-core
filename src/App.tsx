@@ -487,8 +487,9 @@ function ParagraphPage({
               <GraphCanvas
                 caption={[t.graphPan, t.graphZoom, t.graphClickFollow]}
                 edges={localGraph.edges}
+                fitToNodes
                 focusId={node.id}
-                initialScale={1.18}
+                minScreenNodeRadius={7.2}
                 nodes={localGraph.nodes}
                 onNodeClick={(targetId) => navigate(withLanguage(`/paragraph/${targetId}`, language))}
                 showDirectionalArrows

@@ -10,6 +10,8 @@ type GraphCanvasProps = {
   showDirectionalArrows?: boolean;
   caption?: string[];
   initialScale?: number;
+  fitToNodes?: boolean;
+  minScreenNodeRadius?: number;
 };
 
 const partColors: Record<string, string> = {
@@ -24,6 +26,10 @@ function createDefaultTransform(scale: number) {
   return { x: 0, y: 0, k: scale };
 }
 
+function getNodeScreenRadius(node: CatechismNode, minScreenNodeRadius: number) {
+  return Math.max(node.visualRadius, minScreenNodeRadius);
+}
+
 export function GraphCanvas({
   nodes,
   edges,
@@ -32,6 +38,8 @@ export function GraphCanvas({
   showDirectionalArrows = false,
   caption = ['Scroll to zoom', 'Drag to pan', 'Click a node for full paragraph detail'],
   initialScale = 0.42,
+  fitToNodes = false,
+  minScreenNodeRadius = 6.4,
 }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -91,7 +99,7 @@ export function GraphCanvas({
   }, []);
 
   useEffect(() => {
-    if (focusId === null || focusId === undefined) {
+    if (fitToNodes || focusId === null || focusId === undefined) {
       return;
     }
 
@@ -109,7 +117,44 @@ export function GraphCanvas({
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [focusId, nodeMap, size.height, size.width]);
+  }, [fitToNodes, focusId, nodeMap, size.height, size.width]);
+
+  useEffect(() => {
+    if (!fitToNodes || nodes.length === 0 || size.width === 0 || size.height === 0) {
+      return;
+    }
+
+    const bounds = nodes.reduce(
+      (current, node) => ({
+        minX: Math.min(current.minX, node.position.x),
+        maxX: Math.max(current.maxX, node.position.x),
+        minY: Math.min(current.minY, node.position.y),
+        maxY: Math.max(current.maxY, node.position.y),
+      }),
+      {
+        minX: Number.POSITIVE_INFINITY,
+        maxX: Number.NEGATIVE_INFINITY,
+        minY: Number.POSITIVE_INFINITY,
+        maxY: Number.NEGATIVE_INFINITY,
+      },
+    );
+
+    const width = Math.max(bounds.maxX - bounds.minX, 80);
+    const height = Math.max(bounds.maxY - bounds.minY, 80);
+    const padding = 64;
+    const scale = Math.min(
+      1.3,
+      Math.max(0.18, Math.min((size.width - padding) / width, (size.height - padding) / height)),
+    );
+    const centerX = (bounds.minX + bounds.maxX) / 2;
+    const centerY = (bounds.minY + bounds.maxY) / 2;
+
+    setTransform({
+      k: scale,
+      x: size.width / 2 - centerX * scale,
+      y: size.height / 2 - centerY * scale,
+    });
+  }, [fitToNodes, nodes, size.height, size.width]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -165,7 +210,7 @@ export function GraphCanvas({
           const unitX = dx / length;
           const unitY = dy / length;
           const arrowSize = 8 / transform.k;
-          const targetRadius = (target.visualRadius + 1.4) / transform.k;
+          const targetRadius = (getNodeScreenRadius(target, minScreenNodeRadius) + 1.4) / transform.k;
           const tipX = target.position.x - unitX * targetRadius;
           const tipY = target.position.y - unitY * targetRadius;
           const baseX = tipX - unitX * arrowSize;
@@ -189,7 +234,7 @@ export function GraphCanvas({
       const isFocused = focusId === node.id;
       const isConnected = highlighted.has(node.id);
       const fill = partColors[node.part] ?? '#6a6a6a';
-      const radius = node.visualRadius / transform.k;
+      const radius = getNodeScreenRadius(node, minScreenNodeRadius) / transform.k;
 
       context.beginPath();
       context.arc(node.position.x, node.position.y, radius, 0, Math.PI * 2);
@@ -216,8 +261,10 @@ export function GraphCanvas({
     edgeSet,
     edges,
     focusId,
+    fitToNodes,
     highlighted,
     hoveredId,
+    minScreenNodeRadius,
     nodeMap,
     nodes,
     showDirectionalArrows,
@@ -243,7 +290,7 @@ export function GraphCanvas({
       const dx = node.position.x - x;
       const dy = node.position.y - y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const threshold = node.visualRadius * 2.8;
+      const threshold = getNodeScreenRadius(node, minScreenNodeRadius) * 2.8;
 
       if (distance < threshold && distance < bestDistance) {
         nearest = node;
