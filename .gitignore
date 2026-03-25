@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 app
+tmp
+.venv
 
 # Editor directories and files
 .vscode/*

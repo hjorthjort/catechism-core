@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,15 +17,106 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 const outputPath = path.join(rootDir, 'public', 'data', 'catechism-graph.json');
+const languageOutputDir = path.join(rootDir, 'public', 'data', 'languages');
+const cacheDir = path.join(rootDir, 'tmp', 'build-cache');
 const vaticanSourceDir = path.join(rootDir, 'data', 'source', 'vatican');
 
 const apiUrl = 'https://www.catholiccrossreference.online/catechism/';
 const sectionQueries = ['s0', 's1', 's2', 's3', 's4'];
 const scripturePattern =
   /^(?:cf\.\s+|see\s+|see also\s+)?(?:[1-3i]{0,3}\s*)?(?:gen|ex|lev|num|deut|josh|judg|ruth|sam|kgs|chr|ezra|neh|tob|jdt|esth|macc|job|ps|pss|prov|eccl|song|wis|sir|isa|jer|lam|bar|ezek|dan|hos|joel|amos|obad|jon|mic|nah|hab|zeph|hag|zech|mal|mt|mk|lk|jn|acts|rom|cor|gal|eph|phil|col|thess|tim|titus|phlm|heb|jas|pet|jude|rev)\b/i;
+const bidiControlPattern = /[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
+
+const languageConfigs = [
+  {
+    code: 'fr',
+    label: 'Francais',
+    type: 'html',
+    corpus: 'https://www.vatican.va/archive/FRA0013/_INDEX.HTM',
+    indexUrl: 'https://www.vatican.va/archive/FRA0013/_INDEX.HTM',
+    crawlPrefix: '/archive/FRA0013/',
+    pagePattern: /\/__P[^/]+\.HTM$/i,
+  },
+  {
+    code: 'de',
+    label: 'Deutsch',
+    type: 'html',
+    corpus: 'https://www.vatican.va/archive/DEU0035/_INDEX.HTM',
+    indexUrl: 'https://www.vatican.va/archive/DEU0035/_INDEX.HTM',
+    crawlPrefix: '/archive/DEU0035/',
+    pagePattern: /\/__P[^/]+\.HTM$/i,
+  },
+  {
+    code: 'it',
+    label: 'Italiano',
+    type: 'html',
+    corpus: 'https://www.vatican.va/archive/catechism_it/index_it.htm',
+    indexUrl: 'https://www.vatican.va/archive/catechism_it/index_it.htm',
+    crawlPrefix: '/archive/catechism_it/',
+    pagePattern: /\/[^/]+_it\.htm$/i,
+  },
+  {
+    code: 'la',
+    label: 'Latina',
+    type: 'html',
+    corpus: 'https://www.vatican.va/archive/catechism_lt/index_lt.htm',
+    indexUrl: 'https://www.vatican.va/archive/catechism_lt/index_lt.htm',
+    crawlPrefix: '/archive/catechism_lt/',
+    pagePattern: /\/[^/]+_lt\.htm$/i,
+  },
+  {
+    code: 'es',
+    label: 'Espanol',
+    type: 'html',
+    corpus: 'https://www.vatican.va/archive/catechism_sp/index_sp.html',
+    indexUrl: 'https://www.vatican.va/archive/catechism_sp/index_sp.html',
+    crawlPrefix: '/archive/catechism_sp/',
+    pagePattern: /\/[^/]+_sp\.html$/i,
+  },
+  {
+    code: 'pt',
+    label: 'Portugues',
+    type: 'html',
+    corpus: 'https://www.vatican.va/archive/cathechism_po/index_new/prima-pagina-cic_po.html',
+    indexUrl: 'https://www.vatican.va/archive/cathechism_po/index_new/prima-pagina-cic_po.html',
+    crawlPrefix: '/archive/cathechism_po/',
+    pagePattern: /\/[^/]+_po\.html$/i,
+  },
+  {
+    code: 'mg',
+    label: 'Malagasy',
+    type: 'html',
+    corpus: 'https://www.vatican.va/archive/ccc_madagascar/documents/ccc_index_mg.html',
+    indexUrl: 'https://www.vatican.va/archive/ccc_madagascar/documents/ccc_index_mg.html',
+    crawlPrefix: '/archive/ccc_madagascar/',
+    pagePattern: /\/[^/]+_mg\.html$/i,
+  },
+  {
+    code: 'zh',
+    label: 'Traditional Chinese',
+    type: 'pdf',
+    corpus: 'https://www.vatican.va/chinese/ccc_zh.htm',
+    indexUrl: 'https://www.vatican.va/chinese/ccc_zh.htm',
+    crawlPrefix: '/chinese/',
+    pdfPattern: /\/chinese\/ccc\/[^/]+_ccc_zh\.pdf$/i,
+  },
+  {
+    code: 'ar',
+    label: 'Arabic',
+    type: 'pdf',
+    corpus: 'https://www.vatican.va/archive/catechism_ar/index_ar.htm',
+    indexUrl: 'https://www.vatican.va/archive/catechism_ar/index_ar.htm',
+    crawlPrefix: '/archive/catechism_ar/',
+    pdfPattern: /\/archive\/catechism_ar\/[^/]+\.pdf$/i,
+  },
+];
+
+function stripBidiMarks(value) {
+  return value.replace(bidiControlPattern, '');
+}
 
 function cleanText(value) {
-  return value
+  return stripBidiMarks(value)
     .replace(/\u00ad/g, '')
     .replace(/\u200b/g, '')
     .replace(/\s+/g, ' ')
@@ -36,6 +128,15 @@ function slugTitle(value) {
     .replace(/\(\d+\s*-\s*\d+\)$/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function escapeHtml(value) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }
 
 function splitReferenceText(value) {
@@ -68,6 +169,361 @@ function extractExternalReferences(footnotes) {
   }
 
   return references;
+}
+
+function buildPreview(text) {
+  return text.length > 220 ? `${text.slice(0, 217).trimEnd()}...` : text;
+}
+
+function decodeHtmlBuffer(buffer) {
+  const latin1 = Buffer.from(buffer).toString('latin1');
+  const match = latin1.match(/charset\s*=\s*["']?([a-z0-9_-]+)/i);
+  const charset = match?.[1]?.toLowerCase() ?? 'latin1';
+
+  if (charset === 'utf-8' || charset === 'utf8') {
+    return Buffer.from(buffer).toString('utf8');
+  }
+
+  return latin1;
+}
+
+async function getCachedBuffer(url) {
+  const fileName = encodeURIComponent(url).replaceAll('%', '_');
+  const filePath = path.join(cacheDir, fileName);
+
+  try {
+    return await readFile(filePath);
+  } catch {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Request failed with ${response.status} for ${url}`);
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    await mkdir(cacheDir, { recursive: true });
+    await writeFile(filePath, buffer);
+    return buffer;
+  }
+}
+
+async function fetchHtml(url) {
+  const buffer = await getCachedBuffer(url);
+  return decodeHtmlBuffer(buffer);
+}
+
+async function fetchPdfToCache(url) {
+  const fileName = encodeURIComponent(url).replaceAll('%', '_');
+  const filePath = path.join(cacheDir, fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
+
+  try {
+    await readFile(filePath);
+    return filePath;
+  } catch {
+    const buffer = await getCachedBuffer(url);
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, buffer);
+    return filePath;
+  }
+}
+
+function extractLinks(html, baseUrl) {
+  const $ = cheerio.load(html);
+  const links = new Set();
+
+  $('a[href]').each((_, element) => {
+    const href = $(element).attr('href');
+    if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:')) {
+      return;
+    }
+
+    try {
+      const url = new URL(href, baseUrl);
+      url.hash = '';
+      links.add(url.toString());
+    } catch {
+      // Ignore malformed URLs in legacy Vatican markup.
+    }
+  });
+
+  return [...links];
+}
+
+function extractParagraphStart(text) {
+  const normalized = stripBidiMarks(text);
+  const dashedMatch = normalized.match(/^[-–]\s*(\d{1,4})\s*(.+)$/);
+  const standardMatch = normalized.match(/^(\d{1,4})(?:[.)]|)\s+(.+)$/);
+  const match = dashedMatch ?? standardMatch;
+  if (!match) {
+    return null;
+  }
+
+  const id = Number(match[1]);
+  if (!Number.isFinite(id) || id < 1 || id > 2865) {
+    return null;
+  }
+
+  return {
+    id,
+    rest: cleanText(match[2]),
+  };
+}
+
+function finalizeLocalizedParagraph(current, target, sourceUrl) {
+  if (!current || target.has(current.id)) {
+    return;
+  }
+
+  const text = cleanText(current.parts.join(' '));
+  if (!text) {
+    return;
+  }
+
+  target.set(current.id, {
+    id: current.id,
+    text,
+    textHtml: `<p>${escapeHtml(text)}</p>`,
+    preview: buildPreview(text),
+    vaticanSource: {
+      file: path.basename(new URL(sourceUrl).pathname),
+      localPath: '',
+      url: sourceUrl,
+    },
+  });
+}
+
+function parseLocalizedParagraphsFromHtml(html, sourceUrl) {
+  const $ = cheerio.load(html);
+  const relevantSelector = 'p, blockquote, hr, div[id^="ftn"]';
+  const blocks = $(relevantSelector)
+    .toArray()
+    .filter((element) => $(element).parents(relevantSelector).length === 0);
+
+  const paragraphs = new Map();
+  let current = null;
+  let sawParagraph = false;
+
+  for (const element of blocks) {
+    const tagName = element.tagName?.toLowerCase() ?? '';
+
+    if (tagName === 'hr' || tagName === 'div') {
+      if (sawParagraph) {
+        finalizeLocalizedParagraph(current, paragraphs, sourceUrl);
+        break;
+      }
+      continue;
+    }
+
+    const text = cleanText($(element).text());
+    if (!text) {
+      continue;
+    }
+
+    const start = extractParagraphStart(text);
+    if (start) {
+      if (current && start.id < current.id) {
+        finalizeLocalizedParagraph(current, paragraphs, sourceUrl);
+        break;
+      }
+
+      finalizeLocalizedParagraph(current, paragraphs, sourceUrl);
+      current = {
+        id: start.id,
+        parts: start.rest ? [start.rest] : [],
+      };
+      sawParagraph = true;
+      continue;
+    }
+
+    if (current) {
+      current.parts.push(text);
+    }
+  }
+
+  finalizeLocalizedParagraph(current, paragraphs, sourceUrl);
+  return paragraphs;
+}
+
+function parseLocalizedParagraphsFromPdf(text, sourceUrl) {
+  const paragraphs = new Map();
+  const lines = stripBidiMarks(text).replaceAll('\f', '\n').split('\n');
+  let current = null;
+
+  for (const line of lines) {
+    const cleanedLine = cleanText(line);
+    if (!cleanedLine) {
+      continue;
+    }
+
+    const start = extractParagraphStart(cleanedLine);
+    if (start) {
+      if (current && start.id < current.id) {
+        finalizeLocalizedParagraph(current, paragraphs, sourceUrl);
+        break;
+      }
+
+      finalizeLocalizedParagraph(current, paragraphs, sourceUrl);
+      current = {
+        id: start.id,
+        parts: start.rest ? [start.rest] : [],
+      };
+      continue;
+    }
+
+    if (current) {
+      current.parts.push(cleanedLine);
+    }
+  }
+
+  finalizeLocalizedParagraph(current, paragraphs, sourceUrl);
+  return paragraphs;
+}
+
+function extractPdfText(pdfPath) {
+  return execFileSync('pdftotext', [pdfPath, '-'], {
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024 * 256,
+  });
+}
+
+function sortByLeadingNumber(urls) {
+  return [...urls].sort((left, right) => {
+    const leftMatch = left.match(/(\d{1,4})[-_](\d{1,4})/);
+    const rightMatch = right.match(/(\d{1,4})[-_](\d{1,4})/);
+    const leftValue = leftMatch ? Number(leftMatch[1]) : Number.POSITIVE_INFINITY;
+    const rightValue = rightMatch ? Number(rightMatch[1]) : Number.POSITIVE_INFINITY;
+    return leftValue - rightValue || left.localeCompare(right);
+  });
+}
+
+async function discoverHtmlPages(config) {
+  const queue = [config.indexUrl];
+  const visited = new Set();
+  const pages = new Set();
+
+  while (queue.length > 0) {
+    const currentUrl = queue.shift();
+    if (!currentUrl || visited.has(currentUrl)) {
+      continue;
+    }
+
+    visited.add(currentUrl);
+    let html;
+
+    try {
+      html = await fetchHtml(currentUrl);
+    } catch (error) {
+      if (currentUrl === config.indexUrl) {
+        throw error;
+      }
+
+      continue;
+    }
+
+    if (config.pagePattern.test(new URL(currentUrl).pathname)) {
+      pages.add(currentUrl);
+    }
+
+    for (const link of extractLinks(html, currentUrl)) {
+      const parsed = new URL(link);
+      if (parsed.origin !== new URL(config.indexUrl).origin) {
+        continue;
+      }
+      if (!parsed.pathname.startsWith(config.crawlPrefix)) {
+        continue;
+      }
+      if (!/\.html?$/i.test(parsed.pathname) && !/\.htm$/i.test(parsed.pathname)) {
+        continue;
+      }
+      if (parsed.toString() !== config.indexUrl && !config.pagePattern.test(parsed.pathname)) {
+        continue;
+      }
+      if (!visited.has(parsed.toString())) {
+        queue.push(parsed.toString());
+      }
+    }
+
+    if (visited.size > 1200) {
+      throw new Error(`HTML crawl exceeded safe limit for ${config.code}`);
+    }
+  }
+
+  return [...pages].sort();
+}
+
+async function buildHtmlLanguagePack(config, nodeIds) {
+  const pages = await discoverHtmlPages(config);
+  const localized = new Map();
+
+  for (const pageUrl of pages) {
+    const html = await fetchHtml(pageUrl);
+    const pageParagraphs = parseLocalizedParagraphsFromHtml(html, pageUrl);
+
+    for (const [id, payload] of pageParagraphs) {
+      if (nodeIds.has(id) && !localized.has(id)) {
+        localized.set(id, payload);
+      }
+    }
+  }
+
+  return {
+    language: config.code,
+    label: config.label,
+    source: {
+      corpus: config.corpus,
+    },
+    stats: {
+      paragraphs: localized.size,
+    },
+    nodes: [...localized.values()].sort((a, b) => a.id - b.id),
+  };
+}
+
+async function buildPdfLanguagePack(config, nodeIds) {
+  const html = await fetchHtml(config.indexUrl);
+  const pdfUrls = sortByLeadingNumber(
+    extractLinks(html, config.indexUrl).filter((url) => config.pdfPattern.test(new URL(url).pathname)),
+  );
+  const localized = new Map();
+
+  for (const pdfUrl of pdfUrls) {
+    const pdfPath = await fetchPdfToCache(pdfUrl);
+    const pdfText = extractPdfText(pdfPath);
+    const pdfParagraphs = parseLocalizedParagraphsFromPdf(pdfText, pdfUrl);
+
+    for (const [id, payload] of pdfParagraphs) {
+      if (nodeIds.has(id) && !localized.has(id)) {
+        localized.set(id, payload);
+      }
+    }
+  }
+
+  return {
+    language: config.code,
+    label: config.label,
+    source: {
+      corpus: config.corpus,
+    },
+    stats: {
+      paragraphs: localized.size,
+    },
+    nodes: [...localized.values()].sort((a, b) => a.id - b.id),
+  };
+}
+
+async function buildLanguagePacks(nodeIds) {
+  const packs = [];
+
+  for (const config of languageConfigs) {
+    const pack =
+      config.type === 'pdf'
+        ? await buildPdfLanguagePack(config, nodeIds)
+        : await buildHtmlLanguagePack(config, nodeIds);
+
+    packs.push(pack);
+    console.log(`Built ${config.code} pack with ${pack.stats.paragraphs} paragraphs`);
+  }
+
+  return packs;
 }
 
 async function buildVaticanPageLookup() {
@@ -165,7 +621,7 @@ function parseParagraphHtml(html, vaticanLookup) {
 
     const textHtml = paragraph.find('.text').html() ?? '';
     const text = cleanText(paragraph.find('.text').text());
-    const preview = text.length > 220 ? `${text.slice(0, 217).trimEnd()}...` : text;
+    const preview = buildPreview(text);
     const xrefs = Array.from(
       new Set(
         paragraph
@@ -329,7 +785,7 @@ function computeLayout(nodes, edges) {
     simulation.tick();
   }
 
-  const positions = new Map(
+  return new Map(
     simulationNodes.map((node) => [
       node.id,
       {
@@ -338,11 +794,28 @@ function computeLayout(nodes, edges) {
       },
     ]),
   );
-
-  return positions;
 }
 
-async function main() {
+async function writeLanguagePacks(packs) {
+  await mkdir(languageOutputDir, { recursive: true });
+
+  for (const pack of packs) {
+    const filePath = path.join(languageOutputDir, `${pack.language}.json`);
+    await writeFile(filePath, JSON.stringify(pack, null, 2));
+  }
+}
+
+async function buildBaseGraphPayload() {
+  try {
+    const existing = await readFile(outputPath, 'utf8');
+    const parsed = JSON.parse(existing);
+    if (parsed?.nodes?.length > 0 && parsed?.edges?.length > 0) {
+      return parsed;
+    }
+  } catch {
+    // Fall through to a fresh build.
+  }
+
   const vaticanLookup = await buildVaticanPageLookup();
   const paragraphs = [];
 
@@ -389,7 +862,7 @@ async function main() {
 
   const positions = computeLayout(enrichedNodes, edges);
 
-  const payload = {
+  return {
     generatedAt: new Date().toISOString(),
     source: {
       corpus: 'https://www.vatican.va/archive/ENG0015/_INDEX.HTM',
@@ -409,11 +882,20 @@ async function main() {
     })),
     edges,
   };
+}
+
+async function main() {
+  const payload = await buildBaseGraphPayload();
+  const nodeIds = new Set(payload.nodes.map((node) => node.id));
+  const packs = await buildLanguagePacks(nodeIds);
 
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, JSON.stringify(payload, null, 2));
+  await writeLanguagePacks(packs);
 
-  console.log(`Wrote ${payload.stats.paragraphs} paragraphs and ${payload.stats.references} references to ${outputPath}`);
+  console.log(
+    `Wrote ${payload.stats.paragraphs} paragraphs and ${payload.stats.references} references to ${outputPath}`,
+  );
 }
 
 main().catch((error) => {
