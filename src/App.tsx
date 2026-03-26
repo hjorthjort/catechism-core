@@ -371,7 +371,7 @@ function WorkspacePage({
                 caption={[t.graphZoom, t.graphPan, t.graphClickDetail]}
                 clusterRootId={clusterRootId}
                 edges={data.edges}
-                focusId={selectedNode?.id ?? deferredDefaultId}
+                focusId={deferredDefaultId}
                 highlightId={sidebarHoverId ?? selectedNode?.id ?? null}
                 hoverDelayMs={100}
                 nodes={data.nodes}
