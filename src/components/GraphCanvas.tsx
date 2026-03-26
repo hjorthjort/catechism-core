@@ -72,8 +72,18 @@ export function GraphCanvas({
 }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const dragRef = useRef<{ active: boolean; x: number; y: number }>({
+  const dragRef = useRef<{
+    active: boolean;
+    moved: boolean;
+    startX: number;
+    startY: number;
+    x: number;
+    y: number;
+  }>({
     active: false,
+    moved: false,
+    startX: 0,
+    startY: 0,
     x: 0,
     y: 0,
   });
@@ -394,6 +404,14 @@ export function GraphCanvas({
     if (dragRef.current.active) {
       const deltaX = event.clientX - dragRef.current.x;
       const deltaY = event.clientY - dragRef.current.y;
+      const distanceFromStart = Math.hypot(
+        event.clientX - dragRef.current.startX,
+        event.clientY - dragRef.current.startY,
+      );
+
+      if (distanceFromStart > 6) {
+        dragRef.current.moved = true;
+      }
 
       dragRef.current.x = event.clientX;
       dragRef.current.y = event.clientY;
@@ -414,6 +432,9 @@ export function GraphCanvas({
   function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
     dragRef.current = {
       active: true,
+      moved: false,
+      startX: event.clientX,
+      startY: event.clientY,
       x: event.clientX,
       y: event.clientY,
     };
@@ -421,15 +442,17 @@ export function GraphCanvas({
 
   function handlePointerUp(event: React.PointerEvent<HTMLCanvasElement>) {
     const node = findNode(event.clientX, event.clientY);
-    if (dragRef.current.active && node) {
+    if (dragRef.current.active && !dragRef.current.moved && node) {
       onNodeClick(node.id);
     }
 
     dragRef.current.active = false;
+    dragRef.current.moved = false;
   }
 
   function handlePointerLeave() {
     dragRef.current.active = false;
+    dragRef.current.moved = false;
     setHoveredId(null);
   }
 
