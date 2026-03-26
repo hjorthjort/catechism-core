@@ -141,6 +141,10 @@ input {
   padding: 1.4rem;
 }
 
+.page-workspace {
+  padding-top: 0.8rem;
+}
+
 .hero {
   display: grid;
   grid-template-columns: 1.5fr 0.9fr;
@@ -154,7 +158,8 @@ input {
 .ranking-section,
 .explore-sidebar,
 .paragraph-body,
-.paragraph-links,
+.selection-panel,
+.related-passages,
 .not-found,
 .loading-screen {
   border: 1px solid var(--line);
@@ -166,7 +171,8 @@ input {
 .hero-panel,
 .ranking-section,
 .paragraph-body,
-.paragraph-links,
+.selection-panel,
+.related-passages,
 .loading-screen,
 .not-found {
   border-radius: 28px;
@@ -175,10 +181,12 @@ input {
 
 .hero-copy h1,
 .section-heading h2,
+.workspace-heading h1,
+.explore-sidebar h2,
+.selected-paragraph h2,
 .paragraph-hero h1,
 .loading-screen h1,
-.not-found h1,
-.explore-sidebar h1 {
+.not-found h1 {
   margin: 0;
   font-family: 'Iowan Old Style', 'Book Antiqua', serif;
   font-size: clamp(2.6rem, 5vw, 4.8rem);
@@ -259,8 +267,11 @@ input {
 
 .feature-grid h2,
 .focus-card h2,
+.selected-paragraph h3,
+.related-passages h2,
+.related-passage-card h3,
 .footnotes-block h2,
-.paragraph-links h2 {
+.footnotes-block h3 {
   margin: 0 0 0.5rem;
   font-family: 'Iowan Old Style', serif;
   font-size: 1.5rem;
@@ -310,6 +321,14 @@ input {
   border: 1px solid rgba(24, 28, 35, 0.08);
 }
 
+.ranking-button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+}
+
 .ranking-index,
 .ranking-score {
   font-family: 'SF Mono', 'Menlo', monospace;
@@ -320,7 +339,20 @@ input {
   display: grid;
   grid-template-columns: 22rem minmax(0, 1fr);
   gap: 1rem;
-  min-height: calc(100vh - 5.5rem);
+  align-items: start;
+}
+
+.workspace-section {
+  margin-top: 1rem;
+}
+
+.workspace-main {
+  display: grid;
+  gap: 1rem;
+}
+
+.workspace-heading {
+  margin-bottom: 1rem;
 }
 
 .explore-sidebar {
@@ -361,7 +393,12 @@ input {
   gap: 0.75rem;
 }
 
-.search-result button {
+.search-result.is-active {
+  border-color: rgba(208, 107, 51, 0.32);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.search-result-main {
   display: grid;
   gap: 0.2rem;
   text-align: left;
@@ -369,6 +406,15 @@ input {
   background: transparent;
   cursor: pointer;
   padding: 0;
+}
+
+.search-result-open {
+  align-self: center;
+  padding: 0.7rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid rgba(24, 28, 35, 0.08);
+  background: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
 }
 
 .search-result small {
@@ -403,6 +449,10 @@ input {
 .explore-canvas,
 .graph-shell {
   min-height: 70vh;
+}
+
+.explore-canvas {
+  min-height: 72vh;
 }
 
 .graph-shell {
@@ -472,17 +522,28 @@ input {
   font-weight: 700;
 }
 
-.paragraph-page {
+.selection-panel.is-empty {
+  min-height: 16rem;
+}
+
+.selection-stack {
   display: grid;
   gap: 1rem;
 }
 
-.paragraph-hero {
+.selection-empty {
+  display: grid;
+  place-items: center;
+  min-height: 12rem;
+  text-align: center;
+}
+
+.selected-paragraph-header {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
   align-items: end;
-  padding: 1.2rem 0;
+  margin-bottom: 1.2rem;
 }
 
 .paragraph-metrics {
@@ -496,12 +557,6 @@ input {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.55);
   border: 1px solid rgba(24, 28, 35, 0.08);
-}
-
-.paragraph-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.5fr) 22rem;
-  gap: 1rem;
 }
 
 .breadcrumb-trail {
@@ -619,47 +674,58 @@ input {
   border-top: 1px solid rgba(24, 28, 35, 0.09);
 }
 
-.paragraph-links {
+.related-passages {
   display: grid;
-  gap: 1.1rem;
-  align-content: start;
+  gap: 1rem;
 }
 
-.paragraph-mini-map p {
-  margin: 0 0 0.8rem;
-  color: var(--ink-soft);
+.related-passage-list {
+  display: grid;
+  gap: 0.85rem;
 }
 
-.paragraph-mini-map-canvas {
-  min-height: 22rem;
+.related-passage-card {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.1rem;
+  border-radius: 22px;
+  border: 1px solid rgba(24, 28, 35, 0.08);
+  background: rgba(255, 255, 255, 0.58);
 }
 
-.paragraph-mini-map-canvas .graph-shell,
-.paragraph-mini-map-canvas .graph-shell canvas {
-  min-height: 22rem;
-}
-
-.paragraph-mini-map-canvas .graph-caption {
-  left: 0.75rem;
-  right: 0.75rem;
-  bottom: 0.75rem;
-}
-
-.paragraph-mini-map-canvas .graph-caption span {
-  font-size: 0.72rem;
-}
-
-.link-cloud {
+.related-passage-header {
   display: flex;
-  gap: 0.5rem;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+}
+
+.relation-badges {
+  display: flex;
+  gap: 0.4rem;
   flex-wrap: wrap;
 }
 
-.link-cloud a {
-  padding: 0.5rem 0.72rem;
+.relation-badges span {
+  padding: 0.38rem 0.6rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(24, 28, 35, 0.08);
+  background: rgba(24, 28, 35, 0.08);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.related-passage-preview {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.related-passage-text {
+  font-size: 1rem;
+}
+
+.not-found-inline {
+  margin-top: 1rem;
 }
 
 .loading-screen,
@@ -672,13 +738,13 @@ input {
   .hero,
   .feature-grid,
   .explore-page,
-  .paragraph-layout,
   .external-reference-list {
     grid-template-columns: 1fr;
   }
 
   .site-header,
-  .paragraph-hero {
+  .selected-paragraph-header,
+  .related-passage-header {
     flex-direction: column;
     align-items: start;
   }

@@ -1,13 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import {
-  BrowserRouter,
-  Link,
-  NavLink,
-  Route,
-  Routes,
-  useNavigate,
-  useParams,
-} from 'react-router-dom';
+import { BrowserRouter, Link, NavLink, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 
 import { GraphCanvas } from './components/GraphCanvas';
 import { useCatechismData } from './lib/data';
@@ -35,48 +27,51 @@ function countExternalKinds(node: CatechismNode) {
   );
 }
 
-function collectNeighborhood(data: CatechismData, centerId: number, maxDepth = 2) {
-  const nodeMap = new Map(data.nodes.map((node) => [node.id, node]));
-  const outgoing = new Map<number, number[]>();
-  const incoming = new Map<number, number[]>();
+function collectDirectConnections(nodeMap: Map<number, CatechismNode>, centerNode: CatechismNode) {
+  const relations = new Map<
+    number,
+    {
+      node: CatechismNode;
+      incoming: boolean;
+      outgoing: boolean;
+    }
+  >();
 
-  for (const edge of data.edges) {
-    const outgoingTargets = outgoing.get(edge.source) ?? [];
-    outgoingTargets.push(edge.target);
-    outgoing.set(edge.source, outgoingTargets);
-
-    const incomingSources = incoming.get(edge.target) ?? [];
-    incomingSources.push(edge.source);
-    incoming.set(edge.target, incomingSources);
-  }
-
-  const visited = new Set<number>([centerId]);
-  const queue = [{ id: centerId, depth: 0 }];
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current || current.depth >= maxDepth) {
+  for (const targetId of centerNode.xrefs) {
+    if (targetId === centerNode.id) {
       continue;
     }
 
-    const neighbors = [...(outgoing.get(current.id) ?? []), ...(incoming.get(current.id) ?? [])];
-    for (const neighbor of neighbors) {
-      if (visited.has(neighbor)) {
-        continue;
-      }
-
-      visited.add(neighbor);
-      queue.push({ id: neighbor, depth: current.depth + 1 });
+    const targetNode = nodeMap.get(targetId);
+    if (!targetNode) {
+      continue;
     }
+
+    relations.set(targetId, {
+      node: targetNode,
+      incoming: relations.get(targetId)?.incoming ?? false,
+      outgoing: true,
+    });
   }
 
-  return {
-    nodes: Array.from(visited)
-      .map((id) => nodeMap.get(id))
-      .filter((node): node is CatechismNode => Boolean(node))
-      .sort((a, b) => a.id - b.id),
-    edges: data.edges.filter((edge) => visited.has(edge.source) && visited.has(edge.target)),
-  };
+  for (const sourceId of centerNode.incoming) {
+    if (sourceId === centerNode.id) {
+      continue;
+    }
+
+    const sourceNode = nodeMap.get(sourceId);
+    if (!sourceNode) {
+      continue;
+    }
+
+    relations.set(sourceId, {
+      node: sourceNode,
+      incoming: true,
+      outgoing: relations.get(sourceId)?.outgoing ?? false,
+    });
+  }
+
+  return [...relations.values()].sort((a, b) => a.node.id - b.node.id);
 }
 
 function getNodeHeading(node: CatechismNode, language: AppLanguage, paragraphLabel: string) {
@@ -104,7 +99,6 @@ function Shell({
 }) {
   const t = uiStrings[language];
   const languageMeta = getLanguageMeta(language);
-  const nodeMap = useMemo(() => new Map(data.nodes.map((node) => [node.id, node])), [data.nodes]);
   const topNodes = useMemo(
     () => [...data.nodes].sort((a, b) => b.pagerank - a.pagerank).slice(0, 10),
     [data.nodes],
@@ -148,12 +142,15 @@ function Shell({
         <Routes>
           <Route
             path="/"
-            element={<HomePage data={data} language={language} topNodes={topNodes} />}
+            element={<WorkspacePage data={data} language={language} showHero topNodes={topNodes} />}
           />
-          <Route path="/explore" element={<ExplorePage data={data} language={language} />} />
+          <Route
+            path="/explore"
+            element={<WorkspacePage data={data} language={language} showHero={false} topNodes={topNodes} />}
+          />
           <Route
             path="/paragraph/:id"
-            element={<ParagraphPage data={data} language={language} nodeMap={nodeMap} />}
+            element={<WorkspacePage data={data} language={language} showHero topNodes={topNodes} />}
           />
         </Routes>
       </div>
@@ -161,104 +158,47 @@ function Shell({
   );
 }
 
-function HomePage({
+function WorkspacePage({
   data,
   language,
+  showHero,
   topNodes,
 }: {
   data: CatechismData;
   language: AppLanguage;
+  showHero: boolean;
   topNodes: CatechismNode[];
 }) {
-  const t = uiStrings[language];
-
-  return (
-    <main className="page">
-      <section className="hero">
-        <div className="hero-copy">
-          <p className="eyebrow">{t.homeEyebrow}</p>
-          <h1>{t.homeTitle}</h1>
-          <p className="lede">{t.homeLede}</p>
-          <div className="hero-actions">
-            <Link className="button" to={withLanguage('/explore', language)}>
-              {t.homeOpenGraph}
-            </Link>
-            <a className="button button-ghost" href={data.source.corpus} target="_blank" rel="noreferrer">
-              {t.homeViewSource}
-            </a>
-          </div>
-        </div>
-
-        <div className="hero-panel">
-          <div className="stat-card">
-            <span>{t.statParagraphs}</span>
-            <strong>{data.stats.paragraphs.toLocaleString()}</strong>
-          </div>
-          <div className="stat-card">
-            <span>{t.statInternalLinks}</span>
-            <strong>{data.stats.references.toLocaleString()}</strong>
-          </div>
-          <div className="stat-card">
-            <span>{t.statExternalRefs}</span>
-            <strong>{data.stats.externalReferences.toLocaleString()}</strong>
-          </div>
-        </div>
-      </section>
-
-      <section className="feature-grid">
-        <article>
-          <h2>{t.featureGraphTitle}</h2>
-          <p>{t.featureGraphBody}</p>
-        </article>
-        <article>
-          <h2>{t.featureReferenceTitle}</h2>
-          <p>{t.featureReferenceBody}</p>
-        </article>
-        <article>
-          <h2>{t.featureRankTitle}</h2>
-          <p>{t.featureRankBody}</p>
-        </article>
-      </section>
-
-      <section className="ranking-section">
-        <div className="section-heading">
-          <p className="eyebrow">{t.rankingEyebrow}</p>
-          <h2>{t.rankingTitle}</h2>
-        </div>
-        <div className="ranking-list">
-          {topNodes.map((node, index) => (
-            <Link
-              className="ranking-item"
-              key={node.id}
-              to={withLanguage(`/paragraph/${node.id}`, language)}
-            >
-              <span className="ranking-index">{String(index + 1).padStart(2, '0')}</span>
-              <div>
-                <strong>
-                  {t.paragraph} {node.id}
-                </strong>
-                <p>{node.preview}</p>
-              </div>
-              <span className="ranking-score">{fmtScore(node.pagerank)}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
-    </main>
-  );
-}
-
-function ExplorePage({ data, language }: { data: CatechismData; language: AppLanguage }) {
   const navigate = useNavigate();
+  const params = useParams();
   const t = uiStrings[language];
+  const nodeMap = useMemo(() => new Map(data.nodes.map((node) => [node.id, node])), [data.nodes]);
+  const routeId = params.id ? Number(params.id) : null;
+  const hasSelectedRoute = routeId !== null && Number.isFinite(routeId) && nodeMap.has(routeId);
+  const invalidSelectedRoute = params.id !== undefined && !hasSelectedRoute;
+  const deferredDefaultId = topNodes[0]?.id ?? data.nodes[0]?.id ?? null;
+
   const [query, setQuery] = useState('');
-  const [focusId, setFocusId] = useState<number | null>(data.nodes[0]?.id ?? null);
+  const [localSelectedId, setLocalSelectedId] = useState<number | null>(
+    hasSelectedRoute ? routeId : null,
+  );
+  const [sidebarHoverId, setSidebarHoverId] = useState<number | null>(null);
+  const [clusterRootId, setClusterRootId] = useState<number | null>(null);
   const deferredQuery = useDeferredValue(query);
+
+  const selectedId = hasSelectedRoute ? routeId : localSelectedId;
+  const selectedNode = selectedId !== null ? nodeMap.get(selectedId) ?? null : null;
+  const panelNode = selectedNode ?? (deferredDefaultId ? nodeMap.get(deferredDefaultId) ?? null : null);
+  const panelExternalCounts = panelNode ? countExternalKinds(panelNode) : null;
+  const directConnections = useMemo(
+    () => (selectedNode ? collectDirectConnections(nodeMap, selectedNode) : []),
+    [nodeMap, selectedNode],
+  );
 
   const results = useMemo(() => {
     const search = deferredQuery.trim().toLowerCase();
     if (!search) {
-      return [...data.nodes].sort((a, b) => b.pagerank - a.pagerank).slice(0, 14);
+      return [...topNodes].slice(0, 14);
     }
 
     return data.nodes
@@ -267,263 +207,361 @@ function ExplorePage({ data, language }: { data: CatechismData; language: AppLan
         return haystack.includes(search);
       })
       .slice(0, 14);
-  }, [data.nodes, deferredQuery]);
+  }, [data.nodes, deferredQuery, topNodes]);
 
-  const focusedNode = useMemo(
-    () => data.nodes.find((node) => node.id === focusId) ?? null,
-    [data.nodes, focusId],
-  );
-  const focusedExternalCounts = focusedNode ? countExternalKinds(focusedNode) : null;
+  function selectNode(id: number, keepCluster = false) {
+    setLocalSelectedId(id);
+    setSidebarHoverId(null);
 
-  return (
-    <main className="explore-page">
-      <aside className="explore-sidebar">
-        <div className="section-heading">
-          <p className="eyebrow">{t.explorerEyebrow}</p>
-          <h1>{t.explorerTitle}</h1>
-        </div>
+    if (!keepCluster) {
+      setClusterRootId(null);
+    }
 
-        <label className="search-field">
-          <span>{t.searchLabel}</span>
-          <input
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t.searchPlaceholder}
-            type="search"
-            value={query}
-          />
-        </label>
-
-        <div className="search-results">
-          {results.map((node) => (
-            <div className="search-result" key={node.id}>
-              <button onClick={() => setFocusId(node.id)} type="button">
-                <strong>
-                  {t.paragraph} {node.id}
-                </strong>
-                <span>{getNodeHeading(node, language, t.paragraph)}</span>
-                <small>
-                  {node.externalReferences.length} {t.statExternalRefs.toLowerCase()}
-                </small>
-              </button>
-              <Link to={withLanguage(`/paragraph/${node.id}`, language)}>{t.searchOpen}</Link>
-            </div>
-          ))}
-        </div>
-
-        {focusedNode ? (
-          <div className="focus-card">
-            <p className="eyebrow">{t.focusedNode}</p>
-            <h2>
-              {t.paragraph} {focusedNode.id}
-            </h2>
-            <p>{focusedNode.preview}</p>
-            <dl>
-              <div>
-                <dt>{t.outgoing}</dt>
-                <dd>{focusedNode.xrefs.length}</dd>
-              </div>
-              <div>
-                <dt>{t.incoming}</dt>
-                <dd>{focusedNode.incoming.length}</dd>
-              </div>
-              <div>
-                <dt>{t.rank}</dt>
-                <dd>{fmtScore(focusedNode.pagerank)}</dd>
-              </div>
-              <div>
-                <dt>{t.scripture}</dt>
-                <dd>{focusedExternalCounts?.scripture ?? 0}</dd>
-              </div>
-              <div>
-                <dt>{t.document}</dt>
-                <dd>{focusedExternalCounts?.document ?? 0}</dd>
-              </div>
-            </dl>
-            <button
-              className="button"
-              onClick={() => navigate(withLanguage(`/paragraph/${focusedNode.id}`, language))}
-              type="button"
-            >
-              {t.readParagraph}
-            </button>
-          </div>
-        ) : null}
-      </aside>
-
-      <section className="explore-canvas">
-        <GraphCanvas
-          caption={[t.graphZoom, t.graphPan, t.graphClickDetail]}
-          edges={data.edges}
-          focusId={focusId}
-          nodes={data.nodes}
-          onNodeClick={(id) => navigate(withLanguage(`/paragraph/${id}`, language))}
-        />
-      </section>
-    </main>
-  );
-}
-
-function ParagraphPage({
-  data,
-  language,
-  nodeMap,
-}: {
-  data: CatechismData;
-  language: AppLanguage;
-  nodeMap: Map<number, CatechismNode>;
-}) {
-  const navigate = useNavigate();
-  const t = uiStrings[language];
-  const params = useParams();
-  const id = Number(params.id);
-  const node = Number.isFinite(id) ? nodeMap.get(id) : undefined;
-
-  if (!node) {
-    return (
-      <main className="page">
-        <section className="not-found">
-          <h1>{t.paragraphNotFound}</h1>
-          <Link className="button" to={withLanguage('/explore', language)}>
-            {t.backToExplorer}
-          </Link>
-        </section>
-      </main>
-    );
+    if (params.id !== undefined) {
+      navigate(withLanguage(`/paragraph/${id}`, language));
+    }
   }
 
-  const externalCounts = countExternalKinds(node);
-  const localGraph = collectNeighborhood(data, node.id);
-  const crumbs = language === 'en' ? node.breadcrumbs : [getPartLabel(node, language)];
+  function handleGraphLongPress(id: number) {
+    setClusterRootId(id);
+    selectNode(id, true);
+  }
+
+  function handleJumpToGraph() {
+    document.getElementById('graph-workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   return (
-    <main className="page paragraph-page">
-      <section className="paragraph-hero">
-        <div>
-          <p className="eyebrow">{getPartLabel(node, language)}</p>
-          <h1>
-            {t.paragraph} {node.id}
-          </h1>
-          <p className="lede">{getParagraphSubtitle(node, language)}</p>
-        </div>
-        <div className="paragraph-metrics">
-          <span>
-            {t.rank} {fmtScore(node.pagerank)}
-          </span>
-          <span>
-            {node.xrefs.length} {t.outgoing}
-          </span>
-          <span>
-            {node.incoming.length} {t.incoming}
-          </span>
-          <span>
-            {externalCounts.scripture} {t.scripture}
-          </span>
-          <span>
-            {externalCounts.document} {t.document}
-          </span>
-        </div>
-      </section>
-
-      <section className="paragraph-layout">
-        <article className="paragraph-body">
-          <div className="breadcrumb-trail">
-            {crumbs.map((crumb) => (
-              <span key={crumb}>{crumb}</span>
-            ))}
+    <main className={`page ${showHero ? '' : 'page-workspace'}`}>
+      {showHero ? (
+        <section className="hero">
+          <div className="hero-copy">
+            <p className="eyebrow">{t.homeEyebrow}</p>
+            <h1>{t.homeTitle}</h1>
+            <p className="lede">{t.homeLede}</p>
+            <div className="hero-actions">
+              <button className="button" onClick={handleJumpToGraph} type="button">
+                {t.homeOpenGraph}
+              </button>
+              <a className="button button-ghost" href={data.source.corpus} rel="noreferrer" target="_blank">
+                {t.homeViewSource}
+              </a>
+            </div>
           </div>
 
-          <div className="paragraph-text" dangerouslySetInnerHTML={{ __html: node.textHtml }} />
-
-          {node.vaticanSource ? (
-            <section className="source-link-block">
-              <h2>{t.sourceMaterial}</h2>
-              <a
-                className="source-link"
-                href={node.vaticanSource.url}
-                rel="noreferrer"
-                target="_blank"
-              >
-                {t.openSource}
-                <span>{node.vaticanSource.file}</span>
-              </a>
-            </section>
-          ) : null}
-
-          <section className="external-references-block">
-            <h2>{t.externalReferences}</h2>
-            <div className="external-reference-list">
-              {node.externalReferences.map((reference) => (
-                <div className={`external-reference ${reference.kind}`} key={reference.id}>
-                  <span className="reference-kind">
-                    {reference.kind === 'scripture' ? t.scripture : t.document}
-                  </span>
-                  <strong>
-                    {t.footnote} {reference.footnoteNumber}
-                  </strong>
-                  <p>{reference.label}</p>
-                </div>
-              ))}
+          <div className="hero-panel">
+            <div className="stat-card">
+              <span>{t.statParagraphs}</span>
+              <strong>{data.stats.paragraphs.toLocaleString()}</strong>
             </div>
-          </section>
-
-          <section className="footnotes-block">
-            <h2>{t.footnotes}</h2>
-            <div className="footnotes-list">
-              {node.footnotes.map((note) => (
-                <div className="footnote-item" key={note.id}>
-                  <strong>{note.number}.</strong>
-                  <span dangerouslySetInnerHTML={{ __html: note.html }} />
-                </div>
-              ))}
+            <div className="stat-card">
+              <span>{t.statInternalLinks}</span>
+              <strong>{data.stats.references.toLocaleString()}</strong>
             </div>
-          </section>
-        </article>
+            <div className="stat-card">
+              <span>{t.statExternalRefs}</span>
+              <strong>{data.stats.externalReferences.toLocaleString()}</strong>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
-        <aside className="paragraph-links">
-          <section className="paragraph-mini-map">
-            <h2>{t.localGraph}</h2>
-            <p>{t.localGraphBlurb}</p>
-            <div className="paragraph-mini-map-canvas">
-              <GraphCanvas
-                caption={[t.graphPan, t.graphZoom, t.graphClickFollow]}
-                edges={localGraph.edges}
-                fitToNodes
-                focusId={node.id}
-                minScreenNodeRadius={7.2}
-                nodes={localGraph.nodes}
-                onNodeClick={(targetId) => navigate(withLanguage(`/paragraph/${targetId}`, language))}
-                showDirectionalArrows
+      {invalidSelectedRoute ? (
+        <section className="not-found not-found-inline">
+          <h1>{t.paragraphNotFound}</h1>
+        </section>
+      ) : null}
+
+      <section className="workspace-section" id="graph-workspace">
+        {!showHero ? (
+          <div className="section-heading workspace-heading">
+            <p className="eyebrow">{t.explorerEyebrow}</p>
+            <h1>{t.explorerTitle}</h1>
+          </div>
+        ) : null}
+
+        <div className="explore-page">
+          <aside className="explore-sidebar">
+            <div className="section-heading">
+              <p className="eyebrow">{t.explorerEyebrow}</p>
+              <h2>{t.explorerTitle}</h2>
+            </div>
+
+            <label className="search-field">
+              <span>{t.searchLabel}</span>
+              <input
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t.searchPlaceholder}
+                type="search"
+                value={query}
               />
-            </div>
-          </section>
+            </label>
 
-          <section>
-            <h2>{t.linksOut}</h2>
-            <div className="link-cloud">
-              {node.xrefs.map((target) => (
-                <Link key={target} to={withLanguage(`/paragraph/${target}`, language)}>
-                  {t.paragraph} {target}
-                </Link>
+            <div className="search-results">
+              {results.map((node) => (
+                <div
+                  className={`search-result ${selectedNode?.id === node.id ? 'is-active' : ''}`}
+                  key={node.id}
+                  onMouseEnter={() => setSidebarHoverId(node.id)}
+                  onMouseLeave={() => setSidebarHoverId(null)}
+                >
+                  <button className="search-result-main" onClick={() => selectNode(node.id)} type="button">
+                    <strong>
+                      {t.paragraph} {node.id}
+                    </strong>
+                    <span>{getNodeHeading(node, language, t.paragraph)}</span>
+                    <small>{node.preview}</small>
+                  </button>
+                  <button className="search-result-open" onClick={() => selectNode(node.id)} type="button">
+                    {t.searchOpen}
+                  </button>
+                </div>
               ))}
             </div>
-          </section>
 
-          <section>
-            <h2>{t.linksIn}</h2>
-            <div className="link-cloud">
-              {node.incoming.map((source) => (
-                <Link key={source} to={withLanguage(`/paragraph/${source}`, language)}>
-                  {t.paragraph} {source}
-                </Link>
-              ))}
-            </div>
-          </section>
+            {panelNode ? (
+              <div className="focus-card">
+                <p className="eyebrow">{t.focusedNode}</p>
+                <h2>
+                  {t.paragraph} {panelNode.id}
+                </h2>
+                <p>{panelNode.preview}</p>
+                <dl>
+                  <div>
+                    <dt>{t.outgoing}</dt>
+                    <dd>{panelNode.xrefs.length}</dd>
+                  </div>
+                  <div>
+                    <dt>{t.incoming}</dt>
+                    <dd>{panelNode.incoming.length}</dd>
+                  </div>
+                  <div>
+                    <dt>{t.rank}</dt>
+                    <dd>{fmtScore(panelNode.pagerank)}</dd>
+                  </div>
+                  <div>
+                    <dt>{t.scripture}</dt>
+                    <dd>{panelExternalCounts?.scripture ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt>{t.document}</dt>
+                    <dd>{panelExternalCounts?.document ?? 0}</dd>
+                  </div>
+                </dl>
+                <button className="button" onClick={() => selectNode(panelNode.id)} type="button">
+                  {t.readParagraph}
+                </button>
+              </div>
+            ) : null}
+          </aside>
 
-          <Link className="button" to={withLanguage('/explore', language)}>
-            {t.returnToGraph}
-          </Link>
-        </aside>
+          <div className="workspace-main">
+            <section className="explore-canvas">
+              <GraphCanvas
+                caption={[t.graphZoom, t.graphPan, t.graphClickDetail]}
+                clusterRootId={clusterRootId}
+                edges={data.edges}
+                focusId={selectedNode?.id ?? deferredDefaultId}
+                highlightId={sidebarHoverId ?? selectedNode?.id ?? null}
+                hoverDelayMs={100}
+                nodes={data.nodes}
+                onBackgroundClick={() => setClusterRootId(null)}
+                onNodeClick={(id) => selectNode(id)}
+                onNodeLongPress={handleGraphLongPress}
+                selectedId={selectedNode?.id ?? null}
+              />
+            </section>
+
+            <section className={`selection-panel ${selectedNode ? '' : 'is-empty'}`}>
+              {selectedNode ? (
+                <div className="selection-stack">
+                  <article className="paragraph-body selected-paragraph">
+                    <div className="selected-paragraph-header">
+                      <div>
+                        <p className="eyebrow">{getPartLabel(selectedNode, language)}</p>
+                        <h2>
+                          {t.paragraph} {selectedNode.id}
+                        </h2>
+                        <p className="lede">{getParagraphSubtitle(selectedNode, language)}</p>
+                      </div>
+
+                      <div className="paragraph-metrics">
+                        <span>
+                          {t.rank} {fmtScore(selectedNode.pagerank)}
+                        </span>
+                        <span>
+                          {selectedNode.xrefs.length} {t.outgoing}
+                        </span>
+                        <span>
+                          {selectedNode.incoming.length} {t.incoming}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="breadcrumb-trail">
+                      {selectedNode.breadcrumbs.map((crumb) => (
+                        <span key={crumb}>{crumb}</span>
+                      ))}
+                    </div>
+
+                    <div className="paragraph-text" dangerouslySetInnerHTML={{ __html: selectedNode.textHtml }} />
+
+                    {selectedNode.vaticanSource ? (
+                      <section className="source-link-block">
+                        <h3>{t.sourceMaterial}</h3>
+                        <a
+                          className="source-link"
+                          href={selectedNode.vaticanSource.url}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          {t.openSource}
+                          <span>{selectedNode.vaticanSource.file}</span>
+                        </a>
+                      </section>
+                    ) : null}
+
+                    {selectedNode.externalReferences.length > 0 ? (
+                      <section className="external-references-block">
+                        <h3>{t.externalReferences}</h3>
+                        <div className="external-reference-list">
+                          {selectedNode.externalReferences.map((reference) => (
+                            <div className={`external-reference ${reference.kind}`} key={reference.id}>
+                              <span className="reference-kind">
+                                {reference.kind === 'scripture' ? t.scripture : t.document}
+                              </span>
+                              <strong>
+                                {t.footnote} {reference.footnoteNumber}
+                              </strong>
+                              <p>{reference.label}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    ) : null}
+
+                    {selectedNode.footnotes.length > 0 ? (
+                      <section className="footnotes-block">
+                        <h3>{t.footnotes}</h3>
+                        <div className="footnotes-list">
+                          {selectedNode.footnotes.map((note) => (
+                            <div className="footnote-item" key={note.id}>
+                              <strong>{note.number}.</strong>
+                              <span dangerouslySetInnerHTML={{ __html: note.html }} />
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    ) : null}
+                  </article>
+
+                  <section className="related-passages">
+                    <div className="section-heading">
+                      <p className="eyebrow">{t.focusedNode}</p>
+                      <h2>
+                        {t.linksOut} / {t.linksIn}
+                      </h2>
+                    </div>
+
+                    <div className="related-passage-list">
+                      {directConnections.map((relation) => (
+                        <article
+                          className="related-passage-card"
+                          key={relation.node.id}
+                          onMouseEnter={() => setSidebarHoverId(relation.node.id)}
+                          onMouseLeave={() => setSidebarHoverId(null)}
+                        >
+                          <div className="related-passage-header">
+                            <div>
+                              <p className="eyebrow">{getPartLabel(relation.node, language)}</p>
+                              <h3>
+                                {t.paragraph} {relation.node.id}
+                              </h3>
+                            </div>
+
+                            <div className="relation-badges">
+                              {relation.outgoing ? <span>{t.linksOut}</span> : null}
+                              {relation.incoming ? <span>{t.linksIn}</span> : null}
+                            </div>
+                          </div>
+
+                          <p className="related-passage-preview">
+                            {getParagraphSubtitle(relation.node, language)}
+                          </p>
+                          <div
+                            className="paragraph-text related-passage-text"
+                            dangerouslySetInnerHTML={{ __html: relation.node.textHtml }}
+                          />
+                          <button
+                            className="button button-ghost"
+                            onClick={() => selectNode(relation.node.id)}
+                            type="button"
+                          >
+                            {t.readParagraph}
+                          </button>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                </div>
+              ) : (
+                <div className="selection-empty">
+                  <p className="eyebrow">{t.focusedNode}</p>
+                  <h2>{t.graphClickDetail}</h2>
+                  <p>{t.graphClickFollow}</p>
+                </div>
+              )}
+            </section>
+          </div>
+        </div>
       </section>
+
+      {showHero ? (
+        <>
+          <section className="feature-grid">
+            <article>
+              <h2>{t.featureGraphTitle}</h2>
+              <p>{t.featureGraphBody}</p>
+            </article>
+            <article>
+              <h2>{t.featureReferenceTitle}</h2>
+              <p>{t.featureReferenceBody}</p>
+            </article>
+            <article>
+              <h2>{t.featureRankTitle}</h2>
+              <p>{t.featureRankBody}</p>
+            </article>
+          </section>
+
+          <section className="ranking-section">
+            <div className="section-heading">
+              <p className="eyebrow">{t.rankingEyebrow}</p>
+              <h2>{t.rankingTitle}</h2>
+            </div>
+            <div className="ranking-list">
+              {topNodes.map((node, index) => (
+                <button
+                  className="ranking-item ranking-button"
+                  key={node.id}
+                  onClick={() => selectNode(node.id)}
+                  onMouseEnter={() => setSidebarHoverId(node.id)}
+                  onMouseLeave={() => setSidebarHoverId(null)}
+                  type="button"
+                >
+                  <span className="ranking-index">{String(index + 1).padStart(2, '0')}</span>
+                  <div>
+                    <strong>
+                      {t.paragraph} {node.id}
+                    </strong>
+                    <p>{node.preview}</p>
+                  </div>
+                  <span className="ranking-score">{fmtScore(node.pagerank)}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        </>
+      ) : null}
     </main>
   );
 }

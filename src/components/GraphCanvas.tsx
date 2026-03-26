@@ -6,12 +6,18 @@ type GraphCanvasProps = {
   nodes: CatechismNode[];
   edges: CatechismEdge[];
   focusId?: number | null;
+  selectedId?: number | null;
+  highlightId?: number | null;
+  clusterRootId?: number | null;
   onNodeClick: (id: number) => void;
+  onNodeLongPress?: (id: number) => void;
+  onBackgroundClick?: () => void;
   showDirectionalArrows?: boolean;
   caption?: string[];
   initialScale?: number;
   fitToNodes?: boolean;
   minScreenNodeRadius?: number;
+  hoverDelayMs?: number;
 };
 
 const partColors: Record<string, string> = {
@@ -63,30 +69,42 @@ export function GraphCanvas({
   nodes,
   edges,
   focusId,
+  selectedId,
+  highlightId,
+  clusterRootId,
   onNodeClick,
+  onNodeLongPress,
+  onBackgroundClick,
   showDirectionalArrows = false,
   caption = ['Scroll to zoom', 'Drag to pan', 'Click a node for full paragraph detail'],
   initialScale = 0.42,
   fitToNodes = false,
   minScreenNodeRadius = 6.4,
+  hoverDelayMs = 100,
 }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     active: boolean;
+    longPressTriggered: boolean;
     moved: boolean;
+    pressedNodeId: number | null;
     startX: number;
     startY: number;
     x: number;
     y: number;
   }>({
     active: false,
+    longPressTriggered: false,
     moved: false,
+    pressedNodeId: null,
     startX: 0,
     startY: 0,
     x: 0,
     y: 0,
   });
+  const holdTimerRef = useRef<number | null>(null);
+  const hoverTimerRef = useRef<number | null>(null);
 
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [transform, setTransform] = useState(() => createDefaultTransform(initialScale));
@@ -95,6 +113,23 @@ export function GraphCanvas({
 
   const nodeMap = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const edgeSet = useMemo(() => new Set(edges.map((edge) => `${edge.source}:${edge.target}`)), [edges]);
+  const clusterNeighborIds = useMemo(() => {
+    const neighbors = new Set<number>();
+    if (clusterRootId === null || clusterRootId === undefined) {
+      return neighbors;
+    }
+
+    for (const edge of edges) {
+      if (edge.source === clusterRootId) {
+        neighbors.add(edge.target);
+      }
+      if (edge.target === clusterRootId) {
+        neighbors.add(edge.source);
+      }
+    }
+
+    return neighbors;
+  }, [clusterRootId, edges]);
   const layoutCenter = useMemo(() => {
     if (nodes.length === 0) {
       return { x: 0, y: 0 };
@@ -125,33 +160,70 @@ export function GraphCanvas({
     [fitToNodes, initialScale, transform.k],
   );
   const renderedPositions = useMemo(
-    () =>
-      new Map(
+    () => {
+      const basePositions = new Map(
         nodes.map((node) => [node.id, getRenderedPosition(node, layoutCenter, spacingFactor)]),
-      ),
-    [layoutCenter, nodes, spacingFactor],
+      );
+
+      if (clusterRootId === null || clusterRootId === undefined) {
+        return basePositions;
+      }
+
+      const rootPosition = basePositions.get(clusterRootId);
+      if (!rootPosition) {
+        return basePositions;
+      }
+
+      const clusteredPositions = new Map(basePositions);
+      for (const neighborId of clusterNeighborIds) {
+        const neighborPosition = basePositions.get(neighborId);
+        if (!neighborPosition) {
+          continue;
+        }
+
+        clusteredPositions.set(neighborId, {
+          x: rootPosition.x + (neighborPosition.x - rootPosition.x) * 0.2,
+          y: rootPosition.y + (neighborPosition.y - rootPosition.y) * 0.2,
+        });
+      }
+
+      return clusteredPositions;
+    },
+    [clusterNeighborIds, clusterRootId, layoutCenter, nodes, spacingFactor],
   );
 
   const hoveredNode = hoveredId ? nodeMap.get(hoveredId) ?? null : null;
+  const activeHighlightId = highlightId ?? hoveredId;
 
   const highlighted = useMemo(() => {
     const active = new Set<number>();
-    if (hoveredId === null) {
+    if (activeHighlightId === null || activeHighlightId === undefined) {
       return active;
     }
 
-    active.add(hoveredId);
+    active.add(activeHighlightId);
     for (const edge of edges) {
-      if (edge.source === hoveredId) {
+      if (edge.source === activeHighlightId) {
         active.add(edge.target);
       }
-      if (edge.target === hoveredId) {
+      if (edge.target === activeHighlightId) {
         active.add(edge.source);
       }
     }
 
     return active;
-  }, [edges, hoveredId]);
+  }, [activeHighlightId, edges]);
+
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current !== null) {
+        window.clearTimeout(holdTimerRef.current);
+      }
+      if (hoverTimerRef.current !== null) {
+        window.clearTimeout(hoverTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     setTransform(createDefaultTransform(initialScale));
@@ -276,7 +348,10 @@ export function GraphCanvas({
         continue;
       }
 
-      const isActive = hoveredId !== null && (edge.source === hoveredId || edge.target === hoveredId);
+      const isActive =
+        activeHighlightId !== null &&
+        activeHighlightId !== undefined &&
+        (edge.source === activeHighlightId || edge.target === activeHighlightId);
       context.strokeStyle = isActive ? 'rgba(24, 28, 35, 0.38)' : 'rgba(24, 28, 35, 0.12)';
       context.lineWidth = isActive ? 1.8 / transform.k : 1.15 / transform.k;
       context.beginPath();
@@ -316,7 +391,7 @@ export function GraphCanvas({
 
     for (const node of nodes) {
       const isHovered = hoveredId === node.id;
-      const isFocused = focusId === node.id;
+      const isFocused = focusId === node.id || selectedId === node.id;
       const isConnected = highlighted.has(node.id);
       const fill = partColors[node.part] ?? '#6a6a6a';
       const position = renderedPositions.get(node.id);
@@ -354,17 +429,47 @@ export function GraphCanvas({
     focusId,
     fitToNodes,
     highlighted,
+    activeHighlightId,
     hoveredId,
     initialScale,
     renderedPositions,
     minScreenNodeRadius,
     nodeMap,
     nodes,
+    selectedId,
     showDirectionalArrows,
     size.height,
     size.width,
     transform,
   ]);
+
+  function clearHoldTimer() {
+    if (holdTimerRef.current !== null) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  }
+
+  function clearHoverTimer() {
+    if (hoverTimerRef.current !== null) {
+      window.clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  }
+
+  function scheduleHover(nextHoveredId: number | null) {
+    clearHoverTimer();
+
+    if (nextHoveredId === null) {
+      setHoveredId(null);
+      return;
+    }
+
+    hoverTimerRef.current = window.setTimeout(() => {
+      setHoveredId(nextHoveredId);
+      hoverTimerRef.current = null;
+    }, hoverDelayMs);
+  }
 
   function findNode(clientX: number, clientY: number) {
     const canvas = canvasRef.current;
@@ -411,6 +516,7 @@ export function GraphCanvas({
 
       if (distanceFromStart > 6) {
         dragRef.current.moved = true;
+        clearHoldTimer();
       }
 
       dragRef.current.x = event.clientX;
@@ -425,34 +531,72 @@ export function GraphCanvas({
     }
 
     const node = findNode(event.clientX, event.clientY);
-    setHoveredId(node?.id ?? null);
+    scheduleHover(node?.id ?? null);
     setTooltip({ x: event.clientX, y: event.clientY });
   }
 
   function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
+    const node = findNode(event.clientX, event.clientY);
+
     dragRef.current = {
       active: true,
+      longPressTriggered: false,
       moved: false,
+      pressedNodeId: node?.id ?? null,
       startX: event.clientX,
       startY: event.clientY,
       x: event.clientX,
       y: event.clientY,
     };
+
+    if (node && onNodeLongPress) {
+      clearHoldTimer();
+      holdTimerRef.current = window.setTimeout(() => {
+        dragRef.current.longPressTriggered = true;
+        onNodeLongPress(node.id);
+        holdTimerRef.current = null;
+      }, 1000);
+    }
+
+    event.currentTarget.setPointerCapture(event.pointerId);
   }
 
   function handlePointerUp(event: React.PointerEvent<HTMLCanvasElement>) {
+    clearHoldTimer();
     const node = findNode(event.clientX, event.clientY);
-    if (dragRef.current.active && !dragRef.current.moved && node) {
+    if (
+      dragRef.current.active &&
+      !dragRef.current.moved &&
+      !dragRef.current.longPressTriggered &&
+      node
+    ) {
       onNodeClick(node.id);
+    } else if (
+      dragRef.current.active &&
+      !dragRef.current.moved &&
+      !dragRef.current.longPressTriggered &&
+      !node
+    ) {
+      onBackgroundClick?.();
     }
 
     dragRef.current.active = false;
+    dragRef.current.longPressTriggered = false;
     dragRef.current.moved = false;
+    dragRef.current.pressedNodeId = null;
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
   }
 
   function handlePointerLeave() {
+    clearHoldTimer();
+    clearHoverTimer();
     dragRef.current.active = false;
+    dragRef.current.longPressTriggered = false;
     dragRef.current.moved = false;
+    dragRef.current.pressedNodeId = null;
     setHoveredId(null);
   }
 
@@ -485,6 +629,7 @@ export function GraphCanvas({
     <div className="graph-shell" ref={containerRef}>
       <canvas
         ref={canvasRef}
+        onPointerCancel={handlePointerLeave}
         onPointerDown={handlePointerDown}
         onPointerLeave={handlePointerLeave}
         onPointerMove={handlePointerMove}
