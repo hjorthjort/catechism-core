@@ -193,7 +193,7 @@ export function GraphCanvas({
   );
 
   const hoveredNode = hoveredId ? nodeMap.get(hoveredId) ?? null : null;
-  const activeHighlightId = highlightId ?? hoveredId;
+  const activeHighlightId = hoveredId ?? highlightId;
 
   const highlighted = useMemo(() => {
     const active = new Set<number>();
@@ -390,9 +390,10 @@ export function GraphCanvas({
     }
 
     for (const node of nodes) {
-      const isHovered = hoveredId === node.id;
+      const isPrimaryHighlighted = activeHighlightId === node.id;
       const isFocused = focusId === node.id || selectedId === node.id;
       const isConnected = highlighted.has(node.id);
+      const hasActiveHighlight = activeHighlightId !== null && activeHighlightId !== undefined;
       const fill = partColors[node.part] ?? '#6a6a6a';
       const position = renderedPositions.get(node.id);
       if (!position) {
@@ -404,11 +405,11 @@ export function GraphCanvas({
 
       context.beginPath();
       context.arc(position.x, position.y, radius, 0, Math.PI * 2);
-      context.fillStyle = isHovered ? '#181c23' : fill;
-      context.globalAlpha = hoveredId === null ? 0.84 : isConnected ? 1 : 0.18;
+      context.fillStyle = isPrimaryHighlighted ? '#181c23' : fill;
+      context.globalAlpha = hasActiveHighlight ? (isConnected ? 1 : 0.18) : 0.84;
       context.fill();
 
-      if (isHovered) {
+      if (isPrimaryHighlighted) {
         context.globalAlpha = 1;
         context.lineWidth = 3 / transform.k;
         context.strokeStyle = '#f5eedf';

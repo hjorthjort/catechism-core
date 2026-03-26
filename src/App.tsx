@@ -227,6 +227,16 @@ function WorkspacePage({
     selectNode(id, true);
   }
 
+  function clearSelection() {
+    setLocalSelectedId(null);
+    setSidebarHoverId(null);
+    setClusterRootId(null);
+
+    if (params.id !== undefined) {
+      navigate(withLanguage(showHero ? '/' : '/explore', language));
+    }
+  }
+
   function handleJumpToGraph() {
     document.getElementById('graph-workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -365,7 +375,7 @@ function WorkspacePage({
                 highlightId={sidebarHoverId ?? selectedNode?.id ?? null}
                 hoverDelayMs={100}
                 nodes={data.nodes}
-                onBackgroundClick={() => setClusterRootId(null)}
+                onBackgroundClick={clearSelection}
                 onNodeClick={(id) => selectNode(id)}
                 onNodeLongPress={handleGraphLongPress}
                 selectedId={selectedNode?.id ?? null}
