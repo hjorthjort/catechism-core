@@ -460,11 +460,6 @@ export function GraphCanvas({
   function scheduleHover(nextHoveredId: number | null) {
     clearHoverTimer();
 
-    if (nextHoveredId === null) {
-      setHoveredId(null);
-      return;
-    }
-
     hoverTimerRef.current = window.setTimeout(() => {
       setHoveredId(nextHoveredId);
       hoverTimerRef.current = null;
@@ -592,12 +587,11 @@ export function GraphCanvas({
 
   function handlePointerLeave() {
     clearHoldTimer();
-    clearHoverTimer();
     dragRef.current.active = false;
     dragRef.current.longPressTriggered = false;
     dragRef.current.moved = false;
     dragRef.current.pressedNodeId = null;
-    setHoveredId(null);
+    scheduleHover(null);
   }
 
   function handleWheel(event: React.WheelEvent<HTMLCanvasElement>) {
