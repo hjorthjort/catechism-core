@@ -26,8 +26,37 @@ function createDefaultTransform(scale: number) {
   return { x: 0, y: 0, k: scale };
 }
 
-function getNodeScreenRadius(node: CatechismNode, minScreenNodeRadius: number) {
-  return Math.max(node.visualRadius, minScreenNodeRadius);
+function getZoomRatio(scale: number, initialScale: number) {
+  return Math.max(1, scale / initialScale);
+}
+
+function getNodeScreenRadius(
+  node: CatechismNode,
+  minScreenNodeRadius: number,
+  scale: number,
+  initialScale: number,
+) {
+  const growthFactor = Math.min(1.85, Math.pow(getZoomRatio(scale, initialScale), 0.2));
+  return Math.max(node.visualRadius, minScreenNodeRadius) * growthFactor;
+}
+
+function getSpacingFactor(scale: number, initialScale: number, fitToNodes: boolean) {
+  if (fitToNodes) {
+    return 1;
+  }
+
+  return Math.max(0.54, 1 / Math.pow(getZoomRatio(scale, initialScale), 0.34));
+}
+
+function getRenderedPosition(
+  node: CatechismNode,
+  center: { x: number; y: number },
+  spacingFactor: number,
+) {
+  return {
+    x: center.x + (node.position.x - center.x) * spacingFactor,
+    y: center.y + (node.position.y - center.y) * spacingFactor,
+  };
 }
 
 export function GraphCanvas({
@@ -56,6 +85,42 @@ export function GraphCanvas({
 
   const nodeMap = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const edgeSet = useMemo(() => new Set(edges.map((edge) => `${edge.source}:${edge.target}`)), [edges]);
+  const layoutCenter = useMemo(() => {
+    if (nodes.length === 0) {
+      return { x: 0, y: 0 };
+    }
+
+    const bounds = nodes.reduce(
+      (current, node) => ({
+        minX: Math.min(current.minX, node.position.x),
+        maxX: Math.max(current.maxX, node.position.x),
+        minY: Math.min(current.minY, node.position.y),
+        maxY: Math.max(current.maxY, node.position.y),
+      }),
+      {
+        minX: Number.POSITIVE_INFINITY,
+        maxX: Number.NEGATIVE_INFINITY,
+        minY: Number.POSITIVE_INFINITY,
+        maxY: Number.NEGATIVE_INFINITY,
+      },
+    );
+
+    return {
+      x: (bounds.minX + bounds.maxX) / 2,
+      y: (bounds.minY + bounds.maxY) / 2,
+    };
+  }, [nodes]);
+  const spacingFactor = useMemo(
+    () => getSpacingFactor(transform.k, initialScale, fitToNodes),
+    [fitToNodes, initialScale, transform.k],
+  );
+  const renderedPositions = useMemo(
+    () =>
+      new Map(
+        nodes.map((node) => [node.id, getRenderedPosition(node, layoutCenter, spacingFactor)]),
+      ),
+    [layoutCenter, nodes, spacingFactor],
+  );
 
   const hoveredNode = hoveredId ? nodeMap.get(hoveredId) ?? null : null;
 
@@ -111,13 +176,19 @@ export function GraphCanvas({
     const frame = requestAnimationFrame(() => {
       setTransform((current) => ({
         ...current,
-        x: size.width / 2 - node.position.x * current.k,
-        y: size.height / 2 - node.position.y * current.k,
+        x:
+          size.width / 2 -
+          getRenderedPosition(node, layoutCenter, getSpacingFactor(current.k, initialScale, fitToNodes)).x *
+            current.k,
+        y:
+          size.height / 2 -
+          getRenderedPosition(node, layoutCenter, getSpacingFactor(current.k, initialScale, fitToNodes)).y *
+            current.k,
       }));
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [fitToNodes, focusId, nodeMap, size.height, size.width]);
+  }, [fitToNodes, focusId, initialScale, layoutCenter, nodeMap, size.height, size.width]);
 
   useEffect(() => {
     if (!fitToNodes || nodes.length === 0 || size.width === 0 || size.height === 0) {
@@ -188,37 +259,41 @@ export function GraphCanvas({
     for (const edge of edges) {
       const source = nodeMap.get(edge.source);
       const target = nodeMap.get(edge.target);
+      const sourcePosition = renderedPositions.get(edge.source);
+      const targetPosition = renderedPositions.get(edge.target);
 
-      if (!source || !target) {
+      if (!source || !target || !sourcePosition || !targetPosition) {
         continue;
       }
 
       const isActive = hoveredId !== null && (edge.source === hoveredId || edge.target === hoveredId);
-      context.strokeStyle = isActive ? 'rgba(24, 28, 35, 0.28)' : 'rgba(24, 28, 35, 0.05)';
-      context.lineWidth = isActive ? 1.2 / transform.k : 0.7 / transform.k;
+      context.strokeStyle = isActive ? 'rgba(24, 28, 35, 0.38)' : 'rgba(24, 28, 35, 0.12)';
+      context.lineWidth = isActive ? 1.8 / transform.k : 1.15 / transform.k;
       context.beginPath();
-      context.moveTo(source.position.x, source.position.y);
-      context.lineTo(target.position.x, target.position.y);
+      context.moveTo(sourcePosition.x, sourcePosition.y);
+      context.lineTo(targetPosition.x, targetPosition.y);
       context.stroke();
 
       if (showDirectionalArrows && !edgeSet.has(`${edge.target}:${edge.source}`)) {
-        const dx = target.position.x - source.position.x;
-        const dy = target.position.y - source.position.y;
+        const dx = targetPosition.x - sourcePosition.x;
+        const dy = targetPosition.y - sourcePosition.y;
         const length = Math.sqrt(dx * dx + dy * dy);
 
         if (length > 0.01) {
           const unitX = dx / length;
           const unitY = dy / length;
           const arrowSize = 8 / transform.k;
-          const targetRadius = (getNodeScreenRadius(target, minScreenNodeRadius) + 1.4) / transform.k;
-          const tipX = target.position.x - unitX * targetRadius;
-          const tipY = target.position.y - unitY * targetRadius;
+          const targetRadius =
+            (getNodeScreenRadius(target, minScreenNodeRadius, transform.k, initialScale) + 1.4) /
+            transform.k;
+          const tipX = targetPosition.x - unitX * targetRadius;
+          const tipY = targetPosition.y - unitY * targetRadius;
           const baseX = tipX - unitX * arrowSize;
           const baseY = tipY - unitY * arrowSize;
           const normalX = -unitY;
           const normalY = unitX;
 
-          context.fillStyle = isActive ? 'rgba(24, 28, 35, 0.52)' : 'rgba(24, 28, 35, 0.18)';
+          context.fillStyle = isActive ? 'rgba(24, 28, 35, 0.58)' : 'rgba(24, 28, 35, 0.28)';
           context.beginPath();
           context.moveTo(tipX, tipY);
           context.lineTo(baseX + normalX * (arrowSize * 0.55), baseY + normalY * (arrowSize * 0.55));
@@ -234,10 +309,16 @@ export function GraphCanvas({
       const isFocused = focusId === node.id;
       const isConnected = highlighted.has(node.id);
       const fill = partColors[node.part] ?? '#6a6a6a';
-      const radius = getNodeScreenRadius(node, minScreenNodeRadius) / transform.k;
+      const position = renderedPositions.get(node.id);
+      if (!position) {
+        continue;
+      }
+
+      const radius =
+        getNodeScreenRadius(node, minScreenNodeRadius, transform.k, initialScale) / transform.k;
 
       context.beginPath();
-      context.arc(node.position.x, node.position.y, radius, 0, Math.PI * 2);
+      context.arc(position.x, position.y, radius, 0, Math.PI * 2);
       context.fillStyle = isHovered ? '#181c23' : fill;
       context.globalAlpha = hoveredId === null ? 0.84 : isConnected ? 1 : 0.18;
       context.fill();
@@ -249,7 +330,7 @@ export function GraphCanvas({
         context.stroke();
       } else if (isFocused) {
         context.globalAlpha = 1;
-        context.lineWidth = 2.2 / transform.k;
+        context.lineWidth = 2.8 / transform.k;
         context.strokeStyle = '#181c23';
         context.stroke();
       }
@@ -264,6 +345,8 @@ export function GraphCanvas({
     fitToNodes,
     highlighted,
     hoveredId,
+    initialScale,
+    renderedPositions,
     minScreenNodeRadius,
     nodeMap,
     nodes,
@@ -287,10 +370,16 @@ export function GraphCanvas({
     let bestDistance = Number.POSITIVE_INFINITY;
 
     for (const node of nodes) {
-      const dx = node.position.x - x;
-      const dy = node.position.y - y;
+      const position = renderedPositions.get(node.id);
+      if (!position) {
+        continue;
+      }
+
+      const dx = position.x - x;
+      const dy = position.y - y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const threshold = getNodeScreenRadius(node, minScreenNodeRadius) * 2.8;
+      const threshold =
+        getNodeScreenRadius(node, minScreenNodeRadius, transform.k, initialScale) * 2.8;
 
       if (distance < threshold && distance < bestDistance) {
         nearest = node;
