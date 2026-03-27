@@ -11,6 +11,22 @@ export type ExternalReference = {
   footnoteNumber: number | string;
   label: string;
   kind: 'scripture' | 'document';
+  canonicalLabel?: string;
+  sourceId?: string | null;
+};
+
+export type ExternalSource = {
+  id: string;
+  kind: 'scripture' | 'document';
+  title: string;
+  citation: string;
+  url: string;
+  language: string;
+  sourceLabel: string;
+  translationStatus: 'official' | 'public-domain' | 'ai';
+  translationNote?: string;
+  contentHtml: string;
+  contentText: string;
 };
 
 export type VaticanSource = {
@@ -98,4 +114,5 @@ export type CatechismData = {
   };
   nodes: CatechismNode[];
   edges: CatechismEdge[];
+  externalSources: Record<string, ExternalSource>;
 };

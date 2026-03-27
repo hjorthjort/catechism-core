@@ -88,6 +88,22 @@ function getPartLabel(node: CatechismNode, language: AppLanguage) {
   return t.parts[key] ?? node.part;
 }
 
+function getExternalSourceBadge(source: CatechismData['externalSources'][string] | undefined) {
+  if (!source) {
+    return null;
+  }
+
+  if (source.translationStatus === 'ai') {
+    return 'Translated with AI';
+  }
+
+  if (source.translationStatus === 'official') {
+    return 'Official Vatican text';
+  }
+
+  return source.sourceLabel;
+}
+
 function Shell({
   data,
   language,
@@ -444,6 +460,41 @@ function WorkspacePage({
                                 {t.footnote} {reference.footnoteNumber}
                               </strong>
                               <p>{reference.label}</p>
+                              {reference.sourceId && data.externalSources[reference.sourceId] ? (
+                                <div className="external-reference-source">
+                                  <div className="external-reference-source-header">
+                                    <strong>{data.externalSources[reference.sourceId].title}</strong>
+                                    {getExternalSourceBadge(data.externalSources[reference.sourceId]) ? (
+                                      <span className="external-source-badge">
+                                        {getExternalSourceBadge(data.externalSources[reference.sourceId])}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  <p className="external-reference-citation">
+                                    {data.externalSources[reference.sourceId].citation}
+                                  </p>
+                                  {data.externalSources[reference.sourceId].translationNote ? (
+                                    <p className="external-reference-note">
+                                      {data.externalSources[reference.sourceId].translationNote}
+                                    </p>
+                                  ) : null}
+                                  <div
+                                    className="external-reference-content"
+                                    dangerouslySetInnerHTML={{
+                                      __html: data.externalSources[reference.sourceId].contentHtml,
+                                    }}
+                                  />
+                                  <a
+                                    className="source-link external-source-link"
+                                    href={data.externalSources[reference.sourceId].url}
+                                    rel="noreferrer"
+                                    target="_blank"
+                                  >
+                                    {t.openSource}
+                                    <span>{data.externalSources[reference.sourceId].sourceLabel}</span>
+                                  </a>
+                                </div>
+                              ) : null}
                             </div>
                           ))}
                         </div>

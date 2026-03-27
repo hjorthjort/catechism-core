@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -111,6 +112,372 @@ const languageConfigs = [
   },
 ];
 
+const bibleTranslation = {
+  id: 'web',
+  name: 'World English Bible',
+  language: 'en',
+  sourceLabel: 'Bible API / World English Bible',
+};
+
+const bibleBookAliases = new Map(
+  Object.entries({
+    GEN: ['gen', 'gn', 'genesis'],
+    EXO: ['ex', 'exo', 'exod', 'exodus'],
+    LEV: ['lev', 'leviticus'],
+    NUM: ['num', 'nm', 'numbers'],
+    DEU: ['deut', 'dt', 'deuteronomy'],
+    JOS: ['josh', 'jos', 'joshua'],
+    JDG: ['judg', 'jdg', 'judges'],
+    RUT: ['ruth', 'ru'],
+    '1SA': ['1 sam', '1sam', 'i sam', '1 samuel', '1samuel'],
+    '2SA': ['2 sam', '2sam', 'ii sam', '2 samuel', '2samuel'],
+    '1KI': ['1 kgs', '1kgs', '1 kings', 'i kgs', 'i kings'],
+    '2KI': ['2 kgs', '2kgs', '2 kings', 'ii kgs', 'ii kings'],
+    '1CH': ['1 chr', '1chr', '1 chronicles', 'i chr', 'i chronicles'],
+    '2CH': ['2 chr', '2chr', '2 chronicles', 'ii chr', 'ii chronicles'],
+    EZR: ['ezra', 'ezr'],
+    NEH: ['neh', 'nehemiah'],
+    TOB: ['tob', 'tobit'],
+    JDT: ['jdt', 'judith'],
+    EST: ['est', 'esth', 'esther'],
+    '1MA': ['1 macc', '1macc', '1 maccabees', 'i macc'],
+    '2MA': ['2 macc', '2macc', '2 maccabees', 'ii macc'],
+    JOB: ['job'],
+    PSA: ['ps', 'pss', 'psalm', 'psalms'],
+    PRO: ['prov', 'prv', 'proverbs'],
+    ECC: ['eccl', 'ecc', 'ecclesiastes'],
+    SNG: ['song', 'song of songs', 'song of solomon', 'cant', 'canticle'],
+    WIS: ['wis', 'wisdom'],
+    SIR: ['sir', 'sirach', 'ecclus'],
+    ISA: ['isa', 'is', 'isaiah'],
+    JER: ['jer', 'jeremiah'],
+    LAM: ['lam', 'lamentations'],
+    BAR: ['bar', 'baruch'],
+    EZK: ['ezek', 'ezk', 'ezekiel'],
+    DAN: ['dan', 'dn', 'daniel'],
+    HOS: ['hos', 'hosea'],
+    JOL: ['joel', 'jl'],
+    AMO: ['amos', 'am'],
+    OBA: ['obad', 'ob', 'obadiah'],
+    JON: ['jon', 'jonah'],
+    MIC: ['mic', 'micah'],
+    NAM: ['nah', 'nahum'],
+    HAB: ['hab', 'habakkuk'],
+    ZEP: ['zeph', 'zep', 'zephaniah'],
+    HAG: ['hag', 'haggai'],
+    ZEC: ['zech', 'zec', 'zechariah'],
+    MAL: ['mal', 'malachi'],
+    MAT: ['mt', 'matt', 'matthew'],
+    MRK: ['mk', 'mark'],
+    LUK: ['lk', 'luke'],
+    JHN: ['jn', 'john'],
+    ACT: ['acts', 'act'],
+    ROM: ['rom', 'romans'],
+    '1CO': ['1 cor', '1cor', 'i cor', '1 corinthians'],
+    '2CO': ['2 cor', '2cor', 'ii cor', '2 corinthians'],
+    GAL: ['gal', 'galatians'],
+    EPH: ['eph', 'ephesians'],
+    PHP: ['phil', 'php', 'philippians'],
+    COL: ['col', 'colossians'],
+    '1TH': ['1 thess', '1thess', '1 thes', '1thes', 'i thess', '1 thessalonians'],
+    '2TH': ['2 thess', '2thess', '2 thes', '2thes', 'ii thess', '2 thessalonians'],
+    '1TI': ['1 tim', '1tim', 'i tim', '1 timothy'],
+    '2TI': ['2 tim', '2tim', 'ii tim', '2 timothy'],
+    TIT: ['titus', 'tit'],
+    PHM: ['phlm', 'philem', 'philemon'],
+    HEB: ['heb', 'hebrews'],
+    JAS: ['jas', 'james'],
+    '1PE': ['1 pet', '1pet', 'i pet', '1 peter'],
+    '2PE': ['2 pet', '2pet', 'ii pet', '2 peter'],
+    '1JN': ['1 jn', '1jn', 'i jn', '1 john'],
+    '2JN': ['2 jn', '2jn', 'ii jn', '2 john'],
+    '3JN': ['3 jn', '3jn', 'iii jn', '3 john'],
+    JUD: ['jude'],
+    REV: ['rev', 'apoc', 'revelation'],
+  }).flatMap(([id, aliases]) => aliases.map((alias) => [alias, id])),
+);
+
+const bibleBookNames = {
+  GEN: 'Genesis',
+  EXO: 'Exodus',
+  LEV: 'Leviticus',
+  NUM: 'Numbers',
+  DEU: 'Deuteronomy',
+  JOS: 'Joshua',
+  JDG: 'Judges',
+  RUT: 'Ruth',
+  '1SA': '1 Samuel',
+  '2SA': '2 Samuel',
+  '1KI': '1 Kings',
+  '2KI': '2 Kings',
+  '1CH': '1 Chronicles',
+  '2CH': '2 Chronicles',
+  EZR: 'Ezra',
+  NEH: 'Nehemiah',
+  TOB: 'Tobit',
+  JDT: 'Judith',
+  EST: 'Esther',
+  '1MA': '1 Maccabees',
+  '2MA': '2 Maccabees',
+  JOB: 'Job',
+  PSA: 'Psalms',
+  PRO: 'Proverbs',
+  ECC: 'Ecclesiastes',
+  SNG: 'Song of Solomon',
+  WIS: 'Wisdom',
+  SIR: 'Sirach',
+  ISA: 'Isaiah',
+  JER: 'Jeremiah',
+  LAM: 'Lamentations',
+  BAR: 'Baruch',
+  EZK: 'Ezekiel',
+  DAN: 'Daniel',
+  HOS: 'Hosea',
+  JOL: 'Joel',
+  AMO: 'Amos',
+  OBA: 'Obadiah',
+  JON: 'Jonah',
+  MIC: 'Micah',
+  NAM: 'Nahum',
+  HAB: 'Habakkuk',
+  ZEP: 'Zephaniah',
+  HAG: 'Haggai',
+  ZEC: 'Zechariah',
+  MAL: 'Malachi',
+  MAT: 'Matthew',
+  MRK: 'Mark',
+  LUK: 'Luke',
+  JHN: 'John',
+  ACT: 'Acts',
+  ROM: 'Romans',
+  '1CO': '1 Corinthians',
+  '2CO': '2 Corinthians',
+  GAL: 'Galatians',
+  EPH: 'Ephesians',
+  PHP: 'Philippians',
+  COL: 'Colossians',
+  '1TH': '1 Thessalonians',
+  '2TH': '2 Thessalonians',
+  '1TI': '1 Timothy',
+  '2TI': '2 Timothy',
+  TIT: 'Titus',
+  PHM: 'Philemon',
+  HEB: 'Hebrews',
+  JAS: 'James',
+  '1PE': '1 Peter',
+  '2PE': '2 Peter',
+  '1JN': '1 John',
+  '2JN': '2 John',
+  '3JN': '3 John',
+  JUD: 'Jude',
+  REV: 'Revelation',
+};
+
+const singleChapterBookIds = new Set(['OBA', 'PHM', '2JN', '3JN', 'JUD']);
+
+const documentCatalog = {
+  LG: {
+    id: 'LG',
+    title: 'Lumen gentium',
+    url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19641121_lumen-gentium_en.html',
+    parser: 'legacy',
+  },
+  GS: {
+    id: 'GS',
+    title: 'Gaudium et spes',
+    url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19651207_gaudium-et-spes_en.html',
+    parser: 'legacy',
+  },
+  DV: {
+    id: 'DV',
+    title: 'Dei verbum',
+    url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19651118_dei-verbum_en.html',
+    parser: 'legacy',
+  },
+  SC: {
+    id: 'SC',
+    title: 'Sacrosanctum Concilium',
+    url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19631204_sacrosanctum-concilium_en.html',
+    parser: 'legacy',
+  },
+  AG: {
+    id: 'AG',
+    title: 'Ad gentes',
+    url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19651207_ad-gentes_en.html',
+    parser: 'legacy',
+  },
+  UR: {
+    id: 'UR',
+    title: 'Unitatis redintegratio',
+    url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19641121_unitatis-redintegratio_en.html',
+    parser: 'legacy',
+  },
+  PO: {
+    id: 'PO',
+    title: 'Presbyterorum ordinis',
+    url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19651207_presbyterorum-ordinis_en.html',
+    parser: 'legacy',
+  },
+  DH: {
+    id: 'DH',
+    title: 'Dignitatis humanae',
+    url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decl_19651207_dignitatis-humanae_en.html',
+    parser: 'legacy',
+  },
+  AA: {
+    id: 'AA',
+    title: 'Apostolicam actuositatem',
+    url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19651118_apostolicam-actuositatem_en.html',
+    parser: 'legacy',
+  },
+  NA: {
+    id: 'NA',
+    title: 'Nostra aetate',
+    url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decl_19651028_nostra-aetate_en.html',
+    parser: 'legacy',
+  },
+  CD: {
+    id: 'CD',
+    title: 'Christus Dominus',
+    url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19651028_christus-dominus_en.html',
+    parser: 'legacy',
+  },
+  OT: {
+    id: 'OT',
+    title: 'Optatam totius',
+    url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19651028_optatam-totius_en.html',
+    parser: 'legacy',
+  },
+  PC: {
+    id: 'PC',
+    title: 'Perfectae caritatis',
+    url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19651028_perfectae-caritatis_en.html',
+    parser: 'legacy',
+  },
+  IM: {
+    id: 'IM',
+    title: 'Inter mirifica',
+    url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19631204_inter-mirifica_en.html',
+    parser: 'legacy',
+  },
+  FC: {
+    id: 'FC',
+    title: 'Familiaris consortio',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/apost_exhortations/documents/hf_jp-ii_exh_19811122_familiaris-consortio.html',
+    parser: 'modern',
+  },
+  CA: {
+    id: 'CA',
+    title: 'Centesimus annus',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/encyclicals/documents/hf_jp-ii_enc_01051991_centesimus-annus.html',
+    parser: 'modern',
+  },
+  CT: {
+    id: 'CT',
+    title: 'Catechesi tradendae',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/apost_exhortations/documents/hf_jp-ii_exh_16101979_catechesi-tradendae.html',
+    parser: 'modern',
+  },
+  CL: {
+    id: 'CL',
+    title: 'Christifideles laici',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/apost_exhortations/documents/hf_jp-ii_exh_30121988_christifideles-laici.html',
+    parser: 'modern',
+  },
+  SRS: {
+    id: 'SRS',
+    title: 'Sollicitudo rei socialis',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/encyclicals/documents/hf_jp-ii_enc_30121987_sollicitudo-rei-socialis.html',
+    parser: 'modern',
+  },
+  LE: {
+    id: 'LE',
+    title: 'Laborem exercens',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/encyclicals/documents/hf_jp-ii_enc_14091981_laborem-exercens.html',
+    parser: 'modern',
+  },
+  RMiss: {
+    id: 'RMiss',
+    title: 'Redemptoris missio',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/encyclicals/documents/hf_jp-ii_enc_07121990_redemptoris-missio.html',
+    parser: 'modern',
+  },
+  HV: {
+    id: 'HV',
+    title: 'Humanae vitae',
+    url: 'https://www.vatican.va/content/paul-vi/en/encyclicals/documents/hf_p-vi_enc_25071968_humanae-vitae.html',
+    parser: 'modern',
+  },
+  EN: {
+    id: 'EN',
+    title: 'Evangelii nuntiandi',
+    url: 'https://www.vatican.va/content/paul-vi/en/apost_exhortations/documents/hf_p-vi_exh_19751208_evangelii-nuntiandi.html',
+    parser: 'modern',
+  },
+  GCD: {
+    id: 'GCD',
+    title: 'General Catechetical Directory',
+    url: 'https://www.vatican.va/roman_curia/congregations/cclergy/documents/rc_con_cclergy_doc_11041971_gcat_en.html',
+    parser: 'legacy',
+  },
+  GIRM: {
+    id: 'GIRM',
+    title: 'General Instruction of the Roman Missal',
+    url: 'https://press.vatican.va/roman_curia/congregations/ccdds/documents/rc_con_ccdds_doc_20030317_ordinamento-messale_en.html',
+    parser: 'legacy',
+  },
+  GE: {
+    id: 'GE',
+    title: 'Gravissimum educationis',
+    url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decl_19651028_gravissimum-educationis_en.html',
+    parser: 'legacy',
+  },
+  CIC: {
+    id: 'CIC',
+    title: 'Code of Canon Law',
+    url: 'https://press.vatican.va/archive/cod-iuris-canonici/cic_index_en.html',
+    parser: 'cic',
+  },
+  CCEO: {
+    id: 'CCEO',
+    title: 'Code of Canons of the Eastern Churches',
+    url: 'https://www.vatican.va/holy_father/john_paul_ii/apost_constitutions/documents/hf_jp-ii_apc_19901018_index-codex-can-eccl-orient_lt.html',
+    parser: 'cceo',
+    language: 'la',
+  },
+};
+
+const documentAliasPatterns = {
+  LG: [/lumen gentium/i],
+  GS: [/gaudium et spes/i, /vatican council ii,\s*gs\b/i],
+  DV: [/dei verbum/i],
+  SC: [/sacrosanctum concilium/i],
+  AG: [/ad gentes/i],
+  UR: [/unitatis redintegratio/i],
+  PO: [/presbyterorum ordinis/i],
+  DH: [/dignitatis humanae/i],
+  AA: [/apostolicam actuositatem/i],
+  NA: [/nostra aetate/i],
+  CD: [/christus dominus/i],
+  OT: [/optatam totius/i],
+  PC: [/perfectae caritatis/i],
+  IM: [/inter mirifica/i],
+  FC: [/familiaris consortio/i],
+  CA: [/centesimus annus/i],
+  CT: [/catechesi tradendae/i],
+  CL: [/christifideles laici/i],
+  SRS: [/sollicitudo rei socialis/i],
+  LE: [/laborem exercens/i],
+  RMiss: [/\bRM\b/i, /redemptoris missio/i],
+  HV: [/humanae vitae/i],
+  EN: [/evangelii nuntiandi/i],
+  GCD: [/general catechetical directory/i],
+  GIRM: [/general instruction of the roman missal/i],
+  GE: [/gravissimum educationis/i],
+  CIC: [/code of canon law/i],
+  CCEO: [/code of canons of the eastern churches/i, /codex canonum ecclesiarum orientalium/i],
+};
+
 function stripBidiMarks(value) {
   return value.replace(bidiControlPattern, '');
 }
@@ -139,6 +506,25 @@ function escapeHtml(value) {
     .replaceAll("'", '&#39;');
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function debugLog(...args) {
+  if (process.env.DEBUG_BUILD === '1') {
+    console.error('[build:data]', ...args);
+  }
+}
+
+function languageLabel(code) {
+  const labels = {
+    en: 'English',
+    la: 'Latin',
+  };
+
+  return labels[code] ?? code.toUpperCase();
+}
+
 function splitReferenceText(value) {
   return cleanText(value)
     .split(/\s*;\s*/)
@@ -150,20 +536,126 @@ function classifyReference(value) {
   return scripturePattern.test(value) ? 'scripture' : 'document';
 }
 
+function extractDocumentReferenceSegments(note) {
+  const $ = cheerio.load(`<div>${note.html}</div>`);
+  $('a[href^="#!/search/"]').remove();
+
+  const rawText = cleanText($('div').text());
+  if (!rawText) {
+    return [];
+  }
+
+  const segments = [];
+  for (const piece of splitReferenceText(rawText)) {
+    const segment = normalizeDocumentLabel(piece);
+    if (!segment) {
+      continue;
+    }
+
+    if (classifyReference(segment) === 'scripture') {
+      continue;
+    }
+
+    const isContinuation =
+      segments.length > 0 &&
+      /^(?:\d+(?::\d+)?(?:\s*[-,]\s*\d+(?::\d+)?)?|§+\s*\d+|can(?:n)?\.?\s*\d+|cann?\.\s*\d+|preface\b|introduction\b|praenotanda\b)/i.test(
+        segment,
+      );
+
+    if (isContinuation) {
+      segments[segments.length - 1] = `${segments[segments.length - 1]}; ${segment}`;
+      continue;
+    }
+
+    if (!/[a-z]/i.test(segment)) {
+      continue;
+    }
+
+    segments.push(segment);
+  }
+
+  return segments;
+}
+
+function slugSegment(value) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function normalizeDocumentLabel(label) {
+  return cleanText(label)
+    .replace(/^cf\.?\s+/i, '')
+    .replace(/^see also\s+/i, '')
+    .replace(/^see\s+/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeBookAlias(value) {
+  return value.toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim();
+}
+
+function getBibleBook(value) {
+  const bookId = bibleBookAliases.get(normalizeBookAlias(value));
+  if (!bookId) {
+    return null;
+  }
+
+  return {
+    id: bookId,
+    name: bibleBookNames[bookId],
+  };
+}
+
+function extractScriptureReferencesFromFootnote(note) {
+  const $ = cheerio.load(`<div>${note.html}</div>`);
+  const references = [];
+  let counter = 1;
+
+  $('a[href^="#!/search/"]').each((_, link) => {
+    const href = $(link).attr('href') ?? '';
+    const query = decodeURIComponent(href.replace('#!/search/', ''));
+    const canonicalLabel = cleanText(query).replace(/\.$/, '');
+    if (!canonicalLabel) {
+      return;
+    }
+
+    references.push({
+      id: `${note.id}:scripture:${counter}`,
+      footnoteId: note.id,
+      footnoteNumber: note.number,
+      label: cleanText($(link).text()) || canonicalLabel,
+      canonicalLabel,
+      kind: 'scripture',
+    });
+    counter += 1;
+  });
+
+  return references;
+}
+
 function extractExternalReferences(footnotes) {
   const references = [];
 
   for (const note of footnotes) {
-    const segments = splitReferenceText(note.text);
-    const parts = segments.length > 0 ? segments : [note.text];
+    references.push(...extractScriptureReferencesFromFootnote(note));
+    const segments = extractDocumentReferenceSegments(note);
 
-    for (const [index, segment] of parts.entries()) {
+    for (const [index, segment] of segments.entries()) {
+      const canonicalLabel = normalizeDocumentLabel(segment);
+      if (!canonicalLabel) {
+        continue;
+      }
+
       references.push({
-        id: `${note.id}:${index + 1}`,
+        id: `${note.id}:document:${index + 1}`,
         footnoteId: note.id,
         footnoteNumber: note.number,
         label: segment,
-        kind: classifyReference(segment),
+        canonicalLabel,
+        kind: 'document',
       });
     }
   }
@@ -173,6 +665,15 @@ function extractExternalReferences(footnotes) {
 
 function buildPreview(text) {
   return text.length > 220 ? `${text.slice(0, 217).trimEnd()}...` : text;
+}
+
+function cacheFileNameForUrl(url) {
+  const encoded = encodeURIComponent(url).replaceAll('%', '_');
+  if (encoded.length <= 180) {
+    return encoded;
+  }
+
+  return `sha1_${createHash('sha1').update(url).digest('hex')}`;
 }
 
 function decodeHtmlBuffer(buffer) {
@@ -188,21 +689,45 @@ function decodeHtmlBuffer(buffer) {
 }
 
 async function getCachedBuffer(url) {
-  const fileName = encodeURIComponent(url).replaceAll('%', '_');
+  const fileName = cacheFileNameForUrl(url);
   const filePath = path.join(cacheDir, fileName);
 
   try {
     return await readFile(filePath);
   } catch {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Request failed with ${response.status} for ${url}`);
+    if (process.env.OFFLINE_ONLY === '1') {
+      throw new Error(`Offline cache miss for ${url}`);
     }
 
-    const buffer = Buffer.from(await response.arrayBuffer());
-    await mkdir(cacheDir, { recursive: true });
-    await writeFile(filePath, buffer);
-    return buffer;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      try {
+        const response = await fetch(url, {
+          signal: AbortSignal.timeout(30000),
+        });
+        if (response.ok) {
+          const buffer = Buffer.from(await response.arrayBuffer());
+          await mkdir(cacheDir, { recursive: true });
+          await writeFile(filePath, buffer);
+          return buffer;
+        }
+
+        if (response.status !== 429 || attempt === 5) {
+          throw new Error(`Request failed with ${response.status} for ${url}`);
+        }
+
+        const retryAfterSeconds = Number(response.headers.get('retry-after') ?? '0');
+        const delayMs =
+          retryAfterSeconds > 0 ? retryAfterSeconds * 1000 : 1500 * Math.pow(2, attempt);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      } catch (error) {
+        if (attempt === 5) {
+          throw error;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 1500 * Math.pow(2, attempt)));
+      }
+    }
   }
 }
 
@@ -212,7 +737,7 @@ async function fetchHtml(url) {
 }
 
 async function fetchPdfToCache(url) {
-  const fileName = encodeURIComponent(url).replaceAll('%', '_');
+  const fileName = cacheFileNameForUrl(url);
   const filePath = path.join(cacheDir, fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
 
   try {
@@ -698,6 +1223,850 @@ async function fetchSection(query, vaticanLookup) {
   return items;
 }
 
+function splitScriptureQuery(query) {
+  const cleaned = cleanText(query)
+    .replace(/^cf\.?\s+/i, '')
+    .replace(/^see also\s+/i, '')
+    .replace(/^see\s+/i, '')
+    .replace(/\s*\((?:vulg|lxx|greek|hebrew|neb)\)\s*/gi, '')
+    .trim();
+
+  const segments = cleaned.split(/\s*;\s*/);
+  const normalized = [];
+  let currentBook = null;
+  let currentChapter = null;
+
+  for (const rawSegment of segments) {
+    const segment = rawSegment.trim();
+    if (!segment) {
+      continue;
+    }
+
+    const directMatch = segment.match(/^((?:[1-3]\s*)?[A-Za-z][A-Za-z. ]+?)\s+(\d.*)$/);
+    if (directMatch) {
+      const book = getBibleBook(directMatch[1]);
+      if (!book) {
+        continue;
+      }
+
+      currentBook = book;
+      const chapterMatch = directMatch[2].match(/^(\d+)/);
+      currentChapter = chapterMatch ? Number(chapterMatch[1]) : null;
+      normalized.push({
+        bookId: book.id,
+        bookName: book.name,
+        query: `${book.name} ${directMatch[2].trim()}`,
+      });
+      continue;
+    }
+
+    if (currentBook && /^\d/.test(segment)) {
+      const inferredSegment =
+        !segment.includes(':') && currentChapter !== null ? `${currentChapter}:${segment}` : segment;
+      const chapterMatch = inferredSegment.match(/^(\d+)/);
+      currentChapter = chapterMatch ? Number(chapterMatch[1]) : currentChapter;
+      normalized.push({
+        bookId: currentBook.id,
+        bookName: currentBook.name,
+        query: `${currentBook.name} ${inferredSegment}`,
+      });
+    }
+  }
+
+  return normalized;
+}
+
+function expandVerseToken(token) {
+  const trimmed = token.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  const rangeMatch = trimmed.match(/^(\d+)-(\d+)$/);
+  if (rangeMatch) {
+    const start = Number(rangeMatch[1]);
+    const end = Number(rangeMatch[2]);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+      return [];
+    }
+
+    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+  }
+
+  const single = Number(trimmed);
+  return Number.isFinite(single) ? [single] : [];
+}
+
+function parseScriptureSegment(segment) {
+  const match = segment.query.match(/^(.+?)\s+(\d+)(?::(.+))?$/);
+  if (!match) {
+    return null;
+  }
+
+  const numericPart = Number(match[2]);
+  if (!Number.isFinite(numericPart)) {
+    return null;
+  }
+
+  const hasExplicitChapter = Boolean(match[3]);
+  const chapter = hasExplicitChapter ? numericPart : singleChapterBookIds.has(segment.bookId) ? 1 : numericPart;
+  const verseSpec =
+    match[3]?.trim() ??
+    (singleChapterBookIds.has(segment.bookId) ? match[2].trim() : '');
+  if (!verseSpec) {
+    return {
+      ...segment,
+      chapters: [chapter],
+      selections: [{ chapter, verses: null }],
+      citation: `${segment.bookName} ${chapter}`,
+    };
+  }
+
+  const tokens = verseSpec.split(/\s*,\s*/);
+  const selections = [];
+  const chapters = new Set([chapter]);
+
+  for (const token of tokens) {
+    const crossChapterMatch = token.match(/^(\d+):(\d+)-(\d+):(\d+)$/);
+    if (crossChapterMatch) {
+      const startChapter = Number(crossChapterMatch[1]);
+      const startVerse = Number(crossChapterMatch[2]);
+      const endChapter = Number(crossChapterMatch[3]);
+      const endVerse = Number(crossChapterMatch[4]);
+
+      for (let currentChapter = startChapter; currentChapter <= endChapter; currentChapter += 1) {
+        chapters.add(currentChapter);
+        if (currentChapter === startChapter && currentChapter === endChapter) {
+          selections.push({
+            chapter: currentChapter,
+            verses: Array.from({ length: endVerse - startVerse + 1 }, (_, index) => startVerse + index),
+          });
+        } else if (currentChapter === startChapter) {
+          selections.push({
+            chapter: currentChapter,
+            verses: { start: startVerse, end: null },
+          });
+        } else if (currentChapter === endChapter) {
+          selections.push({
+            chapter: currentChapter,
+            verses: { start: 1, end: endVerse },
+          });
+        } else {
+          selections.push({
+            chapter: currentChapter,
+            verses: null,
+          });
+        }
+      }
+      continue;
+    }
+
+    const chapterSpecificMatch = token.match(/^(\d+):(.+)$/);
+    if (chapterSpecificMatch) {
+      const tokenChapter = Number(chapterSpecificMatch[1]);
+      const verses = chapterSpecificMatch[2]
+        .split(/\s*,\s*/)
+        .flatMap((part) => expandVerseToken(part));
+      if (verses.length > 0) {
+        chapters.add(tokenChapter);
+        selections.push({ chapter: tokenChapter, verses });
+      }
+      continue;
+    }
+
+    const verses = expandVerseToken(token);
+    if (verses.length > 0) {
+      selections.push({ chapter, verses });
+    }
+  }
+
+  return {
+    ...segment,
+    chapters: [...chapters].sort((left, right) => left - right),
+    selections,
+    citation: segment.query,
+  };
+}
+
+function canonRangeForUrl(url) {
+  const match = url.match(/cann?(\d+)-(\d+)/i);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    start: Number(match[1]),
+    end: Number(match[2]),
+  };
+}
+
+function extractModernDocumentContainer($) {
+  return $('.text.parbase.container.vaticanrichtext').first();
+}
+
+function extractLegacyDocumentContainer($) {
+  return $('#corpo td[width="99%"]').first();
+}
+
+function parseNumberedSectionsFromHtml(html, parser) {
+  const $ = cheerio.load(html);
+  const container = parser === 'modern' ? extractModernDocumentContainer($) : extractLegacyDocumentContainer($);
+  const root = container.length ? container : $.root();
+  const sections = new Map();
+  let current = null;
+
+  root.find('p').each((_, element) => {
+    const entry = $(element);
+    const text = cleanText(entry.text());
+    if (!text) {
+      return;
+    }
+
+    const match = text.match(/^(\d+)\.\s*(.*)$/);
+    if (match) {
+      if (current) {
+        sections.set(current.number, current);
+      }
+
+      current = {
+        number: Number(match[1]),
+        parts: [match[2] ? `<p>${escapeHtml(match[2])}</p>` : ''],
+      };
+      return;
+    }
+
+    if (!current) {
+      return;
+    }
+
+    current.parts.push(`<p>${entry.html()?.trim() ?? escapeHtml(text)}</p>`);
+  });
+
+  if (current) {
+    sections.set(current.number, current);
+  }
+
+  return new Map(
+    [...sections.entries()].map(([number, value]) => [
+      number,
+      {
+        html: value.parts.filter(Boolean).join(''),
+        text: cleanText(
+          value.parts
+            .map((part) => cheerio.load(`<div>${part}</div>`)('div').text())
+            .join(' '),
+        ),
+      },
+    ]),
+  );
+}
+
+function splitCanonHtmlChunks(rawHtml) {
+  const html = rawHtml?.trim();
+  if (!html) {
+    return [];
+  }
+
+  return html
+    .split(/(?=<b>\s*Can\.\s*\d+)/i)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean);
+}
+
+function parseCanonsFromHtml(html, selector = '#corpo p') {
+  const $ = cheerio.load(html);
+  const sections = new Map();
+  let current = null;
+
+  $(selector).each((_, element) => {
+    const entry = $(element);
+    const rawHtml = entry.html()?.trim() ?? '';
+    const chunks = splitCanonHtmlChunks(rawHtml);
+
+    for (const chunkHtml of chunks.length > 0 ? chunks : [rawHtml]) {
+      const chunkText = cleanText(cheerio.load(`<div>${chunkHtml}</div>`)('div').text());
+      if (!chunkText) {
+        continue;
+      }
+
+      const match = chunkText.match(/^Can\.\s*(\d+)\s*(.*)$/i);
+      if (match) {
+        if (current) {
+          sections.set(current.number, current);
+        }
+
+        const bodyHtml = chunkHtml.replace(/^<b>\s*Can\.\s*\d+(?:<i>.*?<\/i>)?\s*<\/b>\s*-?\s*/i, '');
+        current = {
+          number: Number(match[1]),
+          parts: [bodyHtml ? `<p>${bodyHtml}</p>` : match[2] ? `<p>${escapeHtml(match[2])}</p>` : ''],
+        };
+        continue;
+      }
+
+      if (!current) {
+        continue;
+      }
+
+      if (/^\[Earlier version\]/i.test(chunkText)) {
+        sections.set(current.number, current);
+        current = null;
+        continue;
+      }
+
+      current.parts.push(`<p>${chunkHtml || escapeHtml(chunkText)}</p>`);
+    }
+  });
+
+  if (current) {
+    sections.set(current.number, current);
+  }
+
+  return new Map(
+    [...sections.entries()].map(([number, value]) => [
+      number,
+      {
+        html: value.parts.filter(Boolean).join(''),
+        text: cleanText(
+          value.parts
+            .map((part) => cheerio.load(`<div>${part}</div>`)('div').text())
+            .join(' '),
+        ),
+      },
+    ]),
+  );
+}
+
+async function loadCicSections() {
+  const indexHtml = await fetchHtml(documentCatalog.CIC.url);
+  const indexLinks = extractLinks(indexHtml, documentCatalog.CIC.url).filter((url) =>
+    /\/archive\/cod-iuris-canonici\/eng\/documents\/cic_.*_en\.html$/i.test(url),
+  );
+  const pageEntries = indexLinks
+    .map((url) => ({ url, range: canonRangeForUrl(url) }))
+    .filter((entry) => entry.range)
+    .sort((left, right) => left.range.start - right.range.start);
+  const sections = new Map();
+
+  for (const entry of pageEntries) {
+    let html;
+    try {
+      html = await fetchHtml(entry.url);
+    } catch (error) {
+      if (String(error).includes('404') || String(error).includes('Offline cache miss')) {
+        continue;
+      }
+      throw error;
+    }
+    const pageSections = parseCanonsFromHtml(html);
+    for (const [number, payload] of pageSections) {
+      if (!sections.has(number)) {
+        sections.set(number, { ...payload, url: entry.url });
+      }
+    }
+  }
+
+  return sections;
+}
+
+async function loadCceoSections() {
+  const indexHtml = await fetchHtml(documentCatalog.CCEO.url);
+  const pageLinks = extractLinks(indexHtml, documentCatalog.CCEO.url)
+    .filter((url) => /codex-can-eccl-orient-\d+\.html$/i.test(url))
+    .sort();
+  const sections = new Map();
+
+  for (const url of pageLinks) {
+    let html;
+    try {
+      html = await fetchHtml(url);
+    } catch (error) {
+      if (String(error).includes('404') || String(error).includes('Offline cache miss')) {
+        continue;
+      }
+      throw error;
+    }
+
+    const pageSections = parseCanonsFromHtml(html, 'p');
+    for (const [number, payload] of pageSections) {
+      if (!sections.has(number)) {
+        sections.set(number, { ...payload, url });
+      }
+    }
+  }
+
+  return sections;
+}
+
+const documentSectionCache = new Map();
+
+async function loadDocumentSections(documentId) {
+  const cached = documentSectionCache.get(documentId);
+  if (cached) {
+    return cached;
+  }
+
+  const config = documentCatalog[documentId];
+  if (!config) {
+    return null;
+  }
+
+  debugLog('loading document sections', documentId);
+
+  let sections;
+  if (config.parser === 'cic') {
+    sections = await loadCicSections();
+  } else if (config.parser === 'cceo') {
+    sections = await loadCceoSections();
+  } else {
+    let html;
+    try {
+      html = await fetchHtml(config.url);
+    } catch (error) {
+      if (String(error).includes('Offline cache miss')) {
+        return null;
+      }
+      throw error;
+    }
+    const parsed = parseNumberedSectionsFromHtml(html, config.parser);
+    sections = new Map(
+      [...parsed.entries()].map(([number, payload]) => [number, { ...payload, url: config.url }]),
+    );
+  }
+
+  documentSectionCache.set(documentId, sections);
+  debugLog('loaded document sections', documentId, sections.size);
+  return sections;
+}
+
+function findDocumentCatalogMatch(label) {
+  for (const [documentId, config] of Object.entries(documentCatalog)) {
+    const patterns = [
+      new RegExp(`(?:^|[\\s,(;])${escapeRegExp(documentId)}(?=$|[\\s,;:§])`, 'i'),
+      ...(documentAliasPatterns[documentId] ?? []),
+      new RegExp(escapeRegExp(config.title), 'i'),
+    ];
+
+    for (const pattern of patterns) {
+      const match = pattern.exec(label);
+      if (match) {
+        return { documentId, match };
+      }
+    }
+  }
+
+  return null;
+}
+
+function extractLocatorNumbers(locatorText) {
+  const numbers = [];
+  const segments = locatorText
+    .split(/\s*;\s*/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  for (const segment of segments) {
+    const rangeMatch = segment.match(/(\d+)\s*-\s*(\d+)/);
+    if (rangeMatch) {
+      const start = Number(rangeMatch[1]);
+      const end = Number(rangeMatch[2]);
+      const safeEnd = end - start > 32 ? start : end;
+      for (let current = start; current <= safeEnd; current += 1) {
+        numbers.push(current);
+      }
+      continue;
+    }
+
+    const valueMatch = segment.match(/(\d+)/);
+    if (valueMatch) {
+      numbers.push(Number(valueMatch[1]));
+    }
+  }
+
+  return [...new Set(numbers)];
+}
+
+function parseDocumentReference(reference) {
+  const label = normalizeDocumentLabel(reference.canonicalLabel ?? reference.label);
+  const catalogMatch = findDocumentCatalogMatch(label);
+  if (!catalogMatch) {
+    return null;
+  }
+
+  const documentId = catalogMatch.documentId;
+  const locatorText = label.slice(catalogMatch.match.index + catalogMatch.match[0].length).replace(/^[\s,:-]+/, '');
+  const sections = extractLocatorNumbers(locatorText);
+  if (sections.length === 0) {
+    return null;
+  }
+
+  return {
+    documentId,
+    title: documentCatalog[documentId].title,
+    citation: label,
+    sections,
+  };
+}
+
+async function buildBibleChapterCache(queries) {
+  const chapterKeys = new Map();
+
+  for (const query of queries) {
+    for (const segment of splitScriptureQuery(query)) {
+      const parsed = parseScriptureSegment(segment);
+      if (!parsed) {
+        continue;
+      }
+
+      for (const chapter of parsed.chapters) {
+        chapterKeys.set(`${parsed.bookId}:${chapter}`, {
+          bookId: parsed.bookId,
+          chapter,
+          bookName: parsed.bookName,
+        });
+      }
+    }
+  }
+
+  const cache = new Map();
+  for (const entry of chapterKeys.values()) {
+    try {
+      const buffer = await getCachedBuffer(
+        `https://bible-api.com/data/${bibleTranslation.id}/${entry.bookId}/${entry.chapter}`,
+      );
+      const payload = JSON.parse(buffer.toString('utf8'));
+      cache.set(`${entry.bookId}:${entry.chapter}`, payload.verses ?? []);
+    } catch (error) {
+      if (String(error).includes('404') || String(error).includes('Offline cache miss')) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return cache;
+}
+
+function versesForSelection(verses, selection) {
+  if (selection.verses === null) {
+    return verses;
+  }
+
+  if (Array.isArray(selection.verses)) {
+    const allowed = new Set(selection.verses);
+    return verses.filter((verse) => allowed.has(verse.verse));
+  }
+
+  return verses.filter(
+    (verse) =>
+      verse.verse >= selection.verses.start &&
+      (selection.verses.end === null || verse.verse <= selection.verses.end),
+  );
+}
+
+function renderScriptureSource(query, chapterCache) {
+  const segments = splitScriptureQuery(query)
+    .map((segment) => parseScriptureSegment(segment))
+    .filter(Boolean);
+  if (segments.length === 0) {
+    return null;
+  }
+
+  const parts = [];
+  const textParts = [];
+
+  for (const segment of segments) {
+    for (const selection of segment.selections) {
+      const verses = chapterCache.get(`${segment.bookId}:${selection.chapter}`) ?? [];
+      const selectedVerses = versesForSelection(verses, selection);
+      if (selectedVerses.length === 0) {
+        continue;
+      }
+
+      const verseText = selectedVerses
+        .map((verse) => `${verse.verse}. ${cleanText(verse.text)}`)
+        .join(' ');
+      parts.push(
+        `<p><strong>${escapeHtml(segment.bookName)} ${selection.chapter}</strong> ${escapeHtml(verseText)}</p>`,
+      );
+      textParts.push(`${segment.bookName} ${selection.chapter}: ${verseText}`);
+    }
+  }
+
+  if (parts.length === 0) {
+    return null;
+  }
+
+  return {
+    citation: query,
+    contentHtml: parts.join(''),
+    contentText: textParts.join(' '),
+    title: 'Sacred Scripture',
+    url: `https://bible-api.com/${encodeURIComponent(query)}?translation=${bibleTranslation.id}`,
+    sourceLabel: bibleTranslation.sourceLabel,
+    translationStatus: 'public-domain',
+  };
+}
+
+async function translateText(value, sourceLanguage) {
+  const text = cleanText(value);
+  if (!text) {
+    return '';
+  }
+
+  debugLog('translating text chunk', sourceLanguage, text.slice(0, 80));
+  const requestUrl =
+    `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(sourceLanguage)}` +
+    `&tl=en&dt=t&q=${encodeURIComponent(text)}`;
+  const buffer = await getCachedBuffer(requestUrl);
+  const payload = JSON.parse(buffer.toString('utf8'));
+  return cleanText((payload?.[0] ?? []).map((entry) => entry?.[0] ?? '').join(' '));
+}
+
+async function translateHtmlParagraphs(html, sourceLanguage) {
+  const $ = cheerio.load(`<div>${html}</div>`);
+  const paragraphs = $('div > p').toArray();
+  const translatedParagraphs = [];
+  const textParts = [];
+
+  for (const paragraph of paragraphs) {
+    const originalText = cleanText($(paragraph).text());
+    if (!originalText) {
+      continue;
+    }
+
+    const translatedText = await translateText(originalText, sourceLanguage);
+    if (!translatedText) {
+      continue;
+    }
+
+    translatedParagraphs.push(`<p>${escapeHtml(translatedText)}</p>`);
+    textParts.push(translatedText);
+  }
+
+  return {
+    contentHtml: translatedParagraphs.join(''),
+    contentText: textParts.join(' '),
+  };
+}
+
+async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
+  debugLog('rebuilding external references');
+  const rebuiltReferences = new Map();
+  const scriptureQueries = new Set();
+  const documentQueries = new Map();
+  const existingDocumentSourceByKey = new Map();
+
+  for (const source of Object.values(existingExternalSources)) {
+    if (source?.kind !== 'document') {
+      continue;
+    }
+
+    const parsed = parseDocumentReference({
+      label: source.citation,
+      canonicalLabel: source.citation,
+    });
+    if (!parsed) {
+      continue;
+    }
+
+    existingDocumentSourceByKey.set(`${parsed.documentId}:${parsed.sections.join(',')}`, source);
+  }
+
+  for (const node of nodes) {
+    const externalReferences = extractExternalReferences(node.footnotes);
+    rebuiltReferences.set(node.id, externalReferences);
+
+    for (const reference of externalReferences) {
+      if (reference.kind === 'scripture' && reference.canonicalLabel) {
+        scriptureQueries.add(reference.canonicalLabel);
+      }
+
+      if (reference.kind === 'document') {
+        const parsed = parseDocumentReference(reference);
+        if (parsed) {
+          documentQueries.set(`${parsed.documentId}:${parsed.sections.join(',')}`, parsed);
+        }
+      }
+    }
+  }
+
+  const externalSources = {};
+  const missingScriptureQueries = [];
+
+  for (const query of scriptureQueries) {
+    const sourceId = `scripture:${slugSegment(query)}`;
+    const existing = existingExternalSources[sourceId];
+    if (existing?.kind === 'scripture') {
+      externalSources[sourceId] = existing;
+      continue;
+    }
+
+    missingScriptureQueries.push(query);
+  }
+
+  const shouldFetchMissingScripture =
+    missingScriptureQueries.length > 0 && Object.keys(existingExternalSources).length === 0;
+  debugLog(
+    'scripture queries',
+    scriptureQueries.size,
+    'missing',
+    missingScriptureQueries.length,
+    'fetching',
+    shouldFetchMissingScripture,
+  );
+  const chapterCache = shouldFetchMissingScripture
+    ? await buildBibleChapterCache(missingScriptureQueries)
+    : new Map();
+  debugLog('chapter cache built', chapterCache.size);
+  debugLog('document queries', documentQueries.size);
+
+  for (const query of shouldFetchMissingScripture ? missingScriptureQueries : []) {
+    const source = renderScriptureSource(query, chapterCache);
+    if (!source) {
+      continue;
+    }
+
+    const sourceId = `scripture:${slugSegment(query)}`;
+    externalSources[sourceId] = {
+      id: sourceId,
+      kind: 'scripture',
+      title: source.title,
+      citation: source.citation,
+      url: source.url,
+      language: bibleTranslation.language,
+      sourceLabel: source.sourceLabel,
+      translationStatus: source.translationStatus,
+      contentHtml: source.contentHtml,
+      contentText: source.contentText,
+    };
+  }
+
+  let documentIndex = 0;
+  for (const parsed of documentQueries.values()) {
+    documentIndex += 1;
+    debugLog('building document source', documentIndex, documentQueries.size, parsed.documentId, parsed.citation);
+    const sourceId = `document:${slugSegment(parsed.documentId)}:${slugSegment(parsed.citation)}`;
+    const lookupKey = `${parsed.documentId}:${parsed.sections.join(',')}`;
+    const existing = existingExternalSources[sourceId] ?? existingDocumentSourceByKey.get(lookupKey);
+    if (existing?.kind === 'document') {
+      const config = documentCatalog[parsed.documentId];
+      const nonEnglishLabel =
+        config?.language && config.language !== 'en'
+          ? `Vatican.va (${languageLabel(config.language)} original)`
+          : existing.sourceLabel;
+      const translationNote =
+        config?.language && config.language !== 'en' && existing.translationStatus === 'ai'
+          ? `Translated with AI from the official ${languageLabel(config.language)} Vatican text.`
+          : existing.translationNote;
+      externalSources[sourceId] = {
+        ...existing,
+        id: sourceId,
+        citation: parsed.citation,
+        sourceLabel: nonEnglishLabel,
+        translationNote,
+      };
+      continue;
+    }
+
+    if (parsed.documentId === 'CIC') {
+      continue;
+    }
+
+    const sections = await loadDocumentSections(parsed.documentId);
+    if (!sections) {
+      continue;
+    }
+
+    const config = documentCatalog[parsed.documentId];
+    if (!config) {
+      continue;
+    }
+
+    const sourceParts = parsed.sections
+      .map((section) => {
+        const entry = sections.get(section);
+        if (!entry) {
+          return null;
+        }
+
+        return {
+          html: `<p><strong>${escapeHtml(parsed.title)} ${section}</strong></p>${entry.html}`,
+          text: `${parsed.title} ${section}. ${entry.text}`,
+          url: entry.url,
+        };
+      })
+      .filter(Boolean);
+
+    if (sourceParts.length === 0) {
+      continue;
+    }
+
+    let contentHtml = sourceParts.map((entry) => entry.html).join('');
+    let contentText = sourceParts.map((entry) => entry.text).join(' ');
+    let translationStatus = 'official';
+    let translationNote;
+
+    if (config.language && config.language !== 'en') {
+      const translated = await translateHtmlParagraphs(contentHtml, config.language);
+      if (!translated.contentHtml) {
+        continue;
+      }
+
+      contentHtml = translated.contentHtml;
+      contentText = translated.contentText;
+      translationStatus = 'ai';
+      translationNote = `Translated with AI from the official ${languageLabel(config.language)} Vatican text.`;
+    }
+
+    externalSources[sourceId] = {
+      id: sourceId,
+      kind: 'document',
+      title: parsed.title,
+      citation: parsed.citation,
+      url: sourceParts[0].url,
+      language: config.language ?? 'en',
+      sourceLabel:
+        config.language && config.language !== 'en'
+          ? `Vatican.va (${languageLabel(config.language)} original)`
+          : 'Vatican.va',
+      translationStatus,
+      translationNote,
+      contentHtml,
+      contentText,
+    };
+  }
+
+  debugLog('document sources built', Object.keys(externalSources).filter((key) => key.startsWith('document:')).length);
+
+  const nodesWithResolvedReferences = nodes.map((node) => ({
+    ...node,
+    externalReferences: (rebuiltReferences.get(node.id) ?? []).map((reference) => {
+      const sourceId =
+        reference.kind === 'scripture' && reference.canonicalLabel
+          ? `scripture:${slugSegment(reference.canonicalLabel)}`
+          : (() => {
+              const parsed = parseDocumentReference(reference);
+              if (!parsed) {
+                return null;
+              }
+
+              const candidate = `document:${slugSegment(parsed.documentId)}:${slugSegment(parsed.citation)}`;
+              return externalSources[candidate] ? candidate : null;
+            })();
+
+      return {
+        ...reference,
+        sourceId: sourceId && externalSources[sourceId] ? sourceId : null,
+      };
+    }),
+  }));
+
+  return {
+    externalSources,
+    nodes: nodesWithResolvedReferences,
+  };
+}
+
 function computePageRank(nodesById, edges) {
   const ids = Array.from(nodesById.keys()).sort((a, b) => a - b);
   const count = ids.length;
@@ -895,13 +2264,36 @@ async function buildBaseGraphPayload() {
 }
 
 async function main() {
-  const payload = await buildBaseGraphPayload();
-  const nodeIds = new Set(payload.nodes.map((node) => node.id));
-  const packs = await buildLanguagePacks(nodeIds);
+  debugLog('loading base payload');
+  const basePayload = await buildBaseGraphPayload();
+  debugLog('base payload ready', basePayload.nodes.length, 'nodes');
+  const externalPayload = await buildExternalSourcePayload(
+    basePayload.nodes,
+    basePayload.externalSources ?? {},
+  );
+  debugLog('external payload ready', Object.keys(externalPayload.externalSources).length, 'sources');
+  const payload = {
+    ...basePayload,
+    nodes: externalPayload.nodes,
+    externalSources: externalPayload.externalSources,
+    stats: {
+      ...basePayload.stats,
+      externalReferences: externalPayload.nodes.reduce(
+        (count, node) => count + node.externalReferences.length,
+        0,
+      ),
+    },
+  };
+  const skipLanguagePacks = process.env.SKIP_LANGUAGE_PACKS === '1';
+  const packs = skipLanguagePacks
+    ? []
+    : await buildLanguagePacks(new Set(payload.nodes.map((node) => node.id)));
 
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, JSON.stringify(payload, null, 2));
-  await writeLanguagePacks(packs);
+  if (!skipLanguagePacks) {
+    await writeLanguagePacks(packs);
+  }
 
   console.log(
     `Wrote ${payload.stats.paragraphs} paragraphs and ${payload.stats.references} references to ${outputPath}`,

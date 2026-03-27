@@ -661,6 +661,57 @@ input {
   margin: 0;
 }
 
+.external-reference-source {
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(24, 28, 35, 0.08);
+  display: grid;
+  gap: 0.65rem;
+}
+
+.external-reference-source-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.external-source-badge {
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(24, 28, 35, 0.08);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.external-reference-citation {
+  font-size: 0.85rem;
+  color: var(--accent-dark);
+}
+
+.external-reference-note {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+.external-reference-content {
+  display: grid;
+  gap: 0.55rem;
+  font-family: 'Iowan Old Style', 'Palatino Linotype', serif;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.external-reference-content p {
+  margin: 0;
+}
+
+.external-source-link {
+  width: fit-content;
+}
+
 .footnotes-list {
   display: grid;
   gap: 0.85rem;
