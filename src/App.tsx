@@ -14,7 +14,7 @@ import type { AppLanguage } from './lib/i18n';
 import type { CatechismData, CatechismNode } from './types';
 
 function fmtScore(score: number) {
-  return score.toFixed(5);
+  return score.toFixed(score === 0 || score === 100 ? 0 : 1);
 }
 
 function countExternalKinds(node: CatechismNode) {
@@ -347,7 +347,7 @@ function WorkspacePage({
                   </div>
                   <div>
                     <dt>{t.rank}</dt>
-                    <dd>{fmtScore(panelNode.pagerank)}</dd>
+                    <dd>{fmtScore(panelNode.relativePagerank)}</dd>
                   </div>
                   <div>
                     <dt>{t.scripture}</dt>
@@ -397,7 +397,7 @@ function WorkspacePage({
 
                       <div className="paragraph-metrics">
                         <span>
-                          {t.rank} {fmtScore(selectedNode.pagerank)}
+                          {t.rank} {fmtScore(selectedNode.relativePagerank)}
                         </span>
                         <span>
                           {selectedNode.xrefs.length} {t.outgoing}
@@ -565,7 +565,7 @@ function WorkspacePage({
                     </strong>
                     <p>{node.preview}</p>
                   </div>
-                  <span className="ranking-score">{fmtScore(node.pagerank)}</span>
+                  <span className="ranking-score">{fmtScore(node.relativePagerank)}</span>
                 </button>
               ))}
             </div>

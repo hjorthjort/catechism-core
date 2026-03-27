@@ -809,7 +809,14 @@ async function buildBaseGraphPayload() {
   try {
     const existing = await readFile(outputPath, 'utf8');
     const parsed = JSON.parse(existing);
-    if (parsed?.nodes?.length > 0 && parsed?.edges?.length > 0) {
+    const maxRelativePagerank = Math.max(
+      ...(parsed?.nodes?.map((node) => node.relativePagerank ?? 0) ?? [0]),
+    );
+    if (
+      parsed?.nodes?.length > 0 &&
+      parsed?.edges?.length > 0 &&
+      maxRelativePagerank > 1
+    ) {
       return parsed;
     }
   } catch {
@@ -849,13 +856,16 @@ async function buildBaseGraphPayload() {
 
   const enrichedNodes = nodes.map((node) => {
     const score = pageRanks.get(node.id) ?? 0;
-    const relativeScore = maxScore === 0 ? 0 : score / maxScore;
+    const linkCount = node.xrefs.length + (incoming.get(node.id) ?? []).length;
+    const normalizedScore =
+      linkCount === 0 || maxScore === 0 ? 0 : (score / maxScore) * 100;
+    const relativeScore = normalizedScore / 100;
 
     return {
       ...node,
       incoming: (incoming.get(node.id) ?? []).sort((a, b) => a - b),
       pagerank: Number(score.toFixed(8)),
-      relativePagerank: Number(relativeScore.toFixed(6)),
+      relativePagerank: Number(normalizedScore.toFixed(1)),
       visualRadius: Number((2.1 + relativeScore * 5.4).toFixed(2)),
     };
   });
