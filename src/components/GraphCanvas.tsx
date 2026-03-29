@@ -10,6 +10,7 @@ type GraphCanvasProps = {
   highlightId?: number | null;
   clusterRootId?: number | null;
   onNodeClick: (id: number) => void;
+  onNodeHover?: (id: number | null) => void;
   onNodeLongPress?: (id: number) => void;
   onBackgroundClick?: () => void;
   showDirectionalArrows?: boolean;
@@ -73,6 +74,7 @@ export function GraphCanvas({
   highlightId,
   clusterRootId,
   onNodeClick,
+  onNodeHover,
   onNodeLongPress,
   onBackgroundClick,
   showDirectionalArrows = false,
@@ -193,7 +195,7 @@ export function GraphCanvas({
   );
 
   const hoveredNode = hoveredId ? nodeMap.get(hoveredId) ?? null : null;
-  const activeHighlightId = hoveredId ?? highlightId;
+  const activeHighlightId = highlightId ?? null;
 
   const highlighted = useMemo(() => {
     const active = new Set<number>();
@@ -201,14 +203,29 @@ export function GraphCanvas({
       return active;
     }
 
+    let frontier = new Set([activeHighlightId]);
     active.add(activeHighlightId);
-    for (const edge of edges) {
-      if (edge.source === activeHighlightId) {
-        active.add(edge.target);
+
+    for (let depth = 0; depth < 2; depth += 1) {
+      const nextFrontier = new Set<number>();
+
+      for (const edge of edges) {
+        if (frontier.has(edge.source) && !active.has(edge.target)) {
+          active.add(edge.target);
+          nextFrontier.add(edge.target);
+        }
+
+        if (frontier.has(edge.target) && !active.has(edge.source)) {
+          active.add(edge.source);
+          nextFrontier.add(edge.source);
+        }
       }
-      if (edge.target === activeHighlightId) {
-        active.add(edge.source);
+
+      if (nextFrontier.size === 0) {
+        break;
       }
+
+      frontier = nextFrontier;
     }
 
     return active;
@@ -351,7 +368,8 @@ export function GraphCanvas({
       const isActive =
         activeHighlightId !== null &&
         activeHighlightId !== undefined &&
-        (edge.source === activeHighlightId || edge.target === activeHighlightId);
+        highlighted.has(edge.source) &&
+        highlighted.has(edge.target);
       context.strokeStyle = isActive ? 'rgba(24, 28, 35, 0.38)' : 'rgba(24, 28, 35, 0.12)';
       context.lineWidth = isActive ? 1.8 / transform.k : 1.15 / transform.k;
       context.beginPath();
@@ -461,8 +479,15 @@ export function GraphCanvas({
   function scheduleHover(nextHoveredId: number | null) {
     clearHoverTimer();
 
+    if (hoverDelayMs <= 0) {
+      setHoveredId(nextHoveredId);
+      onNodeHover?.(nextHoveredId);
+      return;
+    }
+
     hoverTimerRef.current = window.setTimeout(() => {
       setHoveredId(nextHoveredId);
+      onNodeHover?.(nextHoveredId);
       hoverTimerRef.current = null;
     }, hoverDelayMs);
   }

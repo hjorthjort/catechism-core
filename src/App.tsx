@@ -198,17 +198,20 @@ function WorkspacePage({
   const [localSelectedId, setLocalSelectedId] = useState<number | null>(
     hasSelectedRoute ? routeId : null,
   );
+  const [graphHoverId, setGraphHoverId] = useState<number | null>(null);
   const [sidebarHoverId, setSidebarHoverId] = useState<number | null>(null);
   const [clusterRootId, setClusterRootId] = useState<number | null>(null);
   const deferredQuery = useDeferredValue(query);
 
   const selectedId = hasSelectedRoute ? routeId : localSelectedId;
   const selectedNode = selectedId !== null ? nodeMap.get(selectedId) ?? null : null;
-  const panelNode = selectedNode ?? (deferredDefaultId ? nodeMap.get(deferredDefaultId) ?? null : null);
+  const previewId = graphHoverId ?? sidebarHoverId;
+  const previewNode = previewId !== null ? nodeMap.get(previewId) ?? null : null;
+  const panelNode = previewNode ?? selectedNode ?? (deferredDefaultId ? nodeMap.get(deferredDefaultId) ?? null : null);
   const panelExternalCounts = panelNode ? countExternalKinds(panelNode) : null;
   const directConnections = useMemo(
-    () => (selectedNode ? collectDirectConnections(nodeMap, selectedNode) : []),
-    [nodeMap, selectedNode],
+    () => (panelNode ? collectDirectConnections(nodeMap, panelNode) : []),
+    [nodeMap, panelNode],
   );
 
   const results = useMemo(() => {
@@ -226,6 +229,11 @@ function WorkspacePage({
   }, [data.nodes, deferredQuery, topNodes]);
 
   function selectNode(id: number, keepCluster = false) {
+    if (selectedId === id) {
+      clearSelection();
+      return;
+    }
+
     setLocalSelectedId(id);
     setSidebarHoverId(null);
 
@@ -388,70 +396,71 @@ function WorkspacePage({
                 clusterRootId={clusterRootId}
                 edges={data.edges}
                 focusId={deferredDefaultId}
-                highlightId={sidebarHoverId ?? selectedNode?.id ?? null}
-                hoverDelayMs={100}
+                highlightId={selectedNode?.id ?? null}
+                hoverDelayMs={0}
                 nodes={data.nodes}
                 onBackgroundClick={clearSelection}
                 onNodeClick={(id) => selectNode(id)}
+                onNodeHover={setGraphHoverId}
                 onNodeLongPress={handleGraphLongPress}
                 selectedId={selectedNode?.id ?? null}
               />
             </section>
 
-            <section className={`selection-panel ${selectedNode ? '' : 'is-empty'}`}>
-              {selectedNode ? (
+            <section className={`selection-panel ${panelNode ? '' : 'is-empty'}`}>
+              {panelNode ? (
                 <div className="selection-stack">
                   <article className="paragraph-body selected-paragraph">
                     <div className="selected-paragraph-header">
                       <div>
-                        <p className="eyebrow">{getPartLabel(selectedNode, language)}</p>
+                        <p className="eyebrow">{getPartLabel(panelNode, language)}</p>
                         <h2>
-                          {t.paragraph} {selectedNode.id}
+                          {t.paragraph} {panelNode.id}
                         </h2>
-                        <p className="lede">{getParagraphSubtitle(selectedNode, language)}</p>
+                        <p className="lede">{getParagraphSubtitle(panelNode, language)}</p>
                       </div>
 
                       <div className="paragraph-metrics">
                         <span>
-                          {t.rank} {fmtScore(selectedNode.relativePagerank)}
+                          {t.rank} {fmtScore(panelNode.relativePagerank)}
                         </span>
                         <span>
-                          {selectedNode.xrefs.length} {t.outgoing}
+                          {panelNode.xrefs.length} {t.outgoing}
                         </span>
                         <span>
-                          {selectedNode.incoming.length} {t.incoming}
+                          {panelNode.incoming.length} {t.incoming}
                         </span>
                       </div>
                     </div>
 
                     <div className="breadcrumb-trail">
-                      {selectedNode.breadcrumbs.map((crumb) => (
+                      {panelNode.breadcrumbs.map((crumb) => (
                         <span key={crumb}>{crumb}</span>
                       ))}
                     </div>
 
-                    <div className="paragraph-text" dangerouslySetInnerHTML={{ __html: selectedNode.textHtml }} />
+                    <div className="paragraph-text" dangerouslySetInnerHTML={{ __html: panelNode.textHtml }} />
 
-                    {selectedNode.vaticanSource ? (
+                    {panelNode.vaticanSource ? (
                       <section className="source-link-block">
                         <h3>{t.sourceMaterial}</h3>
                         <a
                           className="source-link"
-                          href={selectedNode.vaticanSource.url}
+                          href={panelNode.vaticanSource.url}
                           rel="noreferrer"
                           target="_blank"
                         >
                           {t.openSource}
-                          <span>{selectedNode.vaticanSource.file}</span>
+                          <span>{panelNode.vaticanSource.file}</span>
                         </a>
                       </section>
                     ) : null}
 
-                    {selectedNode.externalReferences.length > 0 ? (
+                    {panelNode.externalReferences.length > 0 ? (
                       <section className="external-references-block">
                         <h3>{t.externalReferences}</h3>
                         <div className="external-reference-list">
-                          {selectedNode.externalReferences.map((reference) => (
+                          {panelNode.externalReferences.map((reference) => (
                             <div className={`external-reference ${reference.kind}`} key={reference.id}>
                               <span className="reference-kind">
                                 {reference.kind === 'scripture' ? t.scripture : t.document}
@@ -501,11 +510,11 @@ function WorkspacePage({
                       </section>
                     ) : null}
 
-                    {selectedNode.footnotes.length > 0 ? (
+                    {panelNode.footnotes.length > 0 ? (
                       <section className="footnotes-block">
                         <h3>{t.footnotes}</h3>
                         <div className="footnotes-list">
-                          {selectedNode.footnotes.map((note) => (
+                          {panelNode.footnotes.map((note) => (
                             <div className="footnote-item" key={note.id}>
                               <strong>{note.number}.</strong>
                               <span dangerouslySetInnerHTML={{ __html: note.html }} />
