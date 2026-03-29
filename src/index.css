@@ -337,7 +337,7 @@ input {
 
 .explore-page {
   display: grid;
-  grid-template-columns: 22rem minmax(0, 1fr);
+  grid-template-columns: clamp(18rem, 24vw, 22rem) minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
 }
@@ -448,11 +448,11 @@ input {
 
 .explore-canvas,
 .graph-shell {
-  min-height: 70vh;
+  min-height: clamp(30rem, 58vw, 70vh);
 }
 
 .explore-canvas {
-  min-height: 72vh;
+  min-height: clamp(32rem, 62vw, 72vh);
 }
 
 .graph-shell {
