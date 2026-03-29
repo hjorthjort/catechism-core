@@ -138,7 +138,7 @@ input {
 
 .page,
 .explore-page {
-  padding: 1.4rem;
+  padding: clamp(0.9rem, 1.5vw, 1.4rem);
 }
 
 .page-workspace {
@@ -576,7 +576,7 @@ input {
 
 .paragraph-text {
   font-family: 'Iowan Old Style', 'Palatino Linotype', serif;
-  font-size: 1.16rem;
+  font-size: clamp(1rem, 0.95rem + 0.35vw, 1.16rem);
 }
 
 .paragraph-text p {
@@ -793,6 +793,14 @@ input {
     grid-template-columns: 1fr;
   }
 
+  .explore-sidebar {
+    order: 2;
+  }
+
+  .workspace-main {
+    order: 1;
+  }
+
   .site-header,
   .selected-paragraph-header,
   .related-passage-header {
@@ -812,5 +820,151 @@ input {
 
   .language-switcher {
     justify-content: start;
+  }
+
+  .focus-card dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .external-reference-source-header,
+  .footnote-item {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .explore-canvas,
+  .graph-shell {
+    min-height: clamp(24rem, 72vw, 40rem);
+  }
+}
+
+@media (max-width: 760px) {
+  .site-header {
+    padding: 1rem;
+  }
+
+  .page,
+  .explore-page {
+    padding: 0.8rem;
+  }
+
+  .hero-copy,
+  .hero-panel,
+  .ranking-section,
+  .paragraph-body,
+  .selection-panel,
+  .related-passages,
+  .loading-screen,
+  .not-found,
+  .explore-sidebar {
+    border-radius: 22px;
+    padding: 1rem;
+  }
+
+  .section-heading h2,
+  .workspace-heading h1,
+  .explore-sidebar h2,
+  .selected-paragraph h2,
+  .paragraph-hero h1,
+  .loading-screen h1,
+  .not-found h1 {
+    font-size: clamp(2rem, 9vw, 3.2rem);
+  }
+
+  .graph-caption {
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    gap: 0.45rem;
+  }
+
+  .graph-caption span {
+    font-size: 0.72rem;
+    padding: 0.38rem 0.6rem;
+  }
+
+  .search-result {
+    grid-template-columns: 1fr;
+  }
+
+  .search-result-open {
+    justify-self: start;
+  }
+
+  .focus-card dl,
+  .external-reference-list {
+    grid-template-columns: 1fr;
+  }
+
+  .breadcrumb-trail,
+  .paragraph-metrics,
+  .relation-badges {
+    gap: 0.45rem;
+  }
+
+  .source-link,
+  .external-reference,
+  .related-passage-card {
+    padding: 0.9rem;
+  }
+
+  .graph-tooltip {
+    width: min(260px, calc(100vw - 1rem));
+  }
+}
+
+@media (max-width: 560px) {
+  .site-header {
+    padding: 0.85rem 0.8rem;
+  }
+
+  .wordmark-title {
+    font-size: 1rem;
+  }
+
+  .language-switcher button {
+    padding: 0.4rem 0.55rem;
+  }
+
+  .language-switcher small {
+    display: none;
+  }
+
+  .search-field input,
+  .button,
+  .search-result-open,
+  .paragraph-metrics span,
+  .breadcrumb-trail span,
+  .relation-badges span {
+    width: 100%;
+  }
+
+  .button,
+  .search-result-open {
+    justify-content: center;
+  }
+
+  .graph-caption {
+    position: static;
+    margin: 0.75rem;
+  }
+
+  .graph-shell {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .graph-shell canvas {
+    min-height: 20rem;
+  }
+
+  .related-passage-header,
+  .selected-paragraph-header,
+  .external-reference-source-header {
+    gap: 0.65rem;
+  }
+
+  .graph-tooltip {
+    display: none;
   }
 }
