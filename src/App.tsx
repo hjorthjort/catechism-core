@@ -211,7 +211,7 @@ function WorkspacePage({
   const results = useMemo(() => {
     const search = deferredQuery.trim().toLowerCase();
     if (!search) {
-      return [...topNodes].slice(0, 14);
+      return [];
     }
 
     return data.nodes
@@ -220,7 +220,7 @@ function WorkspacePage({
         return haystack.includes(search);
       })
       .slice(0, 14);
-  }, [data.nodes, deferredQuery, topNodes]);
+  }, [data.nodes, deferredQuery]);
 
   function selectNode(id: number, keepCluster = false) {
     if (selectedId === id) {
