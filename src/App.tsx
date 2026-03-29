@@ -542,52 +542,6 @@ function WorkspacePage({
         </div>
       </section>
 
-      {showHero ? (
-        <>
-          <section className="feature-grid">
-            <article>
-              <h2>{t.featureGraphTitle}</h2>
-              <p>{t.featureGraphBody}</p>
-            </article>
-            <article>
-              <h2>{t.featureReferenceTitle}</h2>
-              <p>{t.featureReferenceBody}</p>
-            </article>
-            <article>
-              <h2>{t.featureRankTitle}</h2>
-              <p>{t.featureRankBody}</p>
-            </article>
-          </section>
-
-          <section className="ranking-section">
-            <div className="section-heading">
-              <p className="eyebrow">{t.rankingEyebrow}</p>
-              <h2>{t.rankingTitle}</h2>
-            </div>
-            <div className="ranking-list">
-              {topNodes.map((node, index) => (
-                <button
-                  className="ranking-item ranking-button"
-                  key={node.id}
-                  onClick={() => selectNode(node.id)}
-                  onMouseEnter={() => setSidebarHoverId(node.id)}
-                  onMouseLeave={() => setSidebarHoverId(null)}
-                  type="button"
-                >
-                  <span className="ranking-index">{String(index + 1).padStart(2, '0')}</span>
-                  <div>
-                    <strong>
-                      {t.paragraph} {node.id}
-                    </strong>
-                    <p>{node.preview}</p>
-                  </div>
-                  <span className="ranking-score">{fmtScore(node.relativePagerank)}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-        </>
-      ) : null}
     </main>
   );
 }
