@@ -119,6 +119,9 @@ const bibleTranslation = {
   sourceLabel: 'Bible API / World English Bible',
 };
 
+const vaticanBibleIndexUrl = 'https://www.vatican.va/archive/ENG0839/_INDEX.HTM';
+const vaticanBibleBaseUrl = 'https://www.vatican.va/archive/ENG0839/';
+
 const bibleBookAliases = new Map(
   Object.entries({
     GEN: ['gen', 'gn', 'genesis'],
@@ -271,6 +274,82 @@ const bibleBookNames = {
   '3JN': '3 John',
   JUD: 'Jude',
   REV: 'Revelation',
+};
+
+const vaticanBibleBookTitles = {
+  GEN: ['Genesis'],
+  EXO: ['Exodus'],
+  LEV: ['Leviticus'],
+  NUM: ['Numbers'],
+  DEU: ['Deuteronomy'],
+  JOS: ['Joshua'],
+  JDG: ['Judges'],
+  RUT: ['Ruth'],
+  '1SA': ['1 Samuel'],
+  '2SA': ['2 Samuel'],
+  '1KI': ['1 Kings'],
+  '2KI': ['2 Kings'],
+  '1CH': ['1 Chronicles'],
+  '2CH': ['2 Chronicles'],
+  EZR: ['Ezra'],
+  NEH: ['Nehemiah'],
+  TOB: ['Tobit'],
+  JDT: ['Judith'],
+  EST: ['Esther'],
+  '1MA': ['1 Maccabees'],
+  '2MA': ['2 Maccabees'],
+  JOB: ['Job'],
+  PSA: ['Psalms'],
+  PRO: ['Proverbs'],
+  ECC: ['Ecclesiastes'],
+  SNG: ['The Song of Songs', 'Song of Songs'],
+  WIS: ['The Book of Wisdom', 'Wisdom'],
+  SIR: ['Sirach'],
+  ISA: ['Isaiah'],
+  JER: ['Jeremiah'],
+  LAM: ['Lamentations'],
+  BAR: ['Baruch'],
+  EZK: ['Ezekiel'],
+  DAN: ['Daniel'],
+  HOS: ['Hosea'],
+  JOL: ['Joel'],
+  AMO: ['Amos'],
+  OBA: ['Obadiah'],
+  JON: ['Jonah'],
+  MIC: ['Micah'],
+  NAM: ['Nahum'],
+  HAB: ['Habakkuk'],
+  ZEP: ['Zephaniah'],
+  HAG: ['Haggai'],
+  ZEC: ['Zechariah'],
+  MAL: ['Malachi'],
+  MAT: ['Matthew'],
+  MRK: ['Mark'],
+  LUK: ['Luke'],
+  JHN: ['John'],
+  ACT: ['Acts'],
+  ROM: ['Romans'],
+  '1CO': ['1 Corinthians'],
+  '2CO': ['2 Corinthians'],
+  GAL: ['Galatians'],
+  EPH: ['Ephesians'],
+  PHP: ['Philippians'],
+  COL: ['Colossians'],
+  '1TH': ['1 Thessalonians'],
+  '2TH': ['2 Thessalonians'],
+  '1TI': ['1 Timothy'],
+  '2TI': ['2 Timothy'],
+  TIT: ['Titus'],
+  PHM: ['Philemon'],
+  HEB: ['Hebrews'],
+  JAS: ['James'],
+  '1PE': ['1 Peter'],
+  '2PE': ['2 Peter'],
+  '1JN': ['1 John'],
+  '2JN': ['2 John'],
+  '3JN': ['3 John'],
+  JUD: ['Jude'],
+  REV: ['Revelation'],
 };
 
 const singleChapterBookIds = new Set(['OBA', 'PHM', '2JN', '3JN', 'JUD']);
@@ -487,6 +566,14 @@ function cleanText(value) {
     .replace(/\u00ad/g, '')
     .replace(/\u200b/g, '')
     .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeBibleTitle(value) {
+  return cleanText(value)
+    .toLowerCase()
+    .replace(/\bthe\b/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 }
 
@@ -1746,6 +1833,64 @@ async function buildBibleChapterCache(queries) {
   return cache;
 }
 
+async function buildVaticanBiblePageLookup() {
+  const html = await fetchHtml(vaticanBibleIndexUrl);
+  const $ = cheerio.load(html);
+  const chapterLookup = new Map();
+
+  for (const [bookId, titles] of Object.entries(vaticanBibleBookTitles)) {
+    const normalizedTitles = new Set(titles.map((title) => normalizeBibleTitle(title)));
+    const entry = $('li')
+      .filter((_, element) => {
+        const titleNode = $(element).children('font').first();
+        const titleText = cleanText(titleNode.text());
+        if (!titleText) {
+          return false;
+        }
+
+        return normalizedTitles.has(normalizeBibleTitle(titleText));
+      })
+      .first();
+
+    if (!entry.length) {
+      continue;
+    }
+
+    const rawHtml = entry.html() ?? '';
+    const linkMatches = [...rawHtml.matchAll(/<a\s+href=(["']?)([^"'>\s]+)\1[^>]*>([^<]+)<\/a>/gi)];
+    const numericChapters = new Map();
+    let titleHref = null;
+
+    for (const match of linkMatches) {
+      const href = match[2];
+      const label = cleanText(match[3]);
+      if (!href || !label) {
+        continue;
+      }
+
+      const chapter = Number(label);
+      if (Number.isFinite(chapter)) {
+        numericChapters.set(chapter, new URL(href, vaticanBibleBaseUrl).toString());
+        continue;
+      }
+
+      if (normalizedTitles.has(normalizeBibleTitle(label)) && !titleHref) {
+        titleHref = new URL(href, vaticanBibleBaseUrl).toString();
+      }
+    }
+
+    if (singleChapterBookIds.has(bookId) && numericChapters.size === 0 && titleHref) {
+      numericChapters.set(1, titleHref);
+    }
+
+    for (const [chapter, url] of numericChapters) {
+      chapterLookup.set(`${bookId}:${chapter}`, url);
+    }
+  }
+
+  return chapterLookup;
+}
+
 function versesForSelection(verses, selection) {
   if (selection.verses === null) {
     return verses;
@@ -1763,7 +1908,36 @@ function versesForSelection(verses, selection) {
   );
 }
 
-function renderScriptureSource(query, chapterCache) {
+function scriptureSourceUrlForQuery(query, vaticanBibleLookup) {
+  const segments = splitScriptureQuery(query);
+  if (segments.length === 0) {
+    return null;
+  }
+
+  for (const segment of segments) {
+    const parsed = parseScriptureSegment(segment);
+    const chapters =
+      parsed?.chapters ??
+      (() => {
+        const match = segment.query.match(/\s+(\d+)/);
+        if (!match) {
+          return singleChapterBookIds.has(segment.bookId) ? [1] : [];
+        }
+        return [Number(match[1])];
+      })();
+
+    for (const chapter of chapters) {
+      const url = vaticanBibleLookup.get(`${segment.bookId}:${chapter}`);
+      if (url) {
+        return url;
+      }
+    }
+  }
+
+  return null;
+}
+
+function renderScriptureSource(query, chapterCache, vaticanBibleLookup) {
   const segments = splitScriptureQuery(query)
     .map((segment) => parseScriptureSegment(segment))
     .filter(Boolean);
@@ -1796,13 +1970,15 @@ function renderScriptureSource(query, chapterCache) {
     return null;
   }
 
+  const sourceUrl = scriptureSourceUrlForQuery(query, vaticanBibleLookup);
+
   return {
     citation: query,
     contentHtml: parts.join(''),
     contentText: textParts.join(' '),
     title: 'Sacred Scripture',
-    url: `https://bible-api.com/${encodeURIComponent(query)}?translation=${bibleTranslation.id}`,
-    sourceLabel: bibleTranslation.sourceLabel,
+    url: sourceUrl ?? `https://bible-api.com/${encodeURIComponent(query)}?translation=${bibleTranslation.id}`,
+    sourceLabel: sourceUrl ? 'Vatican.va Bible archive' : bibleTranslation.sourceLabel,
     translationStatus: 'public-domain',
   };
 }
@@ -1855,6 +2031,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
   const scriptureQueries = new Set();
   const documentQueries = new Map();
   const existingDocumentSourceByKey = new Map();
+  const vaticanBibleLookup = await buildVaticanBiblePageLookup();
 
   for (const source of Object.values(existingExternalSources)) {
     if (source?.kind !== 'document') {
@@ -1896,8 +2073,15 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
   for (const query of scriptureQueries) {
     const sourceId = `scripture:${slugSegment(query)}`;
     const existing = existingExternalSources[sourceId];
+    const sourceUrl = scriptureSourceUrlForQuery(query, vaticanBibleLookup);
     if (existing?.kind === 'scripture') {
-      externalSources[sourceId] = existing;
+      externalSources[sourceId] = {
+        ...existing,
+        id: sourceId,
+        citation: query,
+        url: sourceUrl ?? existing.url,
+        sourceLabel: sourceUrl ? 'Vatican.va Bible archive' : existing.sourceLabel,
+      };
       continue;
     }
 
@@ -1921,7 +2105,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
   debugLog('document queries', documentQueries.size);
 
   for (const query of shouldFetchMissingScripture ? missingScriptureQueries : []) {
-    const source = renderScriptureSource(query, chapterCache);
+    const source = renderScriptureSource(query, chapterCache, vaticanBibleLookup);
     if (!source) {
       continue;
     }
@@ -2034,6 +2218,20 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
       contentHtml,
       contentText,
     };
+  }
+
+  for (const source of Object.values(externalSources)) {
+    if (source?.kind !== 'scripture') {
+      continue;
+    }
+
+    const sourceUrl = scriptureSourceUrlForQuery(source.citation, vaticanBibleLookup);
+    if (!sourceUrl) {
+      continue;
+    }
+
+    source.url = sourceUrl;
+    source.sourceLabel = 'Vatican.va Bible archive';
   }
 
   debugLog('document sources built', Object.keys(externalSources).filter((key) => key.startsWith('document:')).length);
