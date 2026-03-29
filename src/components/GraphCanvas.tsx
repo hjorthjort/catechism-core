@@ -423,8 +423,9 @@ export function GraphCanvas({
         continue;
       }
 
-      const radius =
+      const baseRadius =
         getNodeScreenRadius(node, minScreenNodeRadius, transform.k, initialScale) / transform.k;
+      const radius = isPrimaryHighlighted ? baseRadius * 2 : baseRadius;
 
       context.beginPath();
       context.arc(position.x, position.y, radius, 0, Math.PI * 2);
@@ -434,7 +435,7 @@ export function GraphCanvas({
 
       if (isPrimaryHighlighted) {
         context.globalAlpha = 1;
-        context.lineWidth = 3 / transform.k;
+        context.lineWidth = 3.4 / transform.k;
         context.strokeStyle = '#f5eedf';
         context.stroke();
       } else if (isFocused) {
