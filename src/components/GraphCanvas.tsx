@@ -142,7 +142,8 @@ export function GraphCanvas({
   hoverDelayMs = 100,
 }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     active: boolean;
     longPressTriggered: boolean;
@@ -316,7 +317,7 @@ export function GraphCanvas({
   }, [fitToNodes, minZoomScale, size]);
 
   useEffect(() => {
-    if (!containerRef.current) {
+    if (!stageRef.current) {
       return;
     }
 
@@ -327,7 +328,7 @@ export function GraphCanvas({
       });
     });
 
-    resizeObserver.observe(containerRef.current);
+    resizeObserver.observe(stageRef.current);
     return () => resizeObserver.disconnect();
   }, []);
 
@@ -710,16 +711,18 @@ export function GraphCanvas({
       : tooltip.x + 18;
 
   return (
-    <div className="graph-shell" ref={containerRef}>
-      <canvas
-        ref={canvasRef}
-        onPointerCancel={handlePointerLeave}
-        onPointerDown={handlePointerDown}
-        onPointerLeave={handlePointerLeave}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onWheel={handleWheel}
-      />
+    <div className="graph-shell" ref={shellRef}>
+      <div className="graph-canvas-stage" ref={stageRef}>
+        <canvas
+          ref={canvasRef}
+          onPointerCancel={handlePointerLeave}
+          onPointerDown={handlePointerDown}
+          onPointerLeave={handlePointerLeave}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onWheel={handleWheel}
+        />
+      </div>
       <div className="graph-caption">
         {caption.map((label) => (
           <span key={label}>{label}</span>
