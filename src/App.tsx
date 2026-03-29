@@ -349,6 +349,16 @@ function WorkspacePage({
           </aside>
 
           <div className="workspace-main">
+            <label className="search-field search-field-mobile">
+              <span>{t.searchLabel}</span>
+              <input
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t.searchPlaceholder}
+                type="search"
+                value={query}
+              />
+            </label>
+
             <section className="explore-canvas">
               <GraphCanvas
                 caption={[t.graphZoom, t.graphPan, t.graphClickDetail]}
