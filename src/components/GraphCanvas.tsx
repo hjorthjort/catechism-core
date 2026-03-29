@@ -47,6 +47,31 @@ function getNodeScreenRadius(
   return Math.max(node.visualRadius, minScreenNodeRadius) * growthFactor;
 }
 
+function getHighlightNodeScale(distance: number | undefined) {
+  if (distance === undefined) {
+    return 1;
+  }
+
+  if (distance === 0) {
+    return 3;
+  }
+
+  return 1 + 1.45 / (distance + 0.35);
+}
+
+function getRenderedNodeRadius(
+  node: CatechismNode,
+  minScreenNodeRadius: number,
+  scale: number,
+  initialScale: number,
+  distance: number | undefined,
+) {
+  return (
+    (getNodeScreenRadius(node, minScreenNodeRadius, scale, initialScale) * getHighlightNodeScale(distance)) /
+    scale
+  );
+}
+
 function getSpacingFactor(scale: number, initialScale: number, fitToNodes: boolean) {
   if (fitToNodes) {
     return 1;
@@ -172,6 +197,23 @@ export function GraphCanvas({
 
   const nodeMap = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const edgeSet = useMemo(() => new Set(edges.map((edge) => `${edge.source}:${edge.target}`)), [edges]);
+  const adjacency = useMemo(() => {
+    const map = new Map<number, Set<number>>();
+
+    for (const edge of edges) {
+      if (!map.has(edge.source)) {
+        map.set(edge.source, new Set());
+      }
+      if (!map.has(edge.target)) {
+        map.set(edge.target, new Set());
+      }
+
+      map.get(edge.source)?.add(edge.target);
+      map.get(edge.target)?.add(edge.source);
+    }
+
+    return map;
+  }, [edges]);
   const graphBounds = useMemo(() => getGraphBounds(nodes), [nodes]);
   const clusterNeighborIds = useMemo(() => {
     const neighbors = new Set<number>();
@@ -256,39 +298,46 @@ export function GraphCanvas({
   const hoveredNode = hoveredId ? nodeMap.get(hoveredId) ?? null : null;
   const activeHighlightId = highlightId ?? null;
 
-  const highlighted = useMemo(() => {
-    const active = new Set<number>();
+  const highlightDistances = useMemo(() => {
+    const distances = new Map<number, number>();
     if (activeHighlightId === null || activeHighlightId === undefined) {
-      return active;
+      return distances;
     }
 
-    let frontier = new Set([activeHighlightId]);
-    active.add(activeHighlightId);
+    const queue = [activeHighlightId];
+    distances.set(activeHighlightId, 0);
 
-    for (let depth = 0; depth < 2; depth += 1) {
-      const nextFrontier = new Set<number>();
-
-      for (const edge of edges) {
-        if (frontier.has(edge.source) && !active.has(edge.target)) {
-          active.add(edge.target);
-          nextFrontier.add(edge.target);
-        }
-
-        if (frontier.has(edge.target) && !active.has(edge.source)) {
-          active.add(edge.source);
-          nextFrontier.add(edge.source);
-        }
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      if (currentId === undefined) {
+        continue;
       }
 
-      if (nextFrontier.size === 0) {
-        break;
+      const distance = distances.get(currentId) ?? 0;
+      const neighbors = adjacency.get(currentId);
+      if (!neighbors) {
+        continue;
       }
 
-      frontier = nextFrontier;
+      for (const neighborId of neighbors) {
+        if (distances.has(neighborId)) {
+          continue;
+        }
+
+        distances.set(neighborId, distance + 1);
+        queue.push(neighborId);
+      }
     }
 
-    return active;
-  }, [activeHighlightId, edges]);
+    return distances;
+  }, [activeHighlightId, adjacency]);
+  const maxHighlightDistance = useMemo(() => {
+    let maxDistance = 0;
+    for (const distance of highlightDistances.values()) {
+      maxDistance = Math.max(maxDistance, distance);
+    }
+    return maxDistance;
+  }, [highlightDistances]);
 
   useEffect(() => {
     return () => {
@@ -418,13 +467,29 @@ export function GraphCanvas({
         continue;
       }
 
-      const isActive = hasActiveHighlight && highlighted.has(edge.source) && highlighted.has(edge.target);
+      const sourceDistance = highlightDistances.get(edge.source);
+      const targetDistance = highlightDistances.get(edge.target);
+      const isActive = hasActiveHighlight && sourceDistance !== undefined && targetDistance !== undefined;
+      const edgeDistance =
+        sourceDistance !== undefined && targetDistance !== undefined
+          ? Math.max(sourceDistance, targetDistance)
+          : undefined;
+      const edgeIntensity =
+        edgeDistance === undefined
+          ? 0
+          : maxHighlightDistance === 0
+            ? 1
+            : edgeDistance / maxHighlightDistance;
       context.strokeStyle = isActive
-        ? 'rgba(24, 28, 35, 0.72)'
+        ? `rgba(24, 28, 35, ${0.32 + edgeIntensity * 0.52})`
         : hasActiveHighlight
           ? 'rgba(24, 28, 35, 0.045)'
           : 'rgba(24, 28, 35, 0.12)';
-      context.lineWidth = isActive ? 2 / transform.k : hasActiveHighlight ? 0.95 / transform.k : 1.15 / transform.k;
+      context.lineWidth = isActive
+        ? (1.15 + edgeIntensity * 1.35) / transform.k
+        : hasActiveHighlight
+          ? 0.95 / transform.k
+          : 1.15 / transform.k;
       context.beginPath();
       context.moveTo(sourcePosition.x, sourcePosition.y);
       context.lineTo(targetPosition.x, targetPosition.y);
@@ -440,8 +505,13 @@ export function GraphCanvas({
           const unitY = dy / length;
           const arrowSize = 8 / transform.k;
           const targetRadius =
-            (getNodeScreenRadius(target, minScreenNodeRadius, transform.k, initialScale) + 1.4) /
-            transform.k;
+            getRenderedNodeRadius(
+              target,
+              minScreenNodeRadius,
+              transform.k,
+              initialScale,
+              targetDistance,
+            ) + 1.4 / transform.k;
           const tipX = targetPosition.x - unitX * targetRadius;
           const tipY = targetPosition.y - unitY * targetRadius;
           const baseX = tipX - unitX * arrowSize;
@@ -450,7 +520,7 @@ export function GraphCanvas({
           const normalY = unitX;
 
           context.fillStyle = isActive
-            ? 'rgba(24, 28, 35, 0.8)'
+            ? `rgba(24, 28, 35, ${0.42 + edgeIntensity * 0.48})`
             : hasActiveHighlight
               ? 'rgba(24, 28, 35, 0.1)'
               : 'rgba(24, 28, 35, 0.28)';
@@ -467,7 +537,8 @@ export function GraphCanvas({
     for (const node of nodes) {
       const isPrimaryHighlighted = activeHighlightId === node.id;
       const isFocused = focusId === node.id || selectedId === node.id;
-      const isConnected = highlighted.has(node.id);
+      const nodeDistance = highlightDistances.get(node.id);
+      const isConnected = nodeDistance !== undefined;
       const hasActiveHighlight = activeHighlightId !== null && activeHighlightId !== undefined;
       const fill = partColors[node.part] ?? '#6a6a6a';
       const position = renderedPositions.get(node.id);
@@ -475,9 +546,13 @@ export function GraphCanvas({
         continue;
       }
 
-      const baseRadius =
-        getNodeScreenRadius(node, minScreenNodeRadius, transform.k, initialScale) / transform.k;
-      const radius = isPrimaryHighlighted ? baseRadius * 2 : baseRadius;
+      const radius = getRenderedNodeRadius(
+        node,
+        minScreenNodeRadius,
+        transform.k,
+        initialScale,
+        nodeDistance,
+      );
 
       context.beginPath();
       context.arc(position.x, position.y, radius, 0, Math.PI * 2);
@@ -505,7 +580,8 @@ export function GraphCanvas({
     edges,
     focusId,
     fitToNodes,
-    highlighted,
+    highlightDistances,
+    maxHighlightDistance,
     activeHighlightId,
     hoveredId,
     initialScale,
@@ -573,7 +649,9 @@ export function GraphCanvas({
       const dy = position.y - y;
       const distance = Math.sqrt(dx * dx + dy * dy);
       const threshold =
-        getNodeScreenRadius(node, minScreenNodeRadius, transform.k, initialScale) * 2.8;
+        getNodeScreenRadius(node, minScreenNodeRadius, transform.k, initialScale) *
+        getHighlightNodeScale(highlightDistances.get(node.id)) *
+        2.8;
 
       if (distance < threshold && distance < bestDistance) {
         nearest = node;
