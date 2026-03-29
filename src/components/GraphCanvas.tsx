@@ -66,6 +66,63 @@ function getRenderedPosition(
   };
 }
 
+function getGraphBounds(nodes: CatechismNode[]) {
+  if (nodes.length === 0) {
+    return null;
+  }
+
+  return nodes.reduce(
+    (current, node) => ({
+      minX: Math.min(current.minX, node.position.x),
+      maxX: Math.max(current.maxX, node.position.x),
+      minY: Math.min(current.minY, node.position.y),
+      maxY: Math.max(current.maxY, node.position.y),
+    }),
+    {
+      minX: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY,
+    },
+  );
+}
+
+function getFullGraphFitScale(
+  bounds: { minX: number; maxX: number; minY: number; maxY: number } | null,
+  size: { width: number; height: number },
+) {
+  if (!bounds || size.width === 0 || size.height === 0) {
+    return 0;
+  }
+
+  const width = Math.max(bounds.maxX - bounds.minX, 80);
+  const height = Math.max(bounds.maxY - bounds.minY, 80);
+  const padding = 64;
+
+  return Math.max(0.18, Math.min((size.width - padding) / width, (size.height - padding) / height));
+}
+
+function scaleAroundViewportCenter(
+  current: { x: number; y: number; k: number },
+  nextScale: number,
+  size: { width: number; height: number },
+) {
+  if (current.k === nextScale) {
+    return current;
+  }
+
+  const centerX = size.width / 2;
+  const centerY = size.height / 2;
+  const worldX = (centerX - current.x) / current.k;
+  const worldY = (centerY - current.y) / current.k;
+
+  return {
+    k: nextScale,
+    x: centerX - worldX * nextScale,
+    y: centerY - worldY * nextScale,
+  };
+}
+
 export function GraphCanvas({
   nodes,
   edges,
@@ -115,6 +172,7 @@ export function GraphCanvas({
 
   const nodeMap = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const edgeSet = useMemo(() => new Set(edges.map((edge) => `${edge.source}:${edge.target}`)), [edges]);
+  const graphBounds = useMemo(() => getGraphBounds(nodes), [nodes]);
   const clusterNeighborIds = useMemo(() => {
     const neighbors = new Set<number>();
     if (clusterRootId === null || clusterRootId === undefined) {
@@ -161,6 +219,7 @@ export function GraphCanvas({
     () => getSpacingFactor(transform.k, initialScale, fitToNodes),
     [fitToNodes, initialScale, transform.k],
   );
+  const minZoomScale = useMemo(() => getFullGraphFitScale(graphBounds, size), [graphBounds, size]);
   const renderedPositions = useMemo(
     () => {
       const basePositions = new Map(
@@ -247,6 +306,16 @@ export function GraphCanvas({
   }, [initialScale]);
 
   useEffect(() => {
+    if (fitToNodes || minZoomScale === 0) {
+      return;
+    }
+
+    setTransform((current) =>
+      current.k >= minZoomScale ? current : scaleAroundViewportCenter(current, minZoomScale, size),
+    );
+  }, [fitToNodes, minZoomScale, size]);
+
+  useEffect(() => {
     if (!containerRef.current) {
       return;
     }
@@ -294,37 +363,20 @@ export function GraphCanvas({
       return;
     }
 
-    const bounds = nodes.reduce(
-      (current, node) => ({
-        minX: Math.min(current.minX, node.position.x),
-        maxX: Math.max(current.maxX, node.position.x),
-        minY: Math.min(current.minY, node.position.y),
-        maxY: Math.max(current.maxY, node.position.y),
-      }),
-      {
-        minX: Number.POSITIVE_INFINITY,
-        maxX: Number.NEGATIVE_INFINITY,
-        minY: Number.POSITIVE_INFINITY,
-        maxY: Number.NEGATIVE_INFINITY,
-      },
-    );
+    if (!graphBounds) {
+      return;
+    }
 
-    const width = Math.max(bounds.maxX - bounds.minX, 80);
-    const height = Math.max(bounds.maxY - bounds.minY, 80);
-    const padding = 64;
-    const scale = Math.min(
-      1.3,
-      Math.max(0.18, Math.min((size.width - padding) / width, (size.height - padding) / height)),
-    );
-    const centerX = (bounds.minX + bounds.maxX) / 2;
-    const centerY = (bounds.minY + bounds.maxY) / 2;
+    const scale = Math.min(1.3, getFullGraphFitScale(graphBounds, size));
+    const centerX = (graphBounds.minX + graphBounds.maxX) / 2;
+    const centerY = (graphBounds.minY + graphBounds.maxY) / 2;
 
     setTransform({
       k: scale,
       x: size.width / 2 - centerX * scale,
       y: size.height / 2 - centerY * scale,
     });
-  }, [fitToNodes, nodes, size.height, size.width]);
+  }, [fitToNodes, graphBounds, nodes.length, size]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -639,7 +691,7 @@ export function GraphCanvas({
     const pointerY = event.clientY - rect.top;
 
     setTransform((current) => {
-      const nextScale = Math.min(3.4, Math.max(0.14, current.k * (event.deltaY > 0 ? 0.92 : 1.08)));
+      const nextScale = Math.min(3.4, Math.max(minZoomScale || 0.14, current.k * (event.deltaY > 0 ? 0.92 : 1.08)));
       const worldX = (pointerX - current.x) / current.k;
       const worldY = (pointerY - current.y) / current.k;
 
@@ -650,6 +702,12 @@ export function GraphCanvas({
       };
     });
   }
+
+  const tooltipMaxWidth = Math.min(300, Math.max(220, window.innerWidth - 32));
+  const tooltipLeft =
+    tooltip.x + 18 + tooltipMaxWidth > window.innerWidth - 16
+      ? Math.max(16, tooltip.x - tooltipMaxWidth - 18)
+      : tooltip.x + 18;
 
   return (
     <div className="graph-shell" ref={containerRef}>
@@ -671,7 +729,7 @@ export function GraphCanvas({
         <div
           className="graph-tooltip"
           style={{
-            left: Math.min(tooltip.x + 18, window.innerWidth - 320),
+            left: tooltipLeft,
             top: Math.max(20, tooltip.y - 36),
           }}
         >
