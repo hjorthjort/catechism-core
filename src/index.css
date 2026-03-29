@@ -494,7 +494,7 @@ input {
   height: 100%;
   display: block;
   cursor: grab;
-  touch-action: pan-y;
+  touch-action: none;
 }
 
 .graph-caption {
