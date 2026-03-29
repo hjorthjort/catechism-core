@@ -387,6 +387,10 @@ input {
   gap: 0.45rem;
 }
 
+.search-field-mobile {
+  display: none;
+}
+
 .search-field span {
   font-size: 0.84rem;
   font-weight: 600;
@@ -849,6 +853,14 @@ input {
 
   .workspace-main {
     order: 1;
+  }
+
+  .search-field-mobile {
+    display: grid;
+  }
+
+  .explore-sidebar > .search-field {
+    display: none;
   }
 
   .site-header,
