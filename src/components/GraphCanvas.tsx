@@ -152,6 +152,14 @@ function getTouchMidpoint(
   };
 }
 
+function getCanvasPointFromClient(canvas: HTMLCanvasElement, clientX: number, clientY: number) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: clientX - rect.left,
+    y: clientY - rect.top,
+  };
+}
+
 export function GraphCanvas({
   nodes,
   edges,
@@ -741,8 +749,13 @@ export function GraphCanvas({
 
   function handleTouchStart(event: React.TouchEvent<HTMLCanvasElement>) {
     scheduleHover(null);
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
 
     if (event.touches.length >= 2) {
+      const startMidpointClient = getTouchMidpoint(event.touches);
       clearHoldTimer();
       touchRef.current = {
         mode: 'gesture',
@@ -751,7 +764,7 @@ export function GraphCanvas({
         startY: 0,
         pressedNodeId: null,
         startDistance: getTouchDistance(event.touches),
-        startMidpoint: getTouchMidpoint(event.touches),
+        startMidpoint: getCanvasPointFromClient(canvas, startMidpointClient.x, startMidpointClient.y),
         startTransform: transform,
       };
       event.preventDefault();
@@ -785,7 +798,13 @@ export function GraphCanvas({
   }
 
   function handleTouchMove(event: React.TouchEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
     if (event.touches.length >= 2) {
+      const startMidpointClient = getTouchMidpoint(event.touches);
       const gesture =
         touchRef.current.mode === 'gesture'
           ? touchRef.current
@@ -793,17 +812,25 @@ export function GraphCanvas({
               ...touchRef.current,
               mode: 'gesture' as const,
               startDistance: getTouchDistance(event.touches),
-              startMidpoint: getTouchMidpoint(event.touches),
+              startMidpoint: getCanvasPointFromClient(canvas, startMidpointClient.x, startMidpointClient.y),
               startTransform: transform,
             };
       touchRef.current = gesture;
       clearHoldTimer();
 
       const currentDistance = Math.max(getTouchDistance(event.touches), 1);
-      const currentMidpoint = getTouchMidpoint(event.touches);
+      const currentMidpointClient = getTouchMidpoint(event.touches);
+      const currentMidpoint = getCanvasPointFromClient(
+        canvas,
+        currentMidpointClient.x,
+        currentMidpointClient.y,
+      );
       const nextScale = Math.min(
         3.4,
-        Math.max(minZoomScale || 0.14, gesture.startTransform.k * (currentDistance / Math.max(gesture.startDistance, 1))),
+        Math.max(
+          minZoomScale || 0.14,
+          gesture.startTransform.k * (currentDistance / Math.max(gesture.startDistance, 1)),
+        ),
       );
       const worldX = (gesture.startMidpoint.x - gesture.startTransform.x) / gesture.startTransform.k;
       const worldY = (gesture.startMidpoint.y - gesture.startTransform.y) / gesture.startTransform.k;
