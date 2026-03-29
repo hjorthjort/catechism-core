@@ -255,28 +255,8 @@ function WorkspacePage({
     }
   }
 
-  function handleJumpToGraph() {
-    document.getElementById('graph-workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
   return (
     <main className={`page ${showHero ? '' : 'page-workspace'}`}>
-      {showHero ? (
-        <section className="hero">
-          <div className="hero-copy">
-            <p className="eyebrow">{t.homeEyebrow}</p>
-            <div className="hero-actions">
-              <button className="button" onClick={handleJumpToGraph} type="button">
-                {t.homeOpenGraph}
-              </button>
-              <a className="button button-ghost" href={data.source.corpus} rel="noreferrer" target="_blank">
-                {t.homeViewSource}
-              </a>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
       {invalidSelectedRoute ? (
         <section className="not-found not-found-inline">
           <h1>{t.paragraphNotFound}</h1>
