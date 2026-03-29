@@ -378,9 +378,6 @@ function WorkspacePage({
 
                       <div className="paragraph-metrics">
                         <span>
-                          {t.rank} {fmtScore(panelNode.relativePagerank)}
-                        </span>
-                        <span>
                           {panelNode.xrefs.length} {t.outgoing}
                         </span>
                         <span>
