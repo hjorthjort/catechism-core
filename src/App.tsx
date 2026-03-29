@@ -316,7 +316,6 @@ function WorkspacePage({
                 <h2>
                   {t.paragraph} {panelNode.id}
                 </h2>
-                <p>{panelNode.preview}</p>
                 <dl>
                   <div>
                     <dt>{t.outgoing}</dt>
