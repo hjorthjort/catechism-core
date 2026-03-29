@@ -703,6 +703,12 @@ export function GraphCanvas({
     });
   }
 
+  const tooltipMaxWidth = Math.min(300, Math.max(220, window.innerWidth - 32));
+  const tooltipLeft =
+    tooltip.x + 18 + tooltipMaxWidth > window.innerWidth - 16
+      ? Math.max(16, tooltip.x - tooltipMaxWidth - 18)
+      : tooltip.x + 18;
+
   return (
     <div className="graph-shell" ref={containerRef}>
       <canvas
@@ -723,7 +729,7 @@ export function GraphCanvas({
         <div
           className="graph-tooltip"
           style={{
-            left: Math.min(tooltip.x + 18, window.innerWidth - 320),
+            left: tooltipLeft,
             top: Math.max(20, tooltip.y - 36),
           }}
         >
