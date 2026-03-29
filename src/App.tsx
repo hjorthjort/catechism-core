@@ -15,6 +15,7 @@ import type { CatechismData, CatechismNode } from './types';
 
 const brandKicker = 'CCC';
 const brandTitle = 'CCC Explorer';
+const buildHash = import.meta.env.VITE_GIT_COMMIT_HASH ?? 'unknown';
 
 function fmtScore(score: number) {
   return score.toFixed(score === 0 || score === 100 ? 0 : 1);
@@ -163,6 +164,8 @@ function Shell({
             element={<WorkspacePage data={data} language={language} showHero topNodes={topNodes} />}
           />
         </Routes>
+
+        <div className="build-label">build {buildHash}</div>
       </div>
     </BrowserRouter>
   );
@@ -377,9 +380,6 @@ function WorkspacePage({
                       </div>
 
                       <div className="paragraph-metrics">
-                        <span>
-                          {t.rank} {fmtScore(panelNode.relativePagerank)}
-                        </span>
                         <span>
                           {panelNode.xrefs.length} {t.outgoing}
                         </span>
