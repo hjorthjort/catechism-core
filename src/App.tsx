@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { BrowserRouter, Link, NavLink, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Link, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 
 import { GraphCanvas } from './components/GraphCanvas';
 import { useCatechismData } from './lib/data';
@@ -12,6 +12,9 @@ import {
 } from './lib/i18n';
 import type { AppLanguage } from './lib/i18n';
 import type { CatechismData, CatechismNode } from './types';
+
+const brandKicker = 'CCC';
+const brandTitle = 'CCC Explorer';
 
 function fmtScore(score: number) {
   return score.toFixed(score === 0 || score === 100 ? 0 : 1);
@@ -113,7 +116,6 @@ function Shell({
   language: AppLanguage;
   onLanguageChange: (language: AppLanguage) => void;
 }) {
-  const t = uiStrings[language];
   const languageMeta = getLanguageMeta(language);
   const topNodes = useMemo(
     () => [...data.nodes].sort((a, b) => b.pagerank - a.pagerank).slice(0, 10),
@@ -125,19 +127,11 @@ function Shell({
       <div className="app-shell" dir={languageMeta.direction} lang={language}>
         <header className="site-header">
           <Link className="wordmark" to={withLanguage('/', language)}>
-            <span className="wordmark-kicker">{t.wordmarkKicker}</span>
-            <span className="wordmark-title">{t.wordmarkTitle}</span>
+            <span className="wordmark-kicker">{brandKicker}</span>
+            <span className="wordmark-title">{brandTitle}</span>
           </Link>
 
           <div className="site-header-controls">
-            <nav className="site-nav">
-              <NavLink to={withLanguage('/', language)}>{t.navOverview}</NavLink>
-              <NavLink to={withLanguage('/explore', language)}>{t.navExplorer}</NavLink>
-              <NavLink to={withLanguage(`/paragraph/${topNodes[0]?.id ?? 1}`, language)}>
-                {t.navTopNode}
-              </NavLink>
-            </nav>
-
             <div className="language-switcher" aria-label="Language selector">
               {languages.map((entry) => (
                 <button
@@ -271,8 +265,6 @@ function WorkspacePage({
         <section className="hero">
           <div className="hero-copy">
             <p className="eyebrow">{t.homeEyebrow}</p>
-            <h1>{t.homeTitle}</h1>
-            <p className="lede">{t.homeLede}</p>
             <div className="hero-actions">
               <button className="button" onClick={handleJumpToGraph} type="button">
                 {t.homeOpenGraph}
@@ -280,21 +272,6 @@ function WorkspacePage({
               <a className="button button-ghost" href={data.source.corpus} rel="noreferrer" target="_blank">
                 {t.homeViewSource}
               </a>
-            </div>
-          </div>
-
-          <div className="hero-panel">
-            <div className="stat-card">
-              <span>{t.statParagraphs}</span>
-              <strong>{data.stats.paragraphs.toLocaleString()}</strong>
-            </div>
-            <div className="stat-card">
-              <span>{t.statInternalLinks}</span>
-              <strong>{data.stats.references.toLocaleString()}</strong>
-            </div>
-            <div className="stat-card">
-              <span>{t.statExternalRefs}</span>
-              <strong>{data.stats.externalReferences.toLocaleString()}</strong>
             </div>
           </div>
         </section>
@@ -655,7 +632,7 @@ export default function App() {
   if (loading) {
     return (
       <main className="loading-screen">
-        <p className="eyebrow">{t.wordmarkKicker}</p>
+        <p className="eyebrow">{brandKicker}</p>
         <h1>{t.loadingTitle}</h1>
       </main>
     );
@@ -664,7 +641,7 @@ export default function App() {
   if (error || !data) {
     return (
       <main className="loading-screen">
-        <p className="eyebrow">{t.wordmarkKicker}</p>
+        <p className="eyebrow">{brandKicker}</p>
         <h1>{t.errorTitle}</h1>
         <p>{error ?? 'Unknown error'}</p>
       </main>
