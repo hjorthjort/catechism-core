@@ -152,7 +152,7 @@ const partTranslations = {
 
 export const uiStrings: Record<AppLanguage, UiStrings> = {
   en: {
-    wordmarkKicker: 'Catholic Core',
+    wordmarkKicker: 'CCC',
     wordmarkTitle: 'Connections in the Catechism',
     navOverview: 'Overview',
     navExplorer: 'Explorer',
@@ -211,7 +211,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     parts: partTranslations.en,
   },
   fr: {
-    wordmarkKicker: 'Coeur catholique',
+    wordmarkKicker: 'CCC',
     wordmarkTitle: 'Connexions dans le Catechisme',
     navOverview: 'Vue generale',
     navExplorer: 'Explorateur',
@@ -270,7 +270,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     parts: partTranslations.fr,
   },
   de: {
-    wordmarkKicker: 'Katholischer Kern',
+    wordmarkKicker: 'CCC',
     wordmarkTitle: 'Verbindungen im Katechismus',
     navOverview: 'Ubersicht',
     navExplorer: 'Explorer',
@@ -329,7 +329,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     parts: partTranslations.de,
   },
   it: {
-    wordmarkKicker: 'Nucleo cattolico',
+    wordmarkKicker: 'CCC',
     wordmarkTitle: 'Connessioni nel Catechismo',
     navOverview: 'Panoramica',
     navExplorer: 'Esploratore',
@@ -388,7 +388,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     parts: partTranslations.it,
   },
   la: {
-    wordmarkKicker: 'Nucleus catholicus',
+    wordmarkKicker: 'CCC',
     wordmarkTitle: 'Nexus in Catechismo',
     navOverview: 'Conspectus',
     navExplorer: 'Exploratio',
@@ -447,7 +447,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     parts: partTranslations.la,
   },
   es: {
-    wordmarkKicker: 'Nucleo catolico',
+    wordmarkKicker: 'CCC',
     wordmarkTitle: 'Conexiones en el Catecismo',
     navOverview: 'Resumen',
     navExplorer: 'Explorador',
@@ -506,7 +506,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     parts: partTranslations.es,
   },
   pt: {
-    wordmarkKicker: 'Nucleo catolico',
+    wordmarkKicker: 'CCC',
     wordmarkTitle: 'Conexoes no Catecismo',
     navOverview: 'Visao geral',
     navExplorer: 'Explorador',
@@ -565,7 +565,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     parts: partTranslations.pt,
   },
   mg: {
-    wordmarkKicker: 'Fototra katolika',
+    wordmarkKicker: 'CCC',
     wordmarkTitle: 'Rohy ao amin’ny Katesizy',
     navOverview: 'Topimaso',
     navExplorer: 'Mpikaroka',
@@ -624,7 +624,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     parts: partTranslations.mg,
   },
   zh: {
-    wordmarkKicker: '天主教核心',
+    wordmarkKicker: 'CCC',
     wordmarkTitle: '教理中的連結',
     navOverview: '總覽',
     navExplorer: '探索器',
@@ -680,7 +680,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     parts: partTranslations.zh,
   },
   ar: {
-    wordmarkKicker: 'الجوهر الكاثوليكي',
+    wordmarkKicker: 'CCC',
     wordmarkTitle: 'الروابط في التعليم المسيحي',
     navOverview: 'نظرة عامة',
     navExplorer: 'المستكشف',
