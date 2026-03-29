@@ -354,6 +354,7 @@ export function GraphCanvas({
 
     context.lineCap = 'round';
     context.lineJoin = 'round';
+    const hasActiveHighlight = activeHighlightId !== null && activeHighlightId !== undefined;
 
     for (const edge of edges) {
       const source = nodeMap.get(edge.source);
@@ -365,13 +366,13 @@ export function GraphCanvas({
         continue;
       }
 
-      const isActive =
-        activeHighlightId !== null &&
-        activeHighlightId !== undefined &&
-        highlighted.has(edge.source) &&
-        highlighted.has(edge.target);
-      context.strokeStyle = isActive ? 'rgba(24, 28, 35, 0.38)' : 'rgba(24, 28, 35, 0.12)';
-      context.lineWidth = isActive ? 1.8 / transform.k : 1.15 / transform.k;
+      const isActive = hasActiveHighlight && highlighted.has(edge.source) && highlighted.has(edge.target);
+      context.strokeStyle = isActive
+        ? 'rgba(24, 28, 35, 0.72)'
+        : hasActiveHighlight
+          ? 'rgba(24, 28, 35, 0.045)'
+          : 'rgba(24, 28, 35, 0.12)';
+      context.lineWidth = isActive ? 2 / transform.k : hasActiveHighlight ? 0.95 / transform.k : 1.15 / transform.k;
       context.beginPath();
       context.moveTo(sourcePosition.x, sourcePosition.y);
       context.lineTo(targetPosition.x, targetPosition.y);
@@ -396,7 +397,11 @@ export function GraphCanvas({
           const normalX = -unitY;
           const normalY = unitX;
 
-          context.fillStyle = isActive ? 'rgba(24, 28, 35, 0.58)' : 'rgba(24, 28, 35, 0.28)';
+          context.fillStyle = isActive
+            ? 'rgba(24, 28, 35, 0.8)'
+            : hasActiveHighlight
+              ? 'rgba(24, 28, 35, 0.1)'
+              : 'rgba(24, 28, 35, 0.28)';
           context.beginPath();
           context.moveTo(tipX, tipY);
           context.lineTo(baseX + normalX * (arrowSize * 0.55), baseY + normalY * (arrowSize * 0.55));
