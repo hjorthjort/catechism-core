@@ -123,6 +123,35 @@ function scaleAroundViewportCenter(
   };
 }
 
+function getTouchDistance(
+  touches: Pick<React.TouchList, 'length'> & {
+    [index: number]: { clientX: number; clientY: number };
+  },
+) {
+  if (touches.length < 2) {
+    return 0;
+  }
+
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.hypot(dx, dy);
+}
+
+function getTouchMidpoint(
+  touches: Pick<React.TouchList, 'length'> & {
+    [index: number]: { clientX: number; clientY: number };
+  },
+) {
+  if (touches.length < 2) {
+    return { x: 0, y: 0 };
+  }
+
+  return {
+    x: (touches[0].clientX + touches[1].clientX) / 2,
+    y: (touches[0].clientY + touches[1].clientY) / 2,
+  };
+}
+
 export function GraphCanvas({
   nodes,
   edges,
@@ -165,6 +194,25 @@ export function GraphCanvas({
   });
   const holdTimerRef = useRef<number | null>(null);
   const hoverTimerRef = useRef<number | null>(null);
+  const touchRef = useRef<{
+    mode: 'idle' | 'tap' | 'gesture';
+    moved: boolean;
+    startX: number;
+    startY: number;
+    pressedNodeId: number | null;
+    startDistance: number;
+    startMidpoint: { x: number; y: number };
+    startTransform: { x: number; y: number; k: number };
+  }>({
+    mode: 'idle',
+    moved: false,
+    startX: 0,
+    startY: 0,
+    pressedNodeId: null,
+    startDistance: 0,
+    startMidpoint: { x: 0, y: 0 },
+    startTransform: { x: 0, y: 0, k: initialScale },
+  });
 
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [transform, setTransform] = useState(() => createDefaultTransform(initialScale));
@@ -586,6 +634,10 @@ export function GraphCanvas({
   }
 
   function handlePointerMove(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (event.pointerType === 'touch') {
+      return;
+    }
+
     if (dragRef.current.active) {
       const deltaX = event.clientX - dragRef.current.x;
       const deltaY = event.clientY - dragRef.current.y;
@@ -616,6 +668,10 @@ export function GraphCanvas({
   }
 
   function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (event.pointerType === 'touch') {
+      return;
+    }
+
     const node = findNode(event.clientX, event.clientY);
 
     dragRef.current = {
@@ -642,6 +698,10 @@ export function GraphCanvas({
   }
 
   function handlePointerUp(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (event.pointerType === 'touch') {
+      return;
+    }
+
     clearHoldTimer();
     const node = findNode(event.clientX, event.clientY);
     if (
@@ -679,6 +739,128 @@ export function GraphCanvas({
     scheduleHover(null);
   }
 
+  function handleTouchStart(event: React.TouchEvent<HTMLCanvasElement>) {
+    scheduleHover(null);
+
+    if (event.touches.length >= 2) {
+      clearHoldTimer();
+      touchRef.current = {
+        mode: 'gesture',
+        moved: true,
+        startX: 0,
+        startY: 0,
+        pressedNodeId: null,
+        startDistance: getTouchDistance(event.touches),
+        startMidpoint: getTouchMidpoint(event.touches),
+        startTransform: transform,
+      };
+      event.preventDefault();
+      return;
+    }
+
+    const touch = event.touches[0];
+    if (!touch) {
+      return;
+    }
+
+    const node = findNode(touch.clientX, touch.clientY);
+    touchRef.current = {
+      mode: 'tap',
+      moved: false,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      pressedNodeId: node?.id ?? null,
+      startDistance: 0,
+      startMidpoint: { x: 0, y: 0 },
+      startTransform: transform,
+    };
+
+    if (node && onNodeLongPress) {
+      clearHoldTimer();
+      holdTimerRef.current = window.setTimeout(() => {
+        onNodeLongPress(node.id);
+        holdTimerRef.current = null;
+      }, 1000);
+    }
+  }
+
+  function handleTouchMove(event: React.TouchEvent<HTMLCanvasElement>) {
+    if (event.touches.length >= 2) {
+      const gesture =
+        touchRef.current.mode === 'gesture'
+          ? touchRef.current
+          : {
+              ...touchRef.current,
+              mode: 'gesture' as const,
+              startDistance: getTouchDistance(event.touches),
+              startMidpoint: getTouchMidpoint(event.touches),
+              startTransform: transform,
+            };
+      touchRef.current = gesture;
+      clearHoldTimer();
+
+      const currentDistance = Math.max(getTouchDistance(event.touches), 1);
+      const currentMidpoint = getTouchMidpoint(event.touches);
+      const nextScale = Math.min(
+        3.4,
+        Math.max(minZoomScale || 0.14, gesture.startTransform.k * (currentDistance / Math.max(gesture.startDistance, 1))),
+      );
+      const worldX = (gesture.startMidpoint.x - gesture.startTransform.x) / gesture.startTransform.k;
+      const worldY = (gesture.startMidpoint.y - gesture.startTransform.y) / gesture.startTransform.k;
+
+      setTransform({
+        k: nextScale,
+        x: currentMidpoint.x - worldX * nextScale,
+        y: currentMidpoint.y - worldY * nextScale,
+      });
+      event.preventDefault();
+      return;
+    }
+
+    const touch = event.touches[0];
+    if (!touch || touchRef.current.mode !== 'tap') {
+      return;
+    }
+
+    const movedDistance = Math.hypot(
+      touch.clientX - touchRef.current.startX,
+      touch.clientY - touchRef.current.startY,
+    );
+    if (movedDistance > 10) {
+      touchRef.current.moved = true;
+      clearHoldTimer();
+    }
+  }
+
+  function handleTouchEnd(event: React.TouchEvent<HTMLCanvasElement>) {
+    const wasTap = touchRef.current.mode === 'tap' && !touchRef.current.moved;
+    clearHoldTimer();
+
+    if (event.touches.length === 0 && wasTap) {
+      const touch = event.changedTouches[0];
+      const node = touch ? findNode(touch.clientX, touch.clientY) : null;
+
+      if (node) {
+        onNodeClick(node.id);
+      } else {
+        onBackgroundClick?.();
+      }
+    }
+
+    if (event.touches.length < 2) {
+      touchRef.current = {
+        mode: 'idle',
+        moved: false,
+        startX: 0,
+        startY: 0,
+        pressedNodeId: null,
+        startDistance: 0,
+        startMidpoint: { x: 0, y: 0 },
+        startTransform: transform,
+      };
+    }
+  }
+
   function handleWheel(event: React.WheelEvent<HTMLCanvasElement>) {
     event.preventDefault();
 
@@ -714,14 +896,17 @@ export function GraphCanvas({
     <div className="graph-shell" ref={shellRef}>
       <div className="graph-canvas-stage" ref={stageRef}>
         <canvas
-          ref={canvasRef}
-          onPointerCancel={handlePointerLeave}
-          onPointerDown={handlePointerDown}
-          onPointerLeave={handlePointerLeave}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onWheel={handleWheel}
-        />
+        ref={canvasRef}
+        onPointerCancel={handlePointerLeave}
+        onPointerDown={handlePointerDown}
+        onPointerLeave={handlePointerLeave}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchMove}
+        onTouchStart={handleTouchStart}
+        onWheel={handleWheel}
+      />
       </div>
       <div className="graph-caption">
         {caption.map((label) => (
