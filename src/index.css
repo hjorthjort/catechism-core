@@ -52,6 +52,21 @@ input {
   min-height: 100vh;
 }
 
+.build-label {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 25;
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(24, 28, 35, 0.08);
+  background: rgba(255, 252, 247, 0.9);
+  backdrop-filter: blur(12px);
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
 .site-header {
   position: sticky;
   top: 0;
@@ -1001,5 +1016,10 @@ input {
 
   .graph-tooltip {
     display: none;
+  }
+
+  .build-label {
+    right: 0.75rem;
+    bottom: 0.75rem;
   }
 }
