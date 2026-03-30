@@ -661,12 +661,7 @@ function WorkspacePage({
 
                     <div className="related-passage-list">
                       {directConnections.map((relation) => (
-                        <article
-                          className="related-passage-card"
-                          key={relation.node.id}
-                          onMouseEnter={() => setSidebarHoverId(relation.node.id)}
-                          onMouseLeave={() => setSidebarHoverId(null)}
-                        >
+                        <article className="related-passage-card" key={relation.node.id}>
                           <div className="related-passage-header">
                             <div>
                               <p className="eyebrow">{getPartLabel(relation.node, language)}</p>
