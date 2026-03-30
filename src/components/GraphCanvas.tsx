@@ -32,7 +32,7 @@ const partPalette: Record<
   Prologue: { hue: 42, saturation: 26, lightness: 82 },
   'Profession of Faith': { hue: 218, saturation: 68, lightness: 52 },
   'Celebration of the Christian Mystery': { hue: 6, saturation: 70, lightness: 54 },
-  'Life in Christ': { hue: 108, saturation: 62, lightness: 45 },
+  'Life in Christ': { hue: 50, saturation: 88, lightness: 52 },
   'Christian Prayer': { hue: 144, saturation: 50, lightness: 42 },
 };
 
@@ -315,11 +315,12 @@ export function GraphCanvas({
         const chapterKeys = chaptersBySection.get(`${keys.partKey}::${keys.sectionKey ?? '__root__'}`) ?? [];
         const sectionIndex = keys.sectionKey ? sectionKeys.indexOf(keys.sectionKey) : -1;
         const chapterIndex = keys.chapterKey ? chapterKeys.indexOf(keys.chapterKey) : -1;
+        const prefersBrightnessVariation = keys.partKey === 'Life in Christ';
 
-        const sectionHueOffset = sectionIndex >= 0 ? getOffset(sectionIndex, sectionKeys.length, 24) : 0;
-        const chapterHueOffset = chapterIndex >= 0 ? getOffset(chapterIndex, chapterKeys.length, 9) : 0;
-        const sectionLightnessOffset = sectionIndex >= 0 ? getOffset(sectionIndex, sectionKeys.length, 8) : 0;
-        const chapterLightnessOffset = chapterIndex >= 0 ? getOffset(chapterIndex, chapterKeys.length, 5) : 0;
+        const sectionHueOffset = sectionIndex >= 0 ? getOffset(sectionIndex, sectionKeys.length, prefersBrightnessVariation ? 6 : 24) : 0;
+        const chapterHueOffset = chapterIndex >= 0 ? getOffset(chapterIndex, chapterKeys.length, prefersBrightnessVariation ? 3 : 9) : 0;
+        const sectionLightnessOffset = sectionIndex >= 0 ? getOffset(sectionIndex, sectionKeys.length, prefersBrightnessVariation ? 16 : 8) : 0;
+        const chapterLightnessOffset = chapterIndex >= 0 ? getOffset(chapterIndex, chapterKeys.length, prefersBrightnessVariation ? 6 : 5) : 0;
 
         const hue = baseColor.hue + sectionHueOffset + chapterHueOffset;
         const saturation = clamp(baseColor.saturation + (keys.sectionKey ? 6 : 0) + (keys.chapterKey ? 4 : 0), 20, 96);
