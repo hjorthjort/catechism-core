@@ -1,5 +1,5 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { BrowserRouter, Link, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { BrowserRouter, Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { GraphCanvas } from './components/GraphCanvas';
 import { useCatechismData } from './lib/data';
@@ -196,24 +196,28 @@ function WorkspacePage({
 }) {
   const navigate = useNavigate();
   const params = useParams();
+  const [searchParams] = useSearchParams();
   const t = uiStrings[language];
   const nodeMap = useMemo(() => new Map(data.nodes.map((node) => [node.id, node])), [data.nodes]);
   const routeId = params.id ? Number(params.id) : null;
   const hasSelectedRoute = routeId !== null && Number.isFinite(routeId) && nodeMap.has(routeId);
-  const invalidSelectedRoute = params.id !== undefined && !hasSelectedRoute;
+  const querySelectedValue = searchParams.get('paragraph');
+  const querySelectedId = querySelectedValue ? Number(querySelectedValue) : null;
+  const hasSelectedQuery =
+    querySelectedId !== null && Number.isFinite(querySelectedId) && nodeMap.has(querySelectedId);
+  const invalidSelectedRoute =
+    (params.id !== undefined && !hasSelectedRoute) ||
+    (querySelectedValue !== null && !hasSelectedQuery);
   const deferredDefaultId = topNodes[0]?.id ?? data.nodes[0]?.id ?? null;
 
   const [query, setQuery] = useState('');
-  const [localSelectedId, setLocalSelectedId] = useState<number | null>(
-    hasSelectedRoute ? routeId : null,
-  );
   const [graphHoverId, setGraphHoverId] = useState<number | null>(null);
   const [sidebarHoverId, setSidebarHoverId] = useState<number | null>(null);
   const [clusterRootId, setClusterRootId] = useState<number | null>(null);
   const deferredQuery = useDeferredValue(query);
   const orderedNodes = useMemo(() => [...data.nodes].sort((a, b) => a.id - b.id), [data.nodes]);
 
-  const selectedId = hasSelectedRoute ? routeId : localSelectedId;
+  const selectedId = hasSelectedQuery ? querySelectedId : hasSelectedRoute ? routeId : null;
   const selectedNode = selectedId !== null ? nodeMap.get(selectedId) ?? null : null;
   const previewId = graphHoverId ?? sidebarHoverId;
   const previewNode = previewId !== null ? nodeMap.get(previewId) ?? null : null;
@@ -225,6 +229,24 @@ function WorkspacePage({
   const directConnections = useMemo(
     () => (panelNode ? collectDirectConnections(nodeMap, panelNode) : []),
     [nodeMap, panelNode],
+  );
+
+  const buildSelectionUrl = useCallback(
+    (nextId: number | null) => {
+      const nextSearchParams = new URLSearchParams(searchParams);
+
+      if (nextId === null) {
+        nextSearchParams.delete('paragraph');
+      } else {
+        nextSearchParams.set('paragraph', String(nextId));
+      }
+
+      const pathname = withLanguage(showHero ? '/' : '/explore', language);
+      const search = nextSearchParams.toString();
+
+      return search ? `${pathname}?${search}` : pathname;
+    },
+    [language, searchParams, showHero],
   );
 
   const results = useMemo(() => {
@@ -247,16 +269,13 @@ function WorkspacePage({
       return;
     }
 
-    setLocalSelectedId(id);
     setSidebarHoverId(null);
 
     if (!keepCluster) {
       setClusterRootId(null);
     }
 
-    if (params.id !== undefined) {
-      navigate(withLanguage(`/paragraph/${id}`, language));
-    }
+    navigate(buildSelectionUrl(id));
   }
 
   function handleGraphLongPress(id: number) {
@@ -265,24 +284,24 @@ function WorkspacePage({
   }
 
   function clearSelection() {
-    setLocalSelectedId(null);
     setSidebarHoverId(null);
     setClusterRootId(null);
-
-    if (params.id !== undefined) {
-      navigate(withLanguage(showHero ? '/' : '/explore', language));
-    }
+    navigate(buildSelectionUrl(null));
   }
 
   useEffect(() => {
+    if (params.id === undefined) {
+      return;
+    }
+
+    navigate(buildSelectionUrl(hasSelectedRoute ? routeId : null), { replace: true });
+  }, [buildSelectionUrl, hasSelectedRoute, navigate, params.id, routeId]);
+
+  useEffect(() => {
     function stepToNode(id: number) {
-      setLocalSelectedId(id);
       setSidebarHoverId(null);
       setClusterRootId(null);
-
-      if (params.id !== undefined) {
-        navigate(withLanguage(`/paragraph/${id}`, language));
-      }
+      navigate(buildSelectionUrl(id));
     }
 
     function handleKeyDown(event: KeyboardEvent) {
@@ -303,7 +322,7 @@ function WorkspacePage({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [language, navigate, nextPanelNode, params.id, previousPanelNode]);
+  }, [buildSelectionUrl, navigate, nextPanelNode, previousPanelNode]);
 
   return (
     <main className={`page ${showHero ? '' : 'page-workspace'}`}>
