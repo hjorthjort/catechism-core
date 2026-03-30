@@ -1,8 +1,9 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { BrowserRouter, Link, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { BrowserRouter, Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { GraphCanvas } from './components/GraphCanvas';
 import { useCatechismData } from './lib/data';
+import { buildNodeColorMap } from './lib/nodePalette';
 import {
   getInitialLanguage,
   getLanguageMeta,
@@ -92,6 +93,64 @@ function getPartLabel(node: CatechismNode, language: AppLanguage) {
   return t.parts[key] ?? node.part;
 }
 
+function splitHierarchyEntry(entry: string | undefined) {
+  if (!entry) {
+    return null;
+  }
+
+  const match = entry.match(/^(Part|Section|Chapter|Article)\s+([^:]+):\s*(.+)$/i);
+  if (match) {
+    return {
+      kind: match[1],
+      number: match[2].trim(),
+      title: match[3].trim(),
+    };
+  }
+
+  const fallbackMatch = entry.match(/^(Chapter|Article)\s+(.+)$/i);
+  if (fallbackMatch) {
+    return {
+      kind: fallbackMatch[1],
+      number: null,
+      title: fallbackMatch[2].trim(),
+    };
+  }
+
+  return null;
+}
+
+function getNodeHierarchy(node: CatechismNode, language: AppLanguage) {
+  const part = splitHierarchyEntry(node.breadcrumbs.find((entry) => entry.startsWith('Part ')));
+  const section = splitHierarchyEntry(node.breadcrumbs.find((entry) => entry.startsWith('Section ')));
+  const chapter = splitHierarchyEntry(node.breadcrumbs.find((entry) => entry.startsWith('Chapter ')));
+  const article = splitHierarchyEntry(node.breadcrumbs.find((entry) => entry.startsWith('Article ')));
+
+  return {
+    part: part
+      ? {
+          label: `Part ${part.number}: ${getPartLabel(node, language)}`,
+        }
+      : {
+          label: `Part: ${getPartLabel(node, language)}`,
+        },
+    section: section
+      ? {
+          label: `Section ${section.number}: ${section.title}`,
+        }
+      : null,
+    chapter: chapter
+      ? {
+          label: `Chapter: ${chapter.title}`,
+        }
+      : null,
+    article: article
+      ? {
+          label: `Article: ${article.title}`,
+        }
+      : null,
+  };
+}
+
 function getExternalSourceBadge(source: CatechismData['externalSources'][string] | undefined) {
   if (!source) {
     return null;
@@ -106,6 +165,18 @@ function getExternalSourceBadge(source: CatechismData['externalSources'][string]
   }
 
   return source.sourceLabel;
+}
+
+function isEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (target.isContentEditable) {
+    return true;
+  }
+
+  return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 }
 
 function Shell({
@@ -184,31 +255,69 @@ function WorkspacePage({
 }) {
   const navigate = useNavigate();
   const params = useParams();
+  const [searchParams] = useSearchParams();
   const t = uiStrings[language];
   const nodeMap = useMemo(() => new Map(data.nodes.map((node) => [node.id, node])), [data.nodes]);
+  const nodeColors = useMemo(() => buildNodeColorMap(data.nodes), [data.nodes]);
   const routeId = params.id ? Number(params.id) : null;
   const hasSelectedRoute = routeId !== null && Number.isFinite(routeId) && nodeMap.has(routeId);
-  const invalidSelectedRoute = params.id !== undefined && !hasSelectedRoute;
+  const querySelectedValue = searchParams.get('paragraph');
+  const querySelectedId = querySelectedValue ? Number(querySelectedValue) : null;
+  const hasSelectedQuery =
+    querySelectedId !== null && Number.isFinite(querySelectedId) && nodeMap.has(querySelectedId);
+  const invalidSelectedRoute =
+    (params.id !== undefined && !hasSelectedRoute) ||
+    (querySelectedValue !== null && !hasSelectedQuery);
   const deferredDefaultId = topNodes[0]?.id ?? data.nodes[0]?.id ?? null;
 
   const [query, setQuery] = useState('');
-  const [localSelectedId, setLocalSelectedId] = useState<number | null>(
-    hasSelectedRoute ? routeId : null,
-  );
   const [graphHoverId, setGraphHoverId] = useState<number | null>(null);
   const [sidebarHoverId, setSidebarHoverId] = useState<number | null>(null);
   const [clusterRootId, setClusterRootId] = useState<number | null>(null);
   const deferredQuery = useDeferredValue(query);
+  const orderedNodes = useMemo(() => [...data.nodes].sort((a, b) => a.id - b.id), [data.nodes]);
 
-  const selectedId = hasSelectedRoute ? routeId : localSelectedId;
+  const selectedId = hasSelectedQuery ? querySelectedId : hasSelectedRoute ? routeId : null;
   const selectedNode = selectedId !== null ? nodeMap.get(selectedId) ?? null : null;
   const previewId = graphHoverId ?? sidebarHoverId;
   const previewNode = previewId !== null ? nodeMap.get(previewId) ?? null : null;
   const panelNode = previewNode ?? selectedNode ?? (deferredDefaultId ? nodeMap.get(deferredDefaultId) ?? null : null);
+  const panelIndex = panelNode ? orderedNodes.findIndex((node) => node.id === panelNode.id) : -1;
+  const previousPanelNode = panelIndex > 0 ? orderedNodes[panelIndex - 1] : null;
+  const nextPanelNode = panelIndex >= 0 && panelIndex < orderedNodes.length - 1 ? orderedNodes[panelIndex + 1] : null;
   const panelExternalCounts = panelNode ? countExternalKinds(panelNode) : null;
+  const panelHierarchy = panelNode ? getNodeHierarchy(panelNode, language) : null;
+  const panelTone = panelNode ? nodeColors.get(panelNode.id) ?? null : null;
   const directConnections = useMemo(
     () => (panelNode ? collectDirectConnections(nodeMap, panelNode) : []),
     [nodeMap, panelNode],
+  );
+  const panelStyle = panelTone
+    ? ({
+        '--panel-accent': panelTone.solid,
+        '--panel-accent-soft': panelTone.soft,
+        '--panel-accent-wash': panelTone.wash,
+        '--panel-accent-border': panelTone.border,
+        '--panel-accent-ink': panelTone.ink,
+      } as CSSProperties)
+    : undefined;
+
+  const buildSelectionUrl = useCallback(
+    (nextId: number | null) => {
+      const nextSearchParams = new URLSearchParams(searchParams);
+
+      if (nextId === null) {
+        nextSearchParams.delete('paragraph');
+      } else {
+        nextSearchParams.set('paragraph', String(nextId));
+      }
+
+      const pathname = withLanguage(showHero ? '/' : '/explore', language);
+      const search = nextSearchParams.toString();
+
+      return search ? `${pathname}?${search}` : pathname;
+    },
+    [language, searchParams, showHero],
   );
 
   const results = useMemo(() => {
@@ -231,16 +340,13 @@ function WorkspacePage({
       return;
     }
 
-    setLocalSelectedId(id);
     setSidebarHoverId(null);
 
     if (!keepCluster) {
       setClusterRootId(null);
     }
 
-    if (params.id !== undefined) {
-      navigate(withLanguage(`/paragraph/${id}`, language));
-    }
+    navigate(buildSelectionUrl(id));
   }
 
   function handleGraphLongPress(id: number) {
@@ -249,14 +355,45 @@ function WorkspacePage({
   }
 
   function clearSelection() {
-    setLocalSelectedId(null);
     setSidebarHoverId(null);
     setClusterRootId(null);
-
-    if (params.id !== undefined) {
-      navigate(withLanguage(showHero ? '/' : '/explore', language));
-    }
+    navigate(buildSelectionUrl(null));
   }
+
+  useEffect(() => {
+    if (params.id === undefined) {
+      return;
+    }
+
+    navigate(buildSelectionUrl(hasSelectedRoute ? routeId : null), { replace: true });
+  }, [buildSelectionUrl, hasSelectedRoute, navigate, params.id, routeId]);
+
+  useEffect(() => {
+    function stepToNode(id: number) {
+      setSidebarHoverId(null);
+      setClusterRootId(null);
+      navigate(buildSelectionUrl(id));
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || isEditableTarget(event.target)) {
+        return;
+      }
+
+      if (event.key === 'ArrowLeft' && previousPanelNode) {
+        event.preventDefault();
+        stepToNode(previousPanelNode.id);
+      }
+
+      if (event.key === 'ArrowRight' && nextPanelNode) {
+        event.preventDefault();
+        stepToNode(nextPanelNode.id);
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [buildSelectionUrl, navigate, nextPanelNode, previousPanelNode]);
 
   return (
     <main className={`page ${showHero ? '' : 'page-workspace'}`}>
@@ -379,24 +516,53 @@ function WorkspacePage({
             <section className={`selection-panel ${panelNode ? '' : 'is-empty'}`}>
               {panelNode ? (
                 <div className="selection-stack">
-                  <article className="paragraph-body selected-paragraph">
+                  <article className="paragraph-body selected-paragraph" style={panelStyle}>
                     <div className="selected-paragraph-header">
-                      <div>
-                        <p className="eyebrow">{getPartLabel(panelNode, language)}</p>
-                        <h2>
-                          {t.paragraph} {panelNode.id}
-                        </h2>
-                        <p className="lede">{getParagraphSubtitle(panelNode, language)}</p>
+                      <button
+                        aria-label={`Previous ${t.paragraph.toLowerCase()}`}
+                        className="paragraph-nav-button"
+                        disabled={!previousPanelNode}
+                        onClick={() => previousPanelNode && selectNode(previousPanelNode.id)}
+                        type="button"
+                      >
+                        ‹
+                      </button>
+
+                      <div className="selected-paragraph-summary">
+                        <div>
+                          {panelHierarchy ? (
+                            <div className="paragraph-hierarchy">
+                              <div>{panelHierarchy.part.label}</div>
+                              {panelHierarchy.section ? <div>{panelHierarchy.section.label}</div> : null}
+                              {panelHierarchy.chapter ? <div>{panelHierarchy.chapter.label}</div> : null}
+                              {panelHierarchy.article ? <div>{panelHierarchy.article.label}</div> : null}
+                            </div>
+                          ) : null}
+                          <h2>
+                            {t.paragraph} {panelNode.id}
+                          </h2>
+                          <p className="lede">{getParagraphSubtitle(panelNode, language)}</p>
+                        </div>
+
+                        <div className="paragraph-metrics">
+                          <span>
+                            {panelNode.xrefs.length} {t.outgoing}
+                          </span>
+                          <span>
+                            {panelNode.incoming.length} {t.incoming}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="paragraph-metrics">
-                        <span>
-                          {panelNode.xrefs.length} {t.outgoing}
-                        </span>
-                        <span>
-                          {panelNode.incoming.length} {t.incoming}
-                        </span>
-                      </div>
+                      <button
+                        aria-label={`Next ${t.paragraph.toLowerCase()}`}
+                        className="paragraph-nav-button"
+                        disabled={!nextPanelNode}
+                        onClick={() => nextPanelNode && selectNode(nextPanelNode.id)}
+                        type="button"
+                      >
+                        ›
+                      </button>
                     </div>
 
                     <div className="breadcrumb-trail">

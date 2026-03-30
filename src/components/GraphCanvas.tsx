@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { buildNodeColorMap } from '../lib/nodePalette';
 import type { CatechismEdge, CatechismNode } from '../types';
 
 type GraphCanvasProps = {
@@ -21,13 +22,22 @@ type GraphCanvasProps = {
   hoverDelayMs?: number;
 };
 
-const partColors: Record<string, string> = {
-  Prologue: '#8b5e3c',
-  'Profession of Faith': '#d06b33',
-  'Celebration of the Christian Mystery': '#1b7f79',
-  'Life in Christ': '#2d4ea1',
-  'Christian Prayer': '#7e3f98',
-};
+function getHierarchyNumber(entry: string | undefined, kind: string) {
+  if (!entry) {
+    return null;
+  }
+
+  const match = entry.match(new RegExp(`^${kind}\\s+([^:]+):`, 'i'));
+  return match ? match[1].trim() : null;
+}
+
+function getTooltipHierarchy(node: CatechismNode) {
+  return {
+    part: getHierarchyNumber(node.breadcrumbs.find((entry) => entry.startsWith('Part ')), 'Part'),
+    section: getHierarchyNumber(node.breadcrumbs.find((entry) => entry.startsWith('Section ')), 'Section'),
+    chapter: getHierarchyNumber(node.breadcrumbs.find((entry) => entry.startsWith('Chapter ')), 'Chapter'),
+  };
+}
 
 function createDefaultTransform(scale: number) {
   return { x: 0, y: 0, k: scale };
@@ -152,6 +162,14 @@ function getTouchMidpoint(
   };
 }
 
+function getCanvasPointFromClient(canvas: HTMLCanvasElement, clientX: number, clientY: number) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: clientX - rect.left,
+    y: clientY - rect.top,
+  };
+}
+
 export function GraphCanvas({
   nodes,
   edges,
@@ -220,6 +238,7 @@ export function GraphCanvas({
   const [tooltip, setTooltip] = useState({ x: 0, y: 0 });
 
   const nodeMap = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
+  const nodeColors = useMemo(() => buildNodeColorMap(nodes), [nodes]);
   const edgeSet = useMemo(() => new Set(edges.map((edge) => `${edge.source}:${edge.target}`)), [edges]);
   const graphBounds = useMemo(() => getGraphBounds(nodes), [nodes]);
   const clusterNeighborIds = useMemo(() => {
@@ -303,6 +322,7 @@ export function GraphCanvas({
   );
 
   const hoveredNode = hoveredId ? nodeMap.get(hoveredId) ?? null : null;
+  const hoveredHierarchy = hoveredNode ? getTooltipHierarchy(hoveredNode) : null;
   const activeHighlightId = highlightId ?? null;
 
   const highlighted = useMemo(() => {
@@ -516,9 +536,10 @@ export function GraphCanvas({
     for (const node of nodes) {
       const isPrimaryHighlighted = activeHighlightId === node.id;
       const isFocused = focusId === node.id || selectedId === node.id;
+      const isHovered = hoveredId === node.id;
       const isConnected = highlighted.has(node.id);
       const hasActiveHighlight = activeHighlightId !== null && activeHighlightId !== undefined;
-      const fill = partColors[node.part] ?? '#6a6a6a';
+      const fill = nodeColors.get(node.id)?.solid ?? '#6a6a6a';
       const position = renderedPositions.get(node.id);
       if (!position) {
         continue;
@@ -526,18 +547,23 @@ export function GraphCanvas({
 
       const baseRadius =
         getNodeScreenRadius(node, minScreenNodeRadius, transform.k, initialScale) / transform.k;
-      const radius = isPrimaryHighlighted ? baseRadius * 2 : baseRadius;
+      const radius = isPrimaryHighlighted ? baseRadius * 2 : isHovered ? baseRadius * 1.65 : baseRadius;
 
       context.beginPath();
       context.arc(position.x, position.y, radius, 0, Math.PI * 2);
       context.fillStyle = isPrimaryHighlighted ? '#181c23' : fill;
-      context.globalAlpha = hasActiveHighlight ? (isConnected ? 1 : 0.18) : 0.84;
+      context.globalAlpha = hasActiveHighlight ? (isConnected || isHovered ? 1 : 0.18) : isHovered ? 1 : 0.84;
       context.fill();
 
       if (isPrimaryHighlighted) {
         context.globalAlpha = 1;
         context.lineWidth = 3.4 / transform.k;
         context.strokeStyle = '#f5eedf';
+        context.stroke();
+      } else if (isHovered) {
+        context.globalAlpha = 1;
+        context.lineWidth = 2.8 / transform.k;
+        context.strokeStyle = '#181c23';
         context.stroke();
       } else if (isFocused) {
         context.globalAlpha = 1;
@@ -561,6 +587,7 @@ export function GraphCanvas({
     renderedPositions,
     minScreenNodeRadius,
     nodeMap,
+    nodeColors,
     nodes,
     selectedId,
     showDirectionalArrows,
@@ -741,8 +768,13 @@ export function GraphCanvas({
 
   function handleTouchStart(event: React.TouchEvent<HTMLCanvasElement>) {
     scheduleHover(null);
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
 
     if (event.touches.length >= 2) {
+      const startMidpointClient = getTouchMidpoint(event.touches);
       clearHoldTimer();
       touchRef.current = {
         mode: 'gesture',
@@ -751,7 +783,7 @@ export function GraphCanvas({
         startY: 0,
         pressedNodeId: null,
         startDistance: getTouchDistance(event.touches),
-        startMidpoint: getTouchMidpoint(event.touches),
+        startMidpoint: getCanvasPointFromClient(canvas, startMidpointClient.x, startMidpointClient.y),
         startTransform: transform,
       };
       event.preventDefault();
@@ -785,7 +817,13 @@ export function GraphCanvas({
   }
 
   function handleTouchMove(event: React.TouchEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
     if (event.touches.length >= 2) {
+      const startMidpointClient = getTouchMidpoint(event.touches);
       const gesture =
         touchRef.current.mode === 'gesture'
           ? touchRef.current
@@ -793,17 +831,25 @@ export function GraphCanvas({
               ...touchRef.current,
               mode: 'gesture' as const,
               startDistance: getTouchDistance(event.touches),
-              startMidpoint: getTouchMidpoint(event.touches),
+              startMidpoint: getCanvasPointFromClient(canvas, startMidpointClient.x, startMidpointClient.y),
               startTransform: transform,
             };
       touchRef.current = gesture;
       clearHoldTimer();
 
       const currentDistance = Math.max(getTouchDistance(event.touches), 1);
-      const currentMidpoint = getTouchMidpoint(event.touches);
+      const currentMidpointClient = getTouchMidpoint(event.touches);
+      const currentMidpoint = getCanvasPointFromClient(
+        canvas,
+        currentMidpointClient.x,
+        currentMidpointClient.y,
+      );
       const nextScale = Math.min(
         3.4,
-        Math.max(minZoomScale || 0.14, gesture.startTransform.k * (currentDistance / Math.max(gesture.startDistance, 1))),
+        Math.max(
+          minZoomScale || 0.14,
+          gesture.startTransform.k * (currentDistance / Math.max(gesture.startDistance, 1)),
+        ),
       );
       const worldX = (gesture.startMidpoint.x - gesture.startTransform.x) / gesture.startTransform.k;
       const worldY = (gesture.startMidpoint.y - gesture.startTransform.y) / gesture.startTransform.k;
@@ -921,6 +967,13 @@ export function GraphCanvas({
             top: Math.max(20, tooltip.y - 36),
           }}
         >
+          {hoveredHierarchy ? (
+            <div className="graph-tooltip-hierarchy">
+              {hoveredHierarchy.part ? <span>{`P${hoveredHierarchy.part}`}</span> : null}
+              {hoveredHierarchy.section ? <span>{`S${hoveredHierarchy.section}`}</span> : null}
+              {hoveredHierarchy.chapter ? <span>{`C${hoveredHierarchy.chapter}`}</span> : null}
+            </div>
+          ) : null}
           <div className="graph-tooltip-number">¶ {hoveredNode.id}</div>
           <div className="graph-tooltip-title">{hoveredNode.title}</div>
           <p>{hoveredNode.preview}</p>
