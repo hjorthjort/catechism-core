@@ -189,10 +189,6 @@ function Shell({
   onLanguageChange: (language: AppLanguage) => void;
 }) {
   const languageMeta = getLanguageMeta(language);
-  const topNodes = useMemo(
-    () => [...data.nodes].sort((a, b) => b.pagerank - a.pagerank).slice(0, 10),
-    [data.nodes],
-  );
 
   return (
     <BrowserRouter>
@@ -224,15 +220,15 @@ function Shell({
         <Routes>
           <Route
             path="/"
-            element={<WorkspacePage data={data} language={language} showHero topNodes={topNodes} />}
+            element={<WorkspacePage data={data} language={language} showHero />}
           />
           <Route
             path="/explore"
-            element={<WorkspacePage data={data} language={language} showHero={false} topNodes={topNodes} />}
+            element={<WorkspacePage data={data} language={language} showHero={false} />}
           />
           <Route
             path="/paragraph/:id"
-            element={<WorkspacePage data={data} language={language} showHero topNodes={topNodes} />}
+            element={<WorkspacePage data={data} language={language} showHero />}
           />
         </Routes>
 
@@ -246,12 +242,10 @@ function WorkspacePage({
   data,
   language,
   showHero,
-  topNodes,
 }: {
   data: CatechismData;
   language: AppLanguage;
   showHero: boolean;
-  topNodes: CatechismNode[];
 }) {
   const navigate = useNavigate();
   const params = useParams();
@@ -268,7 +262,7 @@ function WorkspacePage({
   const invalidSelectedRoute =
     (params.id !== undefined && !hasSelectedRoute) ||
     (querySelectedValue !== null && !hasSelectedQuery);
-  const deferredDefaultId = topNodes[0]?.id ?? data.nodes[0]?.id ?? null;
+  const deferredDefaultId = data.nodes[0]?.id ?? null;
 
   const [query, setQuery] = useState('');
   const [graphHoverId, setGraphHoverId] = useState<number | null>(null);
