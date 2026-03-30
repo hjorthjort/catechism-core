@@ -563,6 +563,11 @@ function stripBidiMarks(value) {
 
 function cleanText(value) {
   return stripBidiMarks(value)
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&amp;/gi, '&')
+    .replace(/&gt;/gi, '>')
+    .replace(/&lt;/gi, '<')
     .replace(/\u00ad/g, '')
     .replace(/\u200b/g, '')
     .replace(/\s+/g, ' ')
@@ -582,6 +587,95 @@ function slugTitle(value) {
     .replace(/\(\d+\s*-\s*\d+\)$/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+const ordinalWordToNumber = {
+  ONE: '1',
+  TWO: '2',
+  THREE: '3',
+  FOUR: '4',
+  FIVE: '5',
+  SIX: '6',
+  SEVEN: '7',
+  EIGHT: '8',
+  NINE: '9',
+  TEN: '10',
+  ELEVEN: '11',
+  TWELVE: '12',
+};
+
+function titleCaseHierarchyText(value) {
+  const smallWords = new Set(['a', 'an', 'and', 'as', 'at', 'by', 'for', 'from', 'in', 'of', 'on', 'or', 'the', 'to', 'with']);
+  const decoded = cheerio.load(`<div>${value}</div>`)('div').text();
+  const words = cleanText(decoded).split(/\s+/);
+
+  return words
+    .map((word, index) => {
+      const match = word.match(/^([^A-Za-z]*)([A-Za-z][A-Za-z']*)([^A-Za-z]*)$/);
+      if (!match) {
+        return word;
+      }
+
+      const [, leading, core, trailing] = match;
+      if (/^(i|ii|iii|iv|v|vi|vii|viii|ix|x)$/i.test(core)) {
+        return `${leading}${core.toUpperCase()}${trailing}`;
+      }
+
+      const normalized = core.charAt(0).toUpperCase() + core.slice(1).toLowerCase();
+      const previousWord = words[index - 1] ?? '';
+      const keepCapitalized =
+        index === 0 ||
+        index === words.length - 1 ||
+        /[.:]$/.test(previousWord) ||
+        !smallWords.has(normalized.toLowerCase());
+
+      return `${leading}${keepCapitalized ? normalized : normalized.toLowerCase()}${trailing}`;
+    })
+    .join(' ');
+}
+
+function normalizeHierarchySegment(segment) {
+  const text = cleanText(segment).replace(/\s*>\s*/g, ' ');
+
+  const partMatch = text.match(/^PART\s+(ONE|TWO|THREE|FOUR|\d+)\s*:?\s*(.+)$/i);
+  if (partMatch) {
+    return `Part ${ordinalWordToNumber[partMatch[1].toUpperCase()] ?? partMatch[1]}: ${titleCaseHierarchyText(partMatch[2])}`;
+  }
+
+  const sectionMatch = text.match(/^SECTION\s+(ONE|TWO|THREE|FOUR|\d+)\s*:?\s*(.+)$/i);
+  if (sectionMatch) {
+    return `Section ${ordinalWordToNumber[sectionMatch[1].toUpperCase()] ?? sectionMatch[1]}: ${titleCaseHierarchyText(sectionMatch[2])}`;
+  }
+
+  const chapterMatch = text.match(/^CHAPTER\s+(ONE|TWO|THREE|FOUR|FIVE|SIX|SEVEN|EIGHT|NINE|TEN|\d+)\s*:?\s*(.+)$/i);
+  if (chapterMatch) {
+    return `Chapter ${ordinalWordToNumber[chapterMatch[1].toUpperCase()] ?? chapterMatch[1]}: ${titleCaseHierarchyText(chapterMatch[2])}`;
+  }
+
+  const articleMatch = text.match(/^ARTICLE\s+([0-9IVXLC]+)\s*:?\s*(.+)$/i);
+  if (articleMatch) {
+    return `Article ${articleMatch[1].toUpperCase()}: ${titleCaseHierarchyText(articleMatch[2])}`;
+  }
+
+  const paragraphMatch = text.match(/^PARAGRAPH\s+([0-9IVXLC]+)\s*:?\s*(.+)$/i);
+  if (paragraphMatch) {
+    return `Paragraph ${paragraphMatch[1].toUpperCase()}: ${titleCaseHierarchyText(paragraphMatch[2])}`;
+  }
+
+  return null;
+}
+
+function extractSourceHierarchy(html) {
+  const $ = cheerio.load(html);
+  const metaContent = $('meta[name="part"]').attr('content');
+  if (!metaContent) {
+    return [];
+  }
+
+  return metaContent
+    .split(/\s*>\s*/)
+    .map((segment) => normalizeHierarchySegment(segment))
+    .filter(Boolean);
 }
 
 function escapeHtml(value) {
@@ -1145,6 +1239,7 @@ async function buildVaticanPageLookup() {
   for (const file of files.filter((entry) => /^__.*\.HTM$/i.test(entry)).sort()) {
     const filePath = path.join(vaticanSourceDir, file);
     const html = await readFile(filePath, 'utf8');
+    const hierarchy = extractSourceHierarchy(html);
     const matches = html.matchAll(/<p class=MsoNormal>(\d{1,4})\r?\n/g);
 
     for (const match of matches) {
@@ -1157,6 +1252,7 @@ async function buildVaticanPageLookup() {
         file,
         localPath: filePath,
         url: `https://www.vatican.va/archive/ENG0015/${file}`,
+        hierarchy,
       });
     }
   }
@@ -1193,6 +1289,91 @@ function inferPart(breadcrumbs) {
   if (/^Part 3:/i.test(first)) return 'Life in Christ';
   if (/^Part 4:/i.test(first)) return 'Christian Prayer';
   return 'Prologue';
+}
+
+const hierarchyOrder = ['part', 'section', 'chapter', 'article', 'paragraph'];
+
+function getHierarchyLevel(entry) {
+  if (/^Part\s+\d+:/i.test(entry)) return 'part';
+  if (/^Section\s+\d+:/i.test(entry)) return 'section';
+  if (/^Chapter\s+\d+:/i.test(entry)) return 'chapter';
+  if (/^Article\s+[0-9IVXLC]+:/i.test(entry)) return 'article';
+  if (/^Paragraph\s+[0-9IVXLC]+:/i.test(entry)) return 'paragraph';
+  return null;
+}
+
+function extractHierarchyLevels(entries) {
+  const levels = {};
+  const extras = [];
+
+  for (const entry of entries) {
+    const level = getHierarchyLevel(entry);
+    if (level) {
+      levels[level] = entry;
+    } else {
+      extras.push(entry);
+    }
+  }
+
+  return { levels, extras };
+}
+
+function getHierarchyIdentifier(entry) {
+  const match = entry.match(/^(Part|Section|Chapter|Article|Paragraph)\s+([0-9IVXLC]+):/i);
+  return match ? `${match[1].toLowerCase()}:${match[2].toUpperCase()}` : null;
+}
+
+function normalizeParagraphHierarchy(nodes, vaticanLookup) {
+  let context = {
+    part: null,
+    section: null,
+    chapter: null,
+    article: null,
+    paragraph: null,
+  };
+
+  return nodes.map((node) => {
+    const sourceHierarchy = vaticanLookup.get(node.id)?.hierarchy ?? [];
+    const { levels: sourceLevels } = extractHierarchyLevels(sourceHierarchy);
+    const { levels: existingLevels, extras } = extractHierarchyLevels(node.breadcrumbs);
+    const nextContext = { ...context };
+
+    for (const [index, level] of hierarchyOrder.entries()) {
+      const normalizedExisting = normalizeHierarchySegment(existingLevels[level] ?? '');
+      const contextValue = nextContext[level];
+      const explicitValue =
+        normalizedExisting &&
+        contextValue &&
+        getHierarchyIdentifier(normalizedExisting) === getHierarchyIdentifier(contextValue)
+          ? contextValue
+          : normalizedExisting ??
+            (contextValue ? null : sourceLevels[level] ?? null);
+
+      if (!explicitValue) {
+        continue;
+      }
+
+      if (nextContext[level] !== explicitValue) {
+        for (const lowerLevel of hierarchyOrder.slice(index + 1)) {
+          nextContext[lowerLevel] = null;
+        }
+      }
+
+      nextContext[level] = explicitValue;
+    }
+
+    const normalizedBreadcrumbs = hierarchyOrder
+      .map((level) => nextContext[level])
+      .filter(Boolean);
+
+    context = nextContext;
+
+    return {
+      ...node,
+      part: inferPart(normalizedBreadcrumbs),
+      breadcrumbs: [...normalizedBreadcrumbs, ...extras],
+    };
+  });
 }
 
 function parseParagraphHtml(html, vaticanLookup) {
@@ -2379,10 +2560,13 @@ async function buildBaseGraphPayload() {
     const maxRelativePagerank = Math.max(
       ...(parsed?.nodes?.map((node) => node.relativePagerank ?? 0) ?? [0]),
     );
+    const hasSuspiciousPrologueAssignments =
+      parsed?.nodes?.some((node) => node.id > 25 && node.part === 'Prologue') ?? false;
     if (
       parsed?.nodes?.length > 0 &&
       parsed?.edges?.length > 0 &&
-      maxRelativePagerank > 1
+      maxRelativePagerank > 1 &&
+      !hasSuspiciousPrologueAssignments
     ) {
       return parsed;
     }
@@ -2403,7 +2587,10 @@ async function buildBaseGraphPayload() {
     nodesById.set(paragraph.id, paragraph);
   }
 
-  const nodes = Array.from(nodesById.values()).sort((a, b) => a.id - b.id);
+  const nodes = normalizeParagraphHierarchy(
+    Array.from(nodesById.values()).sort((a, b) => a.id - b.id),
+    vaticanLookup,
+  );
   const edges = [];
   const incoming = new Map(nodes.map((node) => [node.id, []]));
 
