@@ -93,11 +93,61 @@ function getPartLabel(node: CatechismNode, language: AppLanguage) {
   return t.parts[key] ?? node.part;
 }
 
+function splitHierarchyEntry(entry: string | undefined) {
+  if (!entry) {
+    return null;
+  }
+
+  const match = entry.match(/^(Part|Section|Chapter|Article)\s+([^:]+):\s*(.+)$/i);
+  if (match) {
+    return {
+      kind: match[1],
+      number: match[2].trim(),
+      title: match[3].trim(),
+    };
+  }
+
+  const fallbackMatch = entry.match(/^(Chapter|Article)\s+(.+)$/i);
+  if (fallbackMatch) {
+    return {
+      kind: fallbackMatch[1],
+      number: null,
+      title: fallbackMatch[2].trim(),
+    };
+  }
+
+  return null;
+}
+
 function getNodeHierarchy(node: CatechismNode, language: AppLanguage) {
+  const part = splitHierarchyEntry(node.breadcrumbs.find((entry) => entry.startsWith('Part ')));
+  const section = splitHierarchyEntry(node.breadcrumbs.find((entry) => entry.startsWith('Section ')));
+  const chapter = splitHierarchyEntry(node.breadcrumbs.find((entry) => entry.startsWith('Chapter ')));
+  const article = splitHierarchyEntry(node.breadcrumbs.find((entry) => entry.startsWith('Article ')));
+
   return {
-    part: getPartLabel(node, language),
-    section: node.breadcrumbs.find((entry) => entry.startsWith('Section ')) ?? 'Section: -',
-    chapter: node.breadcrumbs.find((entry) => entry.startsWith('Chapter ')) ?? 'Chapter: -',
+    part: part
+      ? {
+          label: `Part ${part.number}: ${getPartLabel(node, language)}`,
+        }
+      : {
+          label: `Part: ${getPartLabel(node, language)}`,
+        },
+    section: section
+      ? {
+          label: `Section ${section.number}: ${section.title}`,
+        }
+      : null,
+    chapter: chapter
+      ? {
+          label: `Chapter: ${chapter.title}`,
+        }
+      : null,
+    article: article
+      ? {
+          label: `Article: ${article.title}`,
+        }
+      : null,
   };
 }
 
@@ -482,9 +532,10 @@ function WorkspacePage({
                         <div>
                           {panelHierarchy ? (
                             <div className="paragraph-hierarchy">
-                              <div>{panelHierarchy.part}</div>
-                              <div>{panelHierarchy.section}</div>
-                              <div>{panelHierarchy.chapter}</div>
+                              <div>{panelHierarchy.part.label}</div>
+                              {panelHierarchy.section ? <div>{panelHierarchy.section.label}</div> : null}
+                              {panelHierarchy.chapter ? <div>{panelHierarchy.chapter.label}</div> : null}
+                              {panelHierarchy.article ? <div>{panelHierarchy.article.label}</div> : null}
                             </div>
                           ) : null}
                           <h2>

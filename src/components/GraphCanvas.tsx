@@ -22,11 +22,20 @@ type GraphCanvasProps = {
   hoverDelayMs?: number;
 };
 
+function getHierarchyNumber(entry: string | undefined, kind: string) {
+  if (!entry) {
+    return null;
+  }
+
+  const match = entry.match(new RegExp(`^${kind}\\s+([^:]+):`, 'i'));
+  return match ? match[1].trim() : null;
+}
+
 function getTooltipHierarchy(node: CatechismNode) {
   return {
-    part: node.breadcrumbs.find((entry) => entry.startsWith('Part ')) ?? node.part,
-    section: node.breadcrumbs.find((entry) => entry.startsWith('Section ')) ?? 'Section: -',
-    chapter: node.breadcrumbs.find((entry) => entry.startsWith('Chapter ')) ?? 'Chapter: -',
+    part: getHierarchyNumber(node.breadcrumbs.find((entry) => entry.startsWith('Part ')), 'Part'),
+    section: getHierarchyNumber(node.breadcrumbs.find((entry) => entry.startsWith('Section ')), 'Section'),
+    chapter: getHierarchyNumber(node.breadcrumbs.find((entry) => entry.startsWith('Chapter ')), 'Chapter'),
   };
 }
 
@@ -960,9 +969,9 @@ export function GraphCanvas({
         >
           {hoveredHierarchy ? (
             <div className="graph-tooltip-hierarchy">
-              <div>{hoveredHierarchy.part}</div>
-              <div>{hoveredHierarchy.section}</div>
-              <div>{hoveredHierarchy.chapter}</div>
+              {hoveredHierarchy.part ? <span>{`P${hoveredHierarchy.part}`}</span> : null}
+              {hoveredHierarchy.section ? <span>{`S${hoveredHierarchy.section}`}</span> : null}
+              {hoveredHierarchy.chapter ? <span>{`C${hoveredHierarchy.chapter}`}</span> : null}
             </div>
           ) : null}
           <div className="graph-tooltip-number">¶ {hoveredNode.id}</div>

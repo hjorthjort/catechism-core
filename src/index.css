@@ -549,14 +549,21 @@ input {
 }
 
 .graph-tooltip-hierarchy {
-  display: grid;
-  gap: 0.22rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   margin-bottom: 0.6rem;
   font-size: 0.68rem;
   line-height: 1.35;
   color: rgba(24, 28, 35, 0.68);
-  text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.graph-tooltip-hierarchy span {
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(24, 28, 35, 0.08);
+  font-weight: 700;
 }
 
 .graph-tooltip-number {
@@ -618,11 +625,10 @@ input {
   display: grid;
   gap: 0.24rem;
   margin-bottom: 0.75rem;
-  font-size: 0.7rem;
+  font-size: 0.76rem;
   line-height: 1.4;
   color: var(--panel-accent-ink, rgba(24, 28, 35, 0.66));
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
 }
 
 .paragraph-nav-button {
