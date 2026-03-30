@@ -524,6 +524,7 @@ export function GraphCanvas({
     for (const node of nodes) {
       const isPrimaryHighlighted = activeHighlightId === node.id;
       const isFocused = focusId === node.id || selectedId === node.id;
+      const isHovered = hoveredId === node.id;
       const isConnected = highlighted.has(node.id);
       const hasActiveHighlight = activeHighlightId !== null && activeHighlightId !== undefined;
       const fill = partColors[node.part] ?? '#6a6a6a';
@@ -534,18 +535,23 @@ export function GraphCanvas({
 
       const baseRadius =
         getNodeScreenRadius(node, minScreenNodeRadius, transform.k, initialScale) / transform.k;
-      const radius = isPrimaryHighlighted ? baseRadius * 2 : baseRadius;
+      const radius = isPrimaryHighlighted ? baseRadius * 2 : isHovered ? baseRadius * 1.65 : baseRadius;
 
       context.beginPath();
       context.arc(position.x, position.y, radius, 0, Math.PI * 2);
       context.fillStyle = isPrimaryHighlighted ? '#181c23' : fill;
-      context.globalAlpha = hasActiveHighlight ? (isConnected ? 1 : 0.18) : 0.84;
+      context.globalAlpha = hasActiveHighlight ? (isConnected || isHovered ? 1 : 0.18) : isHovered ? 1 : 0.84;
       context.fill();
 
       if (isPrimaryHighlighted) {
         context.globalAlpha = 1;
         context.lineWidth = 3.4 / transform.k;
         context.strokeStyle = '#f5eedf';
+        context.stroke();
+      } else if (isHovered) {
+        context.globalAlpha = 1;
+        context.lineWidth = 2.8 / transform.k;
+        context.strokeStyle = '#181c23';
         context.stroke();
       } else if (isFocused) {
         context.globalAlpha = 1;
