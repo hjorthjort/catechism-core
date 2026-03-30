@@ -587,6 +587,13 @@ input {
   text-align: center;
 }
 
+.selected-paragraph {
+  border-color: var(--panel-accent-border, var(--line));
+  background:
+    linear-gradient(180deg, var(--panel-accent-wash, rgba(255, 252, 247, 0.7)) 0%, rgba(255, 252, 247, 0.92) 34%),
+    var(--paper);
+}
+
 .selected-paragraph-header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -607,7 +614,7 @@ input {
   margin-bottom: 0.75rem;
   font-size: 0.7rem;
   line-height: 1.4;
-  color: rgba(24, 28, 35, 0.66);
+  color: var(--panel-accent-ink, rgba(24, 28, 35, 0.66));
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -616,10 +623,10 @@ input {
   width: 3.1rem;
   min-width: 3.1rem;
   height: 3.1rem;
-  border: 1px solid rgba(24, 28, 35, 0.12);
+  border: 1px solid var(--panel-accent-border, rgba(24, 28, 35, 0.12));
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.82);
-  color: var(--ink-strong);
+  background: var(--panel-accent-soft, rgba(255, 255, 255, 0.82));
+  color: var(--panel-accent-ink, var(--ink-strong));
   display: grid;
   place-items: center;
   font-size: 2rem;
@@ -634,8 +641,8 @@ input {
 
 .paragraph-nav-button:hover:not(:disabled) {
   transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(24, 28, 35, 0.2);
+  background: var(--panel-accent-wash, rgba(255, 255, 255, 0.95));
+  border-color: var(--panel-accent-border, rgba(24, 28, 35, 0.2));
 }
 
 .paragraph-nav-button:disabled {
@@ -652,8 +659,8 @@ input {
 .paragraph-metrics span {
   padding: 0.55rem 0.8rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(24, 28, 35, 0.08);
+  background: var(--panel-accent-soft, rgba(255, 255, 255, 0.55));
+  border: 1px solid var(--panel-accent-border, rgba(24, 28, 35, 0.08));
 }
 
 .breadcrumb-trail {
@@ -666,8 +673,8 @@ input {
 .breadcrumb-trail span {
   padding: 0.35rem 0.65rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(24, 28, 35, 0.08);
+  background: var(--panel-accent-soft, rgba(255, 255, 255, 0.55));
+  border: 1px solid var(--panel-accent-border, rgba(24, 28, 35, 0.08));
   font-size: 0.82rem;
 }
 
@@ -675,6 +682,10 @@ input {
   font-family: 'Iowan Old Style', 'Palatino Linotype', serif;
   font-size: clamp(1rem, 0.95rem + 0.35vw, 1.16rem);
   overflow-wrap: anywhere;
+}
+
+.selected-paragraph .paragraph-text sup {
+  color: var(--panel-accent-ink, var(--accent-dark));
 }
 
 .paragraph-text p {

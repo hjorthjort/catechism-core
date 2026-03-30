@@ -1,8 +1,9 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { BrowserRouter, Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { GraphCanvas } from './components/GraphCanvas';
 import { useCatechismData } from './lib/data';
+import { buildNodeColorMap } from './lib/nodePalette';
 import {
   getInitialLanguage,
   getLanguageMeta,
@@ -207,6 +208,7 @@ function WorkspacePage({
   const [searchParams] = useSearchParams();
   const t = uiStrings[language];
   const nodeMap = useMemo(() => new Map(data.nodes.map((node) => [node.id, node])), [data.nodes]);
+  const nodeColors = useMemo(() => buildNodeColorMap(data.nodes), [data.nodes]);
   const routeId = params.id ? Number(params.id) : null;
   const hasSelectedRoute = routeId !== null && Number.isFinite(routeId) && nodeMap.has(routeId);
   const querySelectedValue = searchParams.get('paragraph');
@@ -235,10 +237,20 @@ function WorkspacePage({
   const nextPanelNode = panelIndex >= 0 && panelIndex < orderedNodes.length - 1 ? orderedNodes[panelIndex + 1] : null;
   const panelExternalCounts = panelNode ? countExternalKinds(panelNode) : null;
   const panelHierarchy = panelNode ? getNodeHierarchy(panelNode, language) : null;
+  const panelTone = panelNode ? nodeColors.get(panelNode.id) ?? null : null;
   const directConnections = useMemo(
     () => (panelNode ? collectDirectConnections(nodeMap, panelNode) : []),
     [nodeMap, panelNode],
   );
+  const panelStyle = panelTone
+    ? ({
+        '--panel-accent': panelTone.solid,
+        '--panel-accent-soft': panelTone.soft,
+        '--panel-accent-wash': panelTone.wash,
+        '--panel-accent-border': panelTone.border,
+        '--panel-accent-ink': panelTone.ink,
+      } as CSSProperties)
+    : undefined;
 
   const buildSelectionUrl = useCallback(
     (nextId: number | null) => {
@@ -454,7 +466,7 @@ function WorkspacePage({
             <section className={`selection-panel ${panelNode ? '' : 'is-empty'}`}>
               {panelNode ? (
                 <div className="selection-stack">
-                  <article className="paragraph-body selected-paragraph">
+                  <article className="paragraph-body selected-paragraph" style={panelStyle}>
                     <div className="selected-paragraph-header">
                       <button
                         aria-label={`Previous ${t.paragraph.toLowerCase()}`}
