@@ -954,23 +954,31 @@ function extractLinks(html, baseUrl) {
   return [...links];
 }
 
-function extractParagraphStart(text) {
+function extractParagraphStart(text, options = {}) {
   const normalized = stripBidiMarks(text);
-  const dashedMatch = normalized.match(/^[-–]\s*(\d{1,4})\s*(.+)$/);
-  const standardMatch = normalized.match(/^(\d{1,4})(?:[.)]|)\s+(.+)$/);
+  const dashedMatch = normalized.match(/^[-–]\s*(\d{1,4})(?:([.)])(?:\s*(.+)|)|\s+(.+))$/);
+  const standardMatch = normalized.match(/^(\d{1,4})(?:([.)])(?:\s*(.+)|)|\s+(.+))$/);
   const match = dashedMatch ?? standardMatch;
   if (!match) {
     return null;
   }
 
   const id = Number(match[1]);
-  if (!Number.isFinite(id) || id < 1 || id > 2865) {
+  const minimumId = options.minId ?? 1;
+  const maximumId = options.maxId ?? 2865;
+  if (!Number.isFinite(id) || id < minimumId || id > maximumId) {
+    return null;
+  }
+
+  const delimiter = match[2] ?? '';
+  const rest = cleanText(match[3] ?? match[4] ?? '');
+  if (!delimiter && /^[:：]/.test(rest)) {
     return null;
   }
 
   return {
     id,
-    rest: cleanText(match[2]),
+    rest,
   };
 }
 
@@ -1049,9 +1057,26 @@ function parseLocalizedParagraphsFromHtml(html, sourceUrl) {
   return paragraphs;
 }
 
+function parsePdfParagraphRange(sourceUrl) {
+  const fileName = path.basename(new URL(sourceUrl).pathname);
+  const match = fileName.match(/(\d{1,4})-(\d{1,4})/);
+  if (!match) {
+    return null;
+  }
+
+  const minId = Number(match[1]);
+  const maxId = Number(match[2]);
+  if (!Number.isFinite(minId) || !Number.isFinite(maxId)) {
+    return null;
+  }
+
+  return { minId, maxId };
+}
+
 function parseLocalizedParagraphsFromPdf(text, sourceUrl) {
   const paragraphs = new Map();
   const lines = stripBidiMarks(text).replaceAll('\f', '\n').split('\n');
+  const paragraphRange = parsePdfParagraphRange(sourceUrl);
   let current = null;
 
   for (const line of lines) {
@@ -1060,7 +1085,7 @@ function parseLocalizedParagraphsFromPdf(text, sourceUrl) {
       continue;
     }
 
-    const start = extractParagraphStart(cleanedLine);
+    const start = extractParagraphStart(cleanedLine, paragraphRange ?? undefined);
     if (start) {
       if (current && start.id < current.id) {
         finalizeLocalizedParagraph(current, paragraphs, sourceUrl);
@@ -1216,10 +1241,15 @@ async function buildPdfLanguagePack(config, nodeIds) {
   };
 }
 
-async function buildLanguagePacks(nodeIds) {
+async function buildLanguagePacks(nodeIds, languageFilter = null) {
   const packs = [];
+  const allowedCodes = languageFilter ? new Set(languageFilter) : null;
 
   for (const config of languageConfigs) {
+    if (allowedCodes && !allowedCodes.has(config.code)) {
+      continue;
+    }
+
     const pack =
       config.type === 'pdf'
         ? await buildPdfLanguagePack(config, nodeIds)
@@ -2649,6 +2679,23 @@ async function buildBaseGraphPayload() {
 }
 
 async function main() {
+  const languageFilter = process.env.ONLY_LANGUAGE_PACKS
+    ?.split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  if (languageFilter?.length) {
+    const existing = JSON.parse(await readFile(outputPath, 'utf8'));
+    const packs = await buildLanguagePacks(
+      new Set(existing.nodes.map((node) => node.id)),
+      languageFilter,
+    );
+
+    await writeLanguagePacks(packs);
+    console.log(`Wrote ${packs.length} language pack(s): ${packs.map((pack) => pack.language).join(', ')}`);
+    return;
+  }
+
   debugLog('loading base payload');
   const basePayload = await buildBaseGraphPayload();
   debugLog('base payload ready', basePayload.nodes.length, 'nodes');
