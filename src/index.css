@@ -601,6 +601,17 @@ input {
   min-width: 0;
 }
 
+.paragraph-hierarchy {
+  display: grid;
+  gap: 0.24rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: rgba(24, 28, 35, 0.66);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .paragraph-nav-button {
   width: 3.1rem;
   min-width: 3.1rem;
@@ -1045,6 +1056,10 @@ input {
 
   .selected-paragraph-summary {
     gap: 0.75rem;
+  }
+
+  .paragraph-hierarchy {
+    margin-bottom: 0.6rem;
   }
 
   .paragraph-nav-button {

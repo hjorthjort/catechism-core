@@ -92,6 +92,14 @@ function getPartLabel(node: CatechismNode, language: AppLanguage) {
   return t.parts[key] ?? node.part;
 }
 
+function getNodeHierarchy(node: CatechismNode, language: AppLanguage) {
+  return {
+    part: getPartLabel(node, language),
+    section: node.breadcrumbs.find((entry) => entry.startsWith('Section ')) ?? 'Section: -',
+    chapter: node.breadcrumbs.find((entry) => entry.startsWith('Chapter ')) ?? 'Chapter: -',
+  };
+}
+
 function getExternalSourceBadge(source: CatechismData['externalSources'][string] | undefined) {
   if (!source) {
     return null;
@@ -226,6 +234,7 @@ function WorkspacePage({
   const previousPanelNode = panelIndex > 0 ? orderedNodes[panelIndex - 1] : null;
   const nextPanelNode = panelIndex >= 0 && panelIndex < orderedNodes.length - 1 ? orderedNodes[panelIndex + 1] : null;
   const panelExternalCounts = panelNode ? countExternalKinds(panelNode) : null;
+  const panelHierarchy = panelNode ? getNodeHierarchy(panelNode, language) : null;
   const directConnections = useMemo(
     () => (panelNode ? collectDirectConnections(nodeMap, panelNode) : []),
     [nodeMap, panelNode],
@@ -459,7 +468,13 @@ function WorkspacePage({
 
                       <div className="selected-paragraph-summary">
                         <div>
-                          <p className="eyebrow">{getPartLabel(panelNode, language)}</p>
+                          {panelHierarchy ? (
+                            <div className="paragraph-hierarchy">
+                              <div>{panelHierarchy.part}</div>
+                              <div>{panelHierarchy.section}</div>
+                              <div>{panelHierarchy.chapter}</div>
+                            </div>
+                          ) : null}
                           <h2>
                             {t.paragraph} {panelNode.id}
                           </h2>
