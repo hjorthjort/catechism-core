@@ -108,6 +108,18 @@ function getExternalSourceBadge(source: CatechismData['externalSources'][string]
   return source.sourceLabel;
 }
 
+function isEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (target.isContentEditable) {
+    return true;
+  }
+
+  return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
+}
+
 function Shell({
   data,
   language,
@@ -261,6 +273,37 @@ function WorkspacePage({
       navigate(withLanguage(showHero ? '/' : '/explore', language));
     }
   }
+
+  useEffect(() => {
+    function stepToNode(id: number) {
+      setLocalSelectedId(id);
+      setSidebarHoverId(null);
+      setClusterRootId(null);
+
+      if (params.id !== undefined) {
+        navigate(withLanguage(`/paragraph/${id}`, language));
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || isEditableTarget(event.target)) {
+        return;
+      }
+
+      if (event.key === 'ArrowLeft' && previousPanelNode) {
+        event.preventDefault();
+        stepToNode(previousPanelNode.id);
+      }
+
+      if (event.key === 'ArrowRight' && nextPanelNode) {
+        event.preventDefault();
+        stepToNode(nextPanelNode.id);
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [language, navigate, nextPanelNode, params.id, previousPanelNode]);
 
   return (
     <main className={`page ${showHero ? '' : 'page-workspace'}`}>
