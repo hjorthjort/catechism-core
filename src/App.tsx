@@ -199,12 +199,16 @@ function WorkspacePage({
   const [sidebarHoverId, setSidebarHoverId] = useState<number | null>(null);
   const [clusterRootId, setClusterRootId] = useState<number | null>(null);
   const deferredQuery = useDeferredValue(query);
+  const orderedNodes = useMemo(() => [...data.nodes].sort((a, b) => a.id - b.id), [data.nodes]);
 
   const selectedId = hasSelectedRoute ? routeId : localSelectedId;
   const selectedNode = selectedId !== null ? nodeMap.get(selectedId) ?? null : null;
   const previewId = graphHoverId ?? sidebarHoverId;
   const previewNode = previewId !== null ? nodeMap.get(previewId) ?? null : null;
   const panelNode = previewNode ?? selectedNode ?? (deferredDefaultId ? nodeMap.get(deferredDefaultId) ?? null : null);
+  const panelIndex = panelNode ? orderedNodes.findIndex((node) => node.id === panelNode.id) : -1;
+  const previousPanelNode = panelIndex > 0 ? orderedNodes[panelIndex - 1] : null;
+  const nextPanelNode = panelIndex >= 0 && panelIndex < orderedNodes.length - 1 ? orderedNodes[panelIndex + 1] : null;
   const panelExternalCounts = panelNode ? countExternalKinds(panelNode) : null;
   const directConnections = useMemo(
     () => (panelNode ? collectDirectConnections(nodeMap, panelNode) : []),
@@ -381,22 +385,44 @@ function WorkspacePage({
                 <div className="selection-stack">
                   <article className="paragraph-body selected-paragraph">
                     <div className="selected-paragraph-header">
-                      <div>
-                        <p className="eyebrow">{getPartLabel(panelNode, language)}</p>
-                        <h2>
-                          {t.paragraph} {panelNode.id}
-                        </h2>
-                        <p className="lede">{getParagraphSubtitle(panelNode, language)}</p>
+                      <button
+                        aria-label={`Previous ${t.paragraph.toLowerCase()}`}
+                        className="paragraph-nav-button"
+                        disabled={!previousPanelNode}
+                        onClick={() => previousPanelNode && selectNode(previousPanelNode.id)}
+                        type="button"
+                      >
+                        ‹
+                      </button>
+
+                      <div className="selected-paragraph-summary">
+                        <div>
+                          <p className="eyebrow">{getPartLabel(panelNode, language)}</p>
+                          <h2>
+                            {t.paragraph} {panelNode.id}
+                          </h2>
+                          <p className="lede">{getParagraphSubtitle(panelNode, language)}</p>
+                        </div>
+
+                        <div className="paragraph-metrics">
+                          <span>
+                            {panelNode.xrefs.length} {t.outgoing}
+                          </span>
+                          <span>
+                            {panelNode.incoming.length} {t.incoming}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="paragraph-metrics">
-                        <span>
-                          {panelNode.xrefs.length} {t.outgoing}
-                        </span>
-                        <span>
-                          {panelNode.incoming.length} {t.incoming}
-                        </span>
-                      </div>
+                      <button
+                        aria-label={`Next ${t.paragraph.toLowerCase()}`}
+                        className="paragraph-nav-button"
+                        disabled={!nextPanelNode}
+                        onClick={() => nextPanelNode && selectNode(nextPanelNode.id)}
+                        type="button"
+                      >
+                        ›
+                      </button>
                     </div>
 
                     <div className="breadcrumb-trail">
