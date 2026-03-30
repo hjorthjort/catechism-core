@@ -18,7 +18,7 @@ const partPalette: Record<
 > = {
   Prologue: { hue: 42, saturation: 26, lightness: 82 },
   'Profession of Faith': { hue: 218, saturation: 68, lightness: 52 },
-  'Celebration of the Christian Mystery': { hue: 6, saturation: 70, lightness: 54 },
+  'Celebration of the Christian Mystery': { hue: 2, saturation: 62, lightness: 44 },
   'Life in Christ': { hue: 50, saturation: 88, lightness: 52 },
   'Christian Prayer': { hue: 144, saturation: 50, lightness: 42 },
 };
