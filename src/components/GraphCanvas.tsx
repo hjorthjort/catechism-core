@@ -97,6 +97,14 @@ function formatHslColor(hue: number, saturation: number, lightness: number) {
   return `hsl(${Math.round((hue + 360) % 360)} ${Math.round(saturation)}% ${Math.round(lightness)}%)`;
 }
 
+function getTooltipHierarchy(node: CatechismNode) {
+  return {
+    part: node.breadcrumbs.find((entry) => entry.startsWith('Part ')) ?? node.part,
+    section: node.breadcrumbs.find((entry) => entry.startsWith('Section ')) ?? 'Section: -',
+    chapter: node.breadcrumbs.find((entry) => entry.startsWith('Chapter ')) ?? 'Chapter: -',
+  };
+}
+
 function createDefaultTransform(scale: number) {
   return { x: 0, y: 0, k: scale };
 }
@@ -408,6 +416,7 @@ export function GraphCanvas({
   );
 
   const hoveredNode = hoveredId ? nodeMap.get(hoveredId) ?? null : null;
+  const hoveredHierarchy = hoveredNode ? getTooltipHierarchy(hoveredNode) : null;
   const activeHighlightId = highlightId ?? null;
 
   const highlighted = useMemo(() => {
@@ -1052,6 +1061,13 @@ export function GraphCanvas({
             top: Math.max(20, tooltip.y - 36),
           }}
         >
+          {hoveredHierarchy ? (
+            <div className="graph-tooltip-hierarchy">
+              <div>{hoveredHierarchy.part}</div>
+              <div>{hoveredHierarchy.section}</div>
+              <div>{hoveredHierarchy.chapter}</div>
+            </div>
+          ) : null}
           <div className="graph-tooltip-number">¶ {hoveredNode.id}</div>
           <div className="graph-tooltip-title">{hoveredNode.title}</div>
           <p>{hoveredNode.preview}</p>
