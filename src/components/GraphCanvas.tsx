@@ -32,7 +32,7 @@ const partPalette: Record<
   Prologue: { hue: 42, saturation: 26, lightness: 82 },
   'Profession of Faith': { hue: 218, saturation: 68, lightness: 52 },
   'Celebration of the Christian Mystery': { hue: 6, saturation: 70, lightness: 54 },
-  'Life in Christ': { hue: 48, saturation: 90, lightness: 53 },
+  'Life in Christ': { hue: 108, saturation: 62, lightness: 45 },
   'Christian Prayer': { hue: 144, saturation: 50, lightness: 42 },
 };
 
