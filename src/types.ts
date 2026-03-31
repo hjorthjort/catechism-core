@@ -98,6 +98,7 @@ export type LanguagePack = {
   stats: {
     paragraphs: number;
   };
+  hierarchyTitles?: Record<string, string>;
   nodes: LocalizedNode[];
 };
 
@@ -115,4 +116,5 @@ export type CatechismData = {
   nodes: CatechismNode[];
   edges: CatechismEdge[];
   externalSources: Record<string, ExternalSource>;
+  hierarchyTitles?: Record<string, string>;
 };
