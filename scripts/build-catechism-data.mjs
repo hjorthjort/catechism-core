@@ -683,37 +683,37 @@ const localizedHierarchyPatterns = {
     { kind: 'part', regex: /^(?:PREMIERE|PREMIÈRE|DEUXIEME|DEUXIÈME|TROISIEME|TROISIÈME|QUATRIEME|QUATRIÈME)\s+PARTIE(?:\s*(.+))?$/i },
     { kind: 'section', regex: /^(?:PREMIERE|PREMIÈRE|DEUXIEME|DEUXIÈME|TROISIEME|TROISIÈME|QUATRIEME|QUATRIÈME)\s+SECTION(?:\s*(.+))?$/i },
     { kind: 'chapter', regex: /^CHAPITRE\s+(?:PREMIER|PREMIERE|PREMIÈRE|DEUXIEME|DEUXIÈME|TROISIEME|TROISIÈME|QUATRIEME|QUATRIÈME|CINQUIEME|CINQUIÈME|SIXIEME|SIXIÈME|SEPTIEME|SEPTIÈME|HUITIEME|HUITIÈME|NEUVIEME|NEUVIÈME|DIXIEME|DIXIÈME|[0-9IVXLC]+)(?:\s*(.+))?$/i },
-    { kind: 'article', regex: /^ARTICLE\s+[0-9IVXLC]+(?:\s*(.+))?$/i },
+    { kind: 'article', regex: /^ARTICLE\s+\d+(?:\s*(.+))?$/i },
   ],
   de: [
     { kind: 'part', regex: /^(?:ERSTER|ZWEITER|DRITTER|VIERTER)\s+TEIL(?:\s*(.+))?$/i },
     { kind: 'section', regex: /^(?:ERSTER|ZWEITER|DRITTER|VIERTER)\s+ABSCHNITT(?:\s*(.+))?$/i },
     { kind: 'chapter', regex: /^(?:ERSTES|ZWEITES|DRITTES|VIERTES|FÜNFTES|FUNFTES|SECHSTES|SIEBTES|ACHTES|NEUNTES|ZEHNTES|[0-9IVXLC]+)\s+KAPITEL(?:\s*(.+))?$/i },
-    { kind: 'article', regex: /^ARTIKEL\s+[0-9IVXLC]+(?:\s*(.+))?$/i },
+    { kind: 'article', regex: /^ARTIKEL\s+\d+(?:\s*(.+))?$/i },
   ],
   it: [
     { kind: 'part', regex: /^PARTE\s+(?:PRIMA|SECONDA|TERZA|QUARTA|[0-9IVXLC]+)(?:\s*(.+))?$/i },
     { kind: 'section', regex: /^SEZIONE\s+(?:PRIMA|SECONDA|TERZA|QUARTA|[0-9IVXLC]+)(?:\s*(.+))?$/i },
     { kind: 'chapter', regex: /^CAPITOLO\s+(?:PRIMO|SECONDO|TERZO|QUARTO|QUINTO|SESTO|SETTIMO|OTTAVO|NONO|DECIMO|[0-9IVXLC]+)(?:\s*(.+))?$/i },
-    { kind: 'article', regex: /^ARTICOLO\s+[0-9IVXLC]+(?:\s*(.+))?$/i },
+    { kind: 'article', regex: /^ARTICOLO\s+\d+(?:\s*(.+))?$/i },
   ],
   la: [
     { kind: 'part', regex: /^PARS\s+(?:PRIMA|SECUNDA|TERTIA|QUARTA|[0-9IVXLC]+)(?:\s*(.+))?$/i },
     { kind: 'section', regex: /^SECTIO\s+(?:PRIMA|SECUNDA|TERTIA|QUARTA|[0-9IVXLC]+)(?:\s*(.+))?$/i },
     { kind: 'chapter', regex: /^CAPUT\s+(?:PRIMUM|SECUNDUM|TERTIUM|QUARTUM|QUINTUM|SEXTUM|SEPTIMUM|OCTAVUM|NONUM|DECIMUM|[0-9IVXLC]+)(?:\s*(.+))?$/i },
-    { kind: 'article', regex: /^ARTICULUS\s+[0-9IVXLC]+(?:\s*(.+))?$/i },
+    { kind: 'article', regex: /^ARTICULUS\s+\d+(?:\s*(.+))?$/i },
   ],
   es: [
     { kind: 'part', regex: /^(?:PRIMERA|SEGUNDA|TERCERA|CUARTA)\s+PARTE(?:\s*(.+))?$/i },
     { kind: 'section', regex: /^(?:PRIMERA|SEGUNDA|TERCERA|CUARTA)\s+SECCI[ÓO]N(?:\s*(.+))?$/i },
     { kind: 'chapter', regex: /^CAP[ÍI]TULO\s+(?:PRIMERO|SEGUNDO|TERCERO|CUARTO|QUINTO|SEXTO|S[EÉ]PTIMO|OCTAVO|NOVENO|D[EÉ]CIMO|[0-9IVXLC]+)(?:\s*(.+))?$/i },
-    { kind: 'article', regex: /^ART[ÍI]CULO\s+[0-9IVXLC]+(?:\s*(.+))?$/i },
+    { kind: 'article', regex: /^ART[ÍI]CULO\s+\d+(?:\s*(.+))?$/i },
   ],
   pt: [
     { kind: 'part', regex: /^(?:PRIMEIRA|SEGUNDA|TERCEIRA|QUARTA)\s+PARTE(?:\s*(.+))?$/i },
     { kind: 'section', regex: /^(?:PRIMEIRA|SEGUNDA|TERCEIRA|QUARTA)\s+SEC[CÇ][AÃ]O(?:\s*(.+))?$/i },
     { kind: 'chapter', regex: /^CAP[ÍI]TULO\s+(?:PRIMEIRO|SEGUNDO|TERCEIRO|QUARTO|QUINTO|SEXTO|S[EÉ]TIMO|OITAVO|NONO|D[EÉ]CIMO|[0-9IVXLC]+)(?:\s*(.+))?$/i },
-    { kind: 'article', regex: /^ARTIGO\s+[0-9IVXLC]+(?:\s*(.+))?$/i },
+    { kind: 'article', regex: /^ARTIGO\s+\d+(?:\s*(.+))?$/i },
   ],
 };
 
@@ -757,6 +757,12 @@ function dedupeLocalizedHierarchyEntries(entries) {
   }
 
   return normalized;
+}
+
+function hierarchyEntriesFromState(state) {
+  return ['part', 'section', 'chapter', 'article']
+    .map((kind) => (state[kind] ? { kind, title: state[kind] } : null))
+    .filter(Boolean);
 }
 
 function extractLocalizedHierarchyEntriesFromHtml(html, code) {
@@ -805,6 +811,91 @@ function extractLocalizedHierarchyEntriesFromHtml(html, code) {
   }
 
   return dedupeLocalizedHierarchyEntries(entries);
+}
+
+function collectLocalizedHierarchyTitlesFromHtml(target, html, code, graphNodesById) {
+  const $ = cheerio.load(html);
+  const state = {
+    part: null,
+    section: null,
+    chapter: null,
+    article: null,
+  };
+  const metaContent = $('meta[name="part"]').attr('content');
+  let pendingKind = null;
+
+  if (metaContent) {
+    for (const entry of dedupeLocalizedHierarchyEntries(
+      metaContent
+        .split(/\s*>\s*/)
+        .map((segment) => parseLocalizedHierarchyLine(segment, code)),
+    )) {
+      state[entry.kind] = entry.title;
+    }
+  }
+
+  const lines = $('p')
+    .toArray()
+    .map((element) => cleanText($(element).text()))
+    .filter(Boolean);
+
+  for (const line of lines) {
+    const start = extractParagraphStart(line);
+    if (start) {
+      collectLocalizedHierarchyTitles(target, hierarchyEntriesFromState(state), graphNodesById.get(start.id));
+      continue;
+    }
+
+    const parsed = parseLocalizedHierarchyLine(line, code);
+    if (parsed) {
+      if (parsed.title) {
+        state[parsed.kind] = parsed.title;
+        pendingKind = null;
+      } else {
+        pendingKind = parsed.kind;
+      }
+      continue;
+    }
+
+    if (pendingKind) {
+      state[pendingKind] = line;
+      pendingKind = null;
+    }
+  }
+}
+
+function parseLocalizedPdfHierarchyMarker(line, code) {
+  if (code === 'zh') {
+    if (/^卷[一二三四五六七八九十百零〇0-9]+$/.test(line)) {
+      return { kind: 'part', title: '' };
+    }
+    if (/^第[一二三四五六七八九十百零〇0-9]+部分$/.test(line)) {
+      return { kind: 'section', title: '' };
+    }
+    if (/^第[一二三四五六七八九十百零〇0-9]+章$/.test(line)) {
+      return { kind: 'chapter', title: '' };
+    }
+    if (/^第[一二三四五六七八九十百零〇0-9]+條$/.test(line)) {
+      return { kind: 'article', title: '' };
+    }
+  }
+
+  if (code === 'ar') {
+    if (/^الجزء\b/.test(line)) {
+      return { kind: 'part', title: '' };
+    }
+    if (/^القسم\b/.test(line)) {
+      return { kind: 'section', title: '' };
+    }
+    if (/^الفصل\b/.test(line)) {
+      return { kind: 'chapter', title: '' };
+    }
+    if (/^المقالة\b/.test(line)) {
+      return { kind: 'article', title: '' };
+    }
+  }
+
+  return null;
 }
 
 function extractLocalizedHierarchyEntriesFromPdf(text, code) {
@@ -897,6 +988,56 @@ function extractLocalizedHierarchyEntriesFromPdf(text, code) {
   }
 
   return [];
+}
+
+function collectLocalizedHierarchyTitlesFromPdf(target, text, code, graphNodesById, sourceUrl) {
+  const lines = stripBidiMarks(text)
+    .replaceAll('\f', '\n')
+    .split('\n')
+    .map((line) => cleanText(line))
+    .filter(Boolean);
+  const paragraphRange = parsePdfParagraphRange(sourceUrl);
+  const allowLeadingNoise = /catechism_ar/i.test(sourceUrl);
+  const state = {
+    part: null,
+    section: null,
+    chapter: null,
+    article: null,
+  };
+  const skipLines = code === 'zh' ? new Set(['天主教教理']) : new Set();
+  const nestedZhMarkerPattern = /^第[一二三四五六七八九十百零〇0-9]+節(?:\s*.+)?$/;
+  let pendingKind = null;
+
+  for (const line of lines) {
+    const start = extractParagraphStart(line, {
+      ...(paragraphRange ?? {}),
+      allowLeadingNoise,
+    });
+    if (start) {
+      collectLocalizedHierarchyTitles(target, hierarchyEntriesFromState(state), graphNodesById.get(start.id));
+      continue;
+    }
+
+    if (skipLines.has(line)) {
+      continue;
+    }
+
+    const parsed = parseLocalizedPdfHierarchyMarker(line, code);
+    if (parsed) {
+      pendingKind = parsed.kind;
+      continue;
+    }
+
+    if (pendingKind) {
+      if (code === 'zh' && nestedZhMarkerPattern.test(line)) {
+        pendingKind = null;
+        continue;
+      }
+
+      state[pendingKind] = line;
+      pendingKind = null;
+    }
+  }
 }
 
 function escapeHtml(value) {
@@ -1434,12 +1575,7 @@ async function buildHtmlLanguagePack(config, nodeIds, graphNodesById) {
   for (const pageUrl of pages) {
     const html = await fetchHtml(pageUrl);
     const pageParagraphs = parseLocalizedParagraphsFromHtml(html, pageUrl);
-    const sampleId = [...pageParagraphs.keys()].sort((a, b) => a - b)[0];
-    collectLocalizedHierarchyTitles(
-      hierarchyTitles,
-      extractLocalizedHierarchyEntriesFromHtml(html, config.code),
-      sampleId ? graphNodesById.get(sampleId) : null,
-    );
+    collectLocalizedHierarchyTitlesFromHtml(hierarchyTitles, html, config.code, graphNodesById);
 
     for (const [id, payload] of pageParagraphs) {
       if (nodeIds.has(id) && !localized.has(id)) {
@@ -1474,12 +1610,7 @@ async function buildPdfLanguagePack(config, nodeIds, graphNodesById) {
     const pdfPath = await fetchPdfToCache(pdfUrl);
     const pdfText = extractPdfText(pdfPath);
     const pdfParagraphs = parseLocalizedParagraphsFromPdf(pdfText, pdfUrl);
-    const sampleId = [...pdfParagraphs.keys()].sort((a, b) => a - b)[0];
-    collectLocalizedHierarchyTitles(
-      hierarchyTitles,
-      extractLocalizedHierarchyEntriesFromPdf(pdfText, config.code),
-      sampleId ? graphNodesById.get(sampleId) : null,
-    );
+    collectLocalizedHierarchyTitlesFromPdf(hierarchyTitles, pdfText, config.code, graphNodesById, pdfUrl);
 
     for (const [id, payload] of pdfParagraphs) {
       if (nodeIds.has(id) && !localized.has(id)) {
