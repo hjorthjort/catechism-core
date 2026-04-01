@@ -634,6 +634,28 @@ function titleCaseHierarchyText(value) {
     .join(' ');
 }
 
+function decodeHtmlEntities(value) {
+  return cheerio.load(`<div>${value}</div>`)('div').text();
+}
+
+function normalizeLocalizedHierarchyTitle(value, code) {
+  const text = cleanText(decodeHtmlEntities(value));
+  const quotedMatch = text.match(/^["„«]\s*(.*?)\s*["»]$/u);
+  if (!quotedMatch) {
+    return text;
+  }
+
+  const inner = quotedMatch[1].trim();
+  if (code === 'fr') {
+    return `«${inner}»`;
+  }
+  if (code === 'de') {
+    return `„${inner}“`;
+  }
+
+  return inner;
+}
+
 function normalizeHierarchySegment(segment) {
   const text = cleanText(segment).replace(/\s*>\s*/g, ' ');
 
@@ -719,7 +741,7 @@ const localizedHierarchyPatterns = {
 
 function parseLocalizedHierarchyLine(line, code) {
   const patterns = localizedHierarchyPatterns[code] ?? [];
-  const text = cleanText(line);
+  const text = normalizeLocalizedHierarchyTitle(line, code);
 
   for (const pattern of patterns) {
     const match = text.match(pattern.regex);
@@ -729,14 +751,14 @@ function parseLocalizedHierarchyLine(line, code) {
 
     return {
       kind: pattern.kind,
-      title: cleanText(match[1] ?? ''),
+      title: normalizeLocalizedHierarchyTitle(match[1] ?? '', code),
     };
   }
 
   return null;
 }
 
-function dedupeLocalizedHierarchyEntries(entries) {
+function dedupeLocalizedHierarchyEntries(entries, code) {
   const seen = new Set();
   const normalized = [];
 
@@ -752,7 +774,7 @@ function dedupeLocalizedHierarchyEntries(entries) {
     seen.add(entry.kind);
     normalized.push({
       kind: entry.kind,
-      title: cleanText(entry.title),
+      title: normalizeLocalizedHierarchyTitle(entry.title, code),
     });
   }
 
@@ -774,6 +796,7 @@ function extractLocalizedHierarchyEntriesFromHtml(html, code) {
       metaContent
         .split(/\s*>\s*/)
         .map((segment) => parseLocalizedHierarchyLine(segment, code)),
+      code,
     );
   }
 
@@ -810,7 +833,7 @@ function extractLocalizedHierarchyEntriesFromHtml(html, code) {
     }
   }
 
-  return dedupeLocalizedHierarchyEntries(entries);
+  return dedupeLocalizedHierarchyEntries(entries, code);
 }
 
 function collectLocalizedHierarchyTitlesFromHtml(target, html, code, graphNodesById) {
@@ -829,6 +852,7 @@ function collectLocalizedHierarchyTitlesFromHtml(target, html, code, graphNodesB
       metaContent
         .split(/\s*>\s*/)
         .map((segment) => parseLocalizedHierarchyLine(segment, code)),
+      code,
     )) {
       state[entry.kind] = entry.title;
     }
@@ -842,7 +866,7 @@ function collectLocalizedHierarchyTitlesFromHtml(target, html, code, graphNodesB
   for (const line of lines) {
     const start = extractParagraphStart(line);
     if (start) {
-      collectLocalizedHierarchyTitles(target, hierarchyEntriesFromState(state), graphNodesById.get(start.id));
+      collectLocalizedHierarchyTitles(target, hierarchyEntriesFromState(state), graphNodesById.get(start.id), code);
       continue;
     }
 
@@ -946,7 +970,7 @@ function extractLocalizedHierarchyEntriesFromPdf(text, code) {
       }
     }
 
-    return dedupeLocalizedHierarchyEntries(entries);
+    return dedupeLocalizedHierarchyEntries(entries, code);
   }
 
   if (code === 'ar') {
@@ -984,7 +1008,7 @@ function extractLocalizedHierarchyEntriesFromPdf(text, code) {
       }
     }
 
-    return dedupeLocalizedHierarchyEntries(entries);
+    return dedupeLocalizedHierarchyEntries(entries, code);
   }
 
   return [];
@@ -1014,7 +1038,7 @@ function collectLocalizedHierarchyTitlesFromPdf(target, text, code, graphNodesBy
       allowLeadingNoise,
     });
     if (start) {
-      collectLocalizedHierarchyTitles(target, hierarchyEntriesFromState(state), graphNodesById.get(start.id));
+      collectLocalizedHierarchyTitles(target, hierarchyEntriesFromState(state), graphNodesById.get(start.id), code);
       continue;
     }
 
@@ -1550,7 +1574,7 @@ async function discoverHtmlPages(config) {
   return [...pages].sort();
 }
 
-function collectLocalizedHierarchyTitles(target, entries, baseNode) {
+function collectLocalizedHierarchyTitles(target, entries, baseNode, code) {
   if (!baseNode) {
     return;
   }
@@ -1563,7 +1587,7 @@ function collectLocalizedHierarchyTitles(target, entries, baseNode) {
       continue;
     }
 
-    target.set(baseLevel, cleanText(entry.title));
+    target.set(baseLevel, normalizeLocalizedHierarchyTitle(entry.title, code));
   }
 }
 
