@@ -737,6 +737,19 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
   },
 };
 
+export const hierarchyWords = {
+  en: { part: 'Part', section: 'Section', chapter: 'Chapter', article: 'Article' },
+  fr: { part: 'Partie', section: 'Section', chapter: 'Chapitre', article: 'Article' },
+  de: { part: 'Teil', section: 'Abschnitt', chapter: 'Kapitel', article: 'Artikel' },
+  it: { part: 'Parte', section: 'Sezione', chapter: 'Capitolo', article: 'Articolo' },
+  la: { part: 'Pars', section: 'Sectio', chapter: 'Caput', article: 'Articulus' },
+  es: { part: 'Parte', section: 'Seccion', chapter: 'Capitulo', article: 'Articulo' },
+  pt: { part: 'Parte', section: 'Secao', chapter: 'Capitulo', article: 'Artigo' },
+  mg: { part: 'Fizarana', section: 'Sokajy', chapter: 'Toko', article: 'Andalana' },
+  zh: { part: '部分', section: '節', chapter: '章', article: '條' },
+  ar: { part: 'الجزء', section: 'القسم', chapter: 'الفصل', article: 'المقالة' },
+} as const;
+
 export function isLanguage(value: string | null | undefined): value is AppLanguage {
   return languages.some((language) => language.code === value);
 }

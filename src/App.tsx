@@ -7,6 +7,7 @@ import { buildNodeColorMap } from './lib/nodePalette';
 import {
   getInitialLanguage,
   getLanguageMeta,
+  hierarchyWords,
   languages,
   uiStrings,
   withLanguage,
@@ -93,6 +94,10 @@ function getPartLabel(node: CatechismNode, language: AppLanguage) {
   return t.parts[key] ?? node.part;
 }
 
+function getHierarchyWord(language: AppLanguage, kind: keyof typeof hierarchyWords.en) {
+  return hierarchyWords[language]?.[kind] ?? hierarchyWords.en[kind];
+}
+
 function splitHierarchyEntry(entry: string | undefined) {
   if (!entry) {
     return null;
@@ -119,33 +124,80 @@ function splitHierarchyEntry(entry: string | undefined) {
   return null;
 }
 
-function getNodeHierarchy(node: CatechismNode, language: AppLanguage) {
-  const part = splitHierarchyEntry(node.breadcrumbs.find((entry) => entry.startsWith('Part ')));
-  const section = splitHierarchyEntry(node.breadcrumbs.find((entry) => entry.startsWith('Section ')));
-  const chapter = splitHierarchyEntry(node.breadcrumbs.find((entry) => entry.startsWith('Chapter ')));
-  const article = splitHierarchyEntry(node.breadcrumbs.find((entry) => entry.startsWith('Article ')));
+function getHierarchyEntryTitle(
+  node: CatechismNode,
+  rawEntry: string | undefined,
+  entry: ReturnType<typeof splitHierarchyEntry>,
+  language: AppLanguage,
+  hierarchyTitles: Record<string, string> | undefined,
+) {
+  if (!entry) {
+    return null;
+  }
+
+  const kind = entry.kind.toLowerCase() as 'part' | 'section' | 'chapter' | 'article';
+  const fallbackTitle = kind === 'part' ? getPartLabel(node, language) : entry.title;
+
+  return (rawEntry ? hierarchyTitles?.[rawEntry] : null) ?? fallbackTitle;
+}
+
+function getLocalizedBreadcrumb(
+  node: CatechismNode,
+  entry: string,
+  language: AppLanguage,
+  hierarchyTitles: Record<string, string> | undefined,
+) {
+  const parsed = splitHierarchyEntry(entry);
+  if (!parsed) {
+    return entry;
+  }
+
+  const title = getHierarchyEntryTitle(node, entry, parsed, language, hierarchyTitles);
+  const kind = parsed.kind.toLowerCase() as 'part' | 'section' | 'chapter' | 'article';
+  const word = getHierarchyWord(language, kind);
+
+  return parsed.number ? `${word} ${parsed.number}: ${title}` : `${word}: ${title}`;
+}
+
+function getNodeHierarchy(
+  node: CatechismNode,
+  language: AppLanguage,
+  hierarchyTitles: Record<string, string> | undefined,
+) {
+  const partEntry = node.breadcrumbs.find((entry) => entry.startsWith('Part '));
+  const sectionEntry = node.breadcrumbs.find((entry) => entry.startsWith('Section '));
+  const chapterEntry = node.breadcrumbs.find((entry) => entry.startsWith('Chapter '));
+  const articleEntry = node.breadcrumbs.find((entry) => entry.startsWith('Article '));
+  const part = splitHierarchyEntry(partEntry);
+  const section = splitHierarchyEntry(sectionEntry);
+  const chapter = splitHierarchyEntry(chapterEntry);
+  const article = splitHierarchyEntry(articleEntry);
+  const partWord = getHierarchyWord(language, 'part');
+  const sectionWord = getHierarchyWord(language, 'section');
+  const chapterWord = getHierarchyWord(language, 'chapter');
+  const articleWord = getHierarchyWord(language, 'article');
 
   return {
     part: part
       ? {
-          label: `Part ${part.number}: ${getPartLabel(node, language)}`,
+          label: `${partWord} ${part.number}: ${getHierarchyEntryTitle(node, partEntry, part, language, hierarchyTitles)}`,
         }
       : {
-          label: `Part: ${getPartLabel(node, language)}`,
+          label: `${partWord}: ${getPartLabel(node, language)}`,
         },
     section: section
       ? {
-          label: `Section ${section.number}: ${section.title}`,
+          label: `${sectionWord} ${section.number}: ${getHierarchyEntryTitle(node, sectionEntry, section, language, hierarchyTitles)}`,
         }
       : null,
     chapter: chapter
       ? {
-          label: `Chapter: ${chapter.title}`,
+          label: `${chapterWord}: ${getHierarchyEntryTitle(node, chapterEntry, chapter, language, hierarchyTitles)}`,
         }
       : null,
     article: article
       ? {
-          label: `Article: ${article.title}`,
+          label: `${articleWord}: ${getHierarchyEntryTitle(node, articleEntry, article, language, hierarchyTitles)}`,
         }
       : null,
   };
@@ -280,7 +332,7 @@ function WorkspacePage({
   const previousPanelNode = panelIndex > 0 ? orderedNodes[panelIndex - 1] : null;
   const nextPanelNode = panelIndex >= 0 && panelIndex < orderedNodes.length - 1 ? orderedNodes[panelIndex + 1] : null;
   const panelExternalCounts = panelNode ? countExternalKinds(panelNode) : null;
-  const panelHierarchy = panelNode ? getNodeHierarchy(panelNode, language) : null;
+  const panelHierarchy = panelNode ? getNodeHierarchy(panelNode, language, data.hierarchyTitles) : null;
   const panelTone = panelNode ? nodeColors.get(panelNode.id) ?? null : null;
   const directConnections = useMemo(
     () => (panelNode ? collectDirectConnections(nodeMap, panelNode) : []),
@@ -497,7 +549,9 @@ function WorkspacePage({
                 edges={data.edges}
                 focusId={deferredDefaultId}
                 highlightId={selectedNode?.id ?? null}
+                hierarchyTitles={data.hierarchyTitles}
                 hoverDelayMs={0}
+                language={language}
                 nodes={data.nodes}
                 onBackgroundClick={clearSelection}
                 onNodeClick={(id) => selectNode(id)}
@@ -561,7 +615,9 @@ function WorkspacePage({
 
                     <div className="breadcrumb-trail">
                       {panelNode.breadcrumbs.map((crumb) => (
-                        <span key={crumb}>{crumb}</span>
+                        <span key={crumb}>
+                          {getLocalizedBreadcrumb(panelNode, crumb, language, data.hierarchyTitles)}
+                        </span>
                       ))}
                     </div>
 

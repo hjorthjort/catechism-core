@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import type { AppLanguage } from '../lib/i18n';
 import { buildNodeColorMap } from '../lib/nodePalette';
 import type { CatechismEdge, CatechismNode } from '../types';
 
@@ -20,6 +21,8 @@ type GraphCanvasProps = {
   fitToNodes?: boolean;
   minScreenNodeRadius?: number;
   hoverDelayMs?: number;
+  language?: AppLanguage;
+  hierarchyTitles?: Record<string, string>;
 };
 
 function getHierarchyNumber(entry: string | undefined, kind: string) {
@@ -37,6 +40,32 @@ function getTooltipHierarchy(node: CatechismNode) {
     section: getHierarchyNumber(node.breadcrumbs.find((entry) => entry.startsWith('Section ')), 'Section'),
     chapter: getHierarchyNumber(node.breadcrumbs.find((entry) => entry.startsWith('Chapter ')), 'Chapter'),
   };
+}
+
+function getTooltipTitle(
+  node: CatechismNode,
+  language: AppLanguage,
+  hierarchyTitles: Record<string, string> | undefined,
+) {
+  if (language === 'en') {
+    return node.title;
+  }
+
+  const localizedHierarchyTitle = [...node.breadcrumbs]
+    .reverse()
+    .map((entry) => hierarchyTitles?.[entry])
+    .find((entry) => entry && entry.trim().length > 0);
+
+  if (localizedHierarchyTitle) {
+    return localizedHierarchyTitle;
+  }
+
+  const previewTitle = node.preview.trim();
+  if (previewTitle.length > 0) {
+    return previewTitle.length > 96 ? `${previewTitle.slice(0, 93).trimEnd()}...` : previewTitle;
+  }
+
+  return node.title;
 }
 
 function createDefaultTransform(scale: number) {
@@ -187,6 +216,8 @@ export function GraphCanvas({
   fitToNodes = false,
   minScreenNodeRadius = 6.4,
   hoverDelayMs = 100,
+  language = 'en',
+  hierarchyTitles,
 }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
@@ -323,6 +354,7 @@ export function GraphCanvas({
 
   const hoveredNode = hoveredId ? nodeMap.get(hoveredId) ?? null : null;
   const hoveredHierarchy = hoveredNode ? getTooltipHierarchy(hoveredNode) : null;
+  const hoveredTitle = hoveredNode ? getTooltipTitle(hoveredNode, language, hierarchyTitles) : null;
   const activeHighlightId = highlightId ?? null;
 
   const highlighted = useMemo(() => {
@@ -975,7 +1007,7 @@ export function GraphCanvas({
             </div>
           ) : null}
           <div className="graph-tooltip-number">¶ {hoveredNode.id}</div>
-          <div className="graph-tooltip-title">{hoveredNode.title}</div>
+          <div className="graph-tooltip-title">{hoveredTitle}</div>
           <p>{hoveredNode.preview}</p>
         </div>
       ) : null}

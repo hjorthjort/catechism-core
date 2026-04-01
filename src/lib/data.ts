@@ -66,6 +66,7 @@ function mergeData(graph: CatechismData, pack: LanguagePack | null): CatechismDa
       ...graph.source,
       corpus: pack.source.corpus,
     },
+    hierarchyTitles: pack.hierarchyTitles ?? graph.hierarchyTitles ?? {},
     nodes: graph.nodes.map((node) => {
       const localized = localizedNodes.get(node.id);
       if (!localized) {
