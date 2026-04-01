@@ -555,7 +555,9 @@ function WorkspacePage({
                 edges={data.edges}
                 focusId={deferredDefaultId}
                 highlightId={selectedNode?.id ?? null}
+                hierarchyTitles={data.hierarchyTitles}
                 hoverDelayMs={0}
+                language={language}
                 nodes={data.nodes}
                 onBackgroundClick={clearSelection}
                 onNodeClick={(id) => selectNode(id)}
