@@ -773,6 +773,16 @@ export function getInitialLanguage() {
     return fromQuery;
   }
 
+  const fromCookie = document.cookie
+    .split('; ')
+    .find((entry) => entry.startsWith('catholic-core-language='))
+    ?.split('=')
+    .slice(1)
+    .join('=');
+  if (isLanguage(fromCookie)) {
+    return fromCookie;
+  }
+
   const fromStorage = window.localStorage.getItem('catholic-core-language');
   return getLanguage(fromStorage);
 }

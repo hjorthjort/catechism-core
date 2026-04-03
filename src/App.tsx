@@ -1324,67 +1324,61 @@ function HomePage({
         />
       }
     >
-      <section className="home-day-card">
-        <div className="section-heading">
-          <p className="eyebrow">{x.paragraphOfDay}</p>
-          <h1>{x.paragraphOfDay}</h1>
-        </div>
-
-        <div className="day-meta-grid">
-          <div>
-            <span>{x.liturgicalDate}</span>
-            <strong>{entry.date}</strong>
-          </div>
-          <div>
-            <span>{x.liturgicalTheme}</span>
-            <strong>{entry.themeLabel}</strong>
-          </div>
-          <div>
-            <span>{x.liturgicalCelebration}</span>
-            <strong>{entry.celebration.name}</strong>
-          </div>
-          <div>
-            <span>{x.liturgicalSeason}</span>
-            <strong>{entry.season}</strong>
-          </div>
-        </div>
-
-        <p className="lede">{x.nextYearRange}</p>
-
-        {entry.readings ? (
-          <div className="liturgical-readings">
-            <strong>{x.liturgicalReadings}</strong>
-            <ul>
-              {entry.readings.firstReading ? <li>{entry.readings.firstReading}</li> : null}
-              {entry.readings.psalm ? <li>{entry.readings.psalm}</li> : null}
-              {entry.readings.secondReading ? <li>{entry.readings.secondReading}</li> : null}
-              {entry.readings.gospel ? <li>{entry.readings.gospel}</li> : null}
-            </ul>
-            {entry.readings.usccbLink ? (
-              <a className="button button-ghost" href={entry.readings.usccbLink} rel="noreferrer" target="_blank">
-                {x.liturgicalReadings}
-              </a>
-            ) : null}
-          </div>
-        ) : null}
-
-        {devMode ? (
-          <label className="search-field dev-date-field">
-            <span>{x.developerDate}</span>
-            <input
-              max={schedule.source.rangeEnd}
-              min={schedule.source.rangeStart}
-              onChange={(event) => navigate(buildHref('/', { date: event.target.value || null }))}
-              type="date"
-              value={selectedDate ?? ''}
-            />
-          </label>
-        ) : null}
-      </section>
-
       <section className="selection-panel">
         <div className="selection-stack">
           <ParagraphCard data={data} language={language} links={panelLinks} node={node} nodeColors={nodeColors} />
+          <section className="home-day-card">
+            <div className="day-meta-grid">
+              <div>
+                <span>{x.liturgicalDate}</span>
+                <strong>{entry.date}</strong>
+              </div>
+              <div>
+                <span>{x.liturgicalTheme}</span>
+                <strong>{entry.themeLabel}</strong>
+              </div>
+              <div>
+                <span>{x.liturgicalCelebration}</span>
+                <strong>{entry.celebration.name}</strong>
+              </div>
+              <div>
+                <span>{x.liturgicalSeason}</span>
+                <strong>{entry.season}</strong>
+              </div>
+            </div>
+
+            <p className="lede">{x.nextYearRange}</p>
+
+            {entry.readings ? (
+              <div className="liturgical-readings">
+                <strong>{x.liturgicalReadings}</strong>
+                <ul>
+                  {entry.readings.firstReading ? <li>{entry.readings.firstReading}</li> : null}
+                  {entry.readings.psalm ? <li>{entry.readings.psalm}</li> : null}
+                  {entry.readings.secondReading ? <li>{entry.readings.secondReading}</li> : null}
+                  {entry.readings.gospel ? <li>{entry.readings.gospel}</li> : null}
+                </ul>
+                {entry.readings.usccbLink ? (
+                  <a className="button button-ghost" href={entry.readings.usccbLink} rel="noreferrer" target="_blank">
+                    {x.liturgicalReadings}
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
+
+            {devMode ? (
+              <label className="search-field dev-date-field">
+                <span>{x.developerDate}</span>
+                <input
+                  max={schedule.source.rangeEnd}
+                  min={schedule.source.rangeStart}
+                  onChange={(event) => navigate(buildHref('/', { date: event.target.value || null }))}
+                  type="date"
+                  value={selectedDate ?? ''}
+                />
+              </label>
+            ) : null}
+          </section>
           <RelatedPassages language={language} node={node} nodeMap={nodeMap} onSelect={(id) => navigate(buildHref('/read', { read: id }))} />
         </div>
       </section>
@@ -1806,6 +1800,7 @@ export default function App() {
 
   useEffect(() => {
     window.localStorage.setItem('catholic-core-language', language);
+    document.cookie = `catholic-core-language=${language}; path=/; max-age=${60 * 60 * 24 * 365}`;
     const url = new URL(window.location.href);
     if (language === 'en') {
       url.searchParams.delete('lang');
