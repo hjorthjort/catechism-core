@@ -102,6 +102,48 @@ export type LanguagePack = {
   nodes: LocalizedNode[];
 };
 
+export type DailyScheduleEntry = {
+  date: string;
+  paragraphId: number;
+  themeKey: string;
+  themeLabel: string;
+  rationale: string;
+  season: string;
+  celebration: {
+    name: string;
+    type: string;
+    description: string;
+    quote: string;
+  };
+  readings: {
+    firstReading: string | null;
+    psalm: string | null;
+    secondReading: string | null;
+    gospel: string | null;
+    usccbLink: string | null;
+  } | null;
+  source: 'cpbjr' | 'romcal';
+  apiLinks: {
+    calendar: string | null;
+    readings: string | null;
+  };
+};
+
+export type DailyScheduleData = {
+  generatedAt: string;
+  source: {
+    calendar: string[];
+    rangeStart: string;
+    rangeEnd: string;
+    basis: string;
+  };
+  stats: {
+    entries: number;
+    uniqueParagraphs: number;
+  };
+  entries: DailyScheduleEntry[];
+};
+
 export type CatechismData = {
   generatedAt: string;
   source: {
