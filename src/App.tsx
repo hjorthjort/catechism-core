@@ -1051,9 +1051,6 @@ function RelatedPassages({
     <section className="related-passages">
       <div className="section-heading">
         <p className="eyebrow">{t.focusedNode}</p>
-        <h2>
-          {t.linksOut} / {t.linksIn}
-        </h2>
       </div>
 
       <div className="related-passage-list">
