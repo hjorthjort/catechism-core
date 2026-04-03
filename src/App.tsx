@@ -354,12 +354,20 @@ type OutlineBlock = {
   nodeIds: number[];
 };
 
+type OutlineSection = {
+  key: string;
+  anchor: string;
+  title: string;
+  introBlock: OutlineBlock | null;
+  chapters: OutlineBlock[];
+};
+
 type OutlinePart = {
   key: string;
   anchor: string;
   title: string;
   introBlock: OutlineBlock | null;
-  sections: OutlineBlock[];
+  sections: OutlineSection[];
 };
 
 function fmtScore(score: number) {
@@ -679,6 +687,8 @@ function buildOutlineParts(
   for (const node of orderedNodes) {
     const partEntry = node.breadcrumbs.find((entry) => entry.startsWith('Part '));
     const sectionEntry = node.breadcrumbs.find((entry) => entry.startsWith('Section '));
+    const chapterEntry = node.breadcrumbs.find((entry) => entry.startsWith('Chapter '));
+    const articleEntry = node.breadcrumbs.find((entry) => entry.startsWith('Article '));
     const partKey = partEntry ?? `part:${node.part}`;
     let part = partIndex.get(partKey);
 
@@ -698,34 +708,81 @@ function buildOutlineParts(
       parts.push(part);
     }
 
-    if (sectionEntry) {
+    if (sectionEntry && !chapterEntry) {
       let section = part.sections.find((entry) => entry.key === sectionEntry);
       if (!section) {
         section = {
           key: sectionEntry,
           anchor: `section-${slugifyAnchor(sectionEntry)}`,
-          kind: 'section',
           title: getLocalizedBreadcrumb(node, sectionEntry, language, hierarchyTitles),
-          nodeIds: [],
+          introBlock: {
+            key: `${sectionEntry}:intro`,
+            anchor: `section-${slugifyAnchor(sectionEntry)}-opening`,
+            kind: 'section',
+            title: getLocalizedBreadcrumb(node, sectionEntry, language, hierarchyTitles),
+            nodeIds: [],
+          },
+          chapters: [],
         };
         part.sections.push(section);
       }
 
-      section.nodeIds.push(node.id);
+      if (!section.introBlock) {
+        section.introBlock = {
+          key: `${sectionEntry}:intro`,
+          anchor: `section-${slugifyAnchor(sectionEntry)}-opening`,
+          kind: 'section',
+          title: getLocalizedBreadcrumb(node, sectionEntry, language, hierarchyTitles),
+          nodeIds: [],
+        };
+      }
+
+      section.introBlock.nodeIds.push(node.id);
       continue;
     }
 
-    if (!part.introBlock) {
-      part.introBlock = {
-        key: `${part.key}:intro`,
-        anchor: `${part.anchor}-opening`,
-        kind: 'part-intro',
-        title: part.title,
-        nodeIds: [],
-      };
+    if (sectionEntry && chapterEntry && !articleEntry) {
+      let section = part.sections.find((entry) => entry.key === sectionEntry);
+      if (!section) {
+        section = {
+          key: sectionEntry,
+          anchor: `section-${slugifyAnchor(sectionEntry)}`,
+          title: getLocalizedBreadcrumb(node, sectionEntry, language, hierarchyTitles),
+          introBlock: null,
+          chapters: [],
+        };
+        part.sections.push(section);
+      }
+
+      let chapter = section.chapters.find((entry) => entry.key === chapterEntry);
+      if (!chapter) {
+        chapter = {
+          key: chapterEntry,
+          anchor: `chapter-${slugifyAnchor(chapterEntry)}`,
+          kind: 'section',
+          title: getLocalizedBreadcrumb(node, chapterEntry, language, hierarchyTitles),
+          nodeIds: [],
+        };
+        section.chapters.push(chapter);
+      }
+
+      chapter.nodeIds.push(node.id);
+      continue;
     }
 
-    part.introBlock.nodeIds.push(node.id);
+    if (!sectionEntry && !chapterEntry) {
+      if (!part.introBlock) {
+        part.introBlock = {
+          key: `${part.key}:intro`,
+          anchor: `${part.anchor}-opening`,
+          kind: 'part-intro',
+          title: part.title,
+          nodeIds: [],
+        };
+      }
+
+      part.introBlock.nodeIds.push(node.id);
+    }
   }
 
   return parts;
@@ -1497,42 +1554,103 @@ function InBriefPage({
               </div>
             ) : null}
 
-            {part.sections.map((section) => {
-              const fallbackId = getBlockCurrentId(section);
-              const currentIndex = section.nodeIds.indexOf(fallbackId);
-              const previousId = currentIndex > 0 ? section.nodeIds[currentIndex - 1] : null;
-              const nextId = currentIndex >= 0 && currentIndex < section.nodeIds.length - 1 ? section.nodeIds[currentIndex + 1] : null;
-              const currentNode = nodeMap.get(fallbackId);
-
-              if (!currentNode) {
-                return null;
-              }
-
-              return (
-                <div className="brief-block" id={section.anchor} key={section.key}>
-                  <div className="brief-block-heading">
-                    <p className="eyebrow">{x.inBriefTitle}</p>
-                    <h3>{section.title}</h3>
-                  </div>
-                  <ParagraphCard
-                    data={data}
-                    language={language}
-                    links={[
-                      { label: x.showInConnections, to: buildHref('/connections', { paragraph: currentNode.id }) },
-                      { label: x.continueReading, to: buildHref('/read', { read: currentNode.id }) },
-                    ]}
-                    nextNode={nextId ? nodeMap.get(nextId) ?? null : null}
-                    node={currentNode}
-                    nodeColors={nodeColors}
-                    onNext={nextId ? () => setSectionSelection((current) => ({ ...current, [section.key]: nextId })) : null}
-                    onPrevious={
-                      previousId ? () => setSectionSelection((current) => ({ ...current, [section.key]: previousId })) : null
-                    }
-                    previousNode={previousId ? nodeMap.get(previousId) ?? null : null}
-                  />
+            {part.sections.map((section) => (
+              <div className="brief-section" id={section.anchor} key={section.key}>
+                <div className="brief-block-heading">
+                  <p className="eyebrow">{x.inBriefTitle}</p>
+                  <h3>{section.title}</h3>
                 </div>
-              );
-            })}
+
+                {section.introBlock && section.introBlock.nodeIds.length > 0
+                  ? (() => {
+                      const introBlock = section.introBlock;
+                      if (!introBlock) {
+                        return null;
+                      }
+
+                      const fallbackId = getBlockCurrentId(introBlock);
+                      const currentIndex = introBlock.nodeIds.indexOf(fallbackId);
+                      const previousId = currentIndex > 0 ? introBlock.nodeIds[currentIndex - 1] : null;
+                      const nextId =
+                        currentIndex >= 0 && currentIndex < introBlock.nodeIds.length - 1
+                          ? introBlock.nodeIds[currentIndex + 1]
+                          : null;
+                      const currentNode = nodeMap.get(fallbackId);
+
+                      if (!currentNode) {
+                        return null;
+                      }
+
+                      return (
+                        <div className="brief-block" id={introBlock.anchor}>
+                          <ParagraphCard
+                            data={data}
+                            language={language}
+                            links={[
+                              { label: x.showInConnections, to: buildHref('/connections', { paragraph: currentNode.id }) },
+                              { label: x.continueReading, to: buildHref('/read', { read: currentNode.id }) },
+                            ]}
+                            nextNode={nextId ? nodeMap.get(nextId) ?? null : null}
+                            node={currentNode}
+                            nodeColors={nodeColors}
+                            onNext={
+                              nextId
+                                ? () => setSectionSelection((current) => ({ ...current, [introBlock.key]: nextId }))
+                                : null
+                            }
+                            onPrevious={
+                              previousId
+                                ? () => setSectionSelection((current) => ({ ...current, [introBlock.key]: previousId }))
+                                : null
+                            }
+                            previousNode={previousId ? nodeMap.get(previousId) ?? null : null}
+                          />
+                        </div>
+                      );
+                    })()
+                  : null}
+
+                {section.chapters.map((chapter) => {
+                  const fallbackId = getBlockCurrentId(chapter);
+                  const currentIndex = chapter.nodeIds.indexOf(fallbackId);
+                  const previousId = currentIndex > 0 ? chapter.nodeIds[currentIndex - 1] : null;
+                  const nextId =
+                    currentIndex >= 0 && currentIndex < chapter.nodeIds.length - 1
+                      ? chapter.nodeIds[currentIndex + 1]
+                      : null;
+                  const currentNode = nodeMap.get(fallbackId);
+
+                  if (!currentNode) {
+                    return null;
+                  }
+
+                  return (
+                    <div className="brief-block brief-chapter" id={chapter.anchor} key={chapter.key}>
+                      <div className="brief-block-heading">
+                        <p className="eyebrow">{getHierarchyWord(language, 'chapter')}</p>
+                        <h3>{chapter.title}</h3>
+                      </div>
+                      <ParagraphCard
+                        data={data}
+                        language={language}
+                        links={[
+                          { label: x.showInConnections, to: buildHref('/connections', { paragraph: currentNode.id }) },
+                          { label: x.continueReading, to: buildHref('/read', { read: currentNode.id }) },
+                        ]}
+                        nextNode={nextId ? nodeMap.get(nextId) ?? null : null}
+                        node={currentNode}
+                        nodeColors={nodeColors}
+                        onNext={nextId ? () => setSectionSelection((current) => ({ ...current, [chapter.key]: nextId })) : null}
+                        onPrevious={
+                          previousId ? () => setSectionSelection((current) => ({ ...current, [chapter.key]: previousId })) : null
+                        }
+                        previousNode={previousId ? nodeMap.get(previousId) ?? null : null}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
           </section>
         ))}
       </div>
