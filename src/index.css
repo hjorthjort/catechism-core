@@ -494,6 +494,15 @@ input {
   min-width: 0;
 }
 
+.search-empty {
+  padding: 1rem;
+  border-radius: 18px;
+  border: 1px dashed rgba(24, 28, 35, 0.12);
+  background: rgba(255, 255, 255, 0.45);
+  color: var(--ink-soft);
+  text-align: center;
+}
+
 .search-result {
   grid-template-columns: 1fr auto;
   gap: 0.75rem;
@@ -537,6 +546,15 @@ input {
   min-width: 0;
 }
 
+.focus-card-overlay {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 6;
+  width: min(20rem, calc(100% - 2rem));
+  box-shadow: 0 24px 60px rgba(18, 14, 10, 0.34);
+}
+
 .focus-card dl {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -563,6 +581,7 @@ input {
 
 .explore-canvas {
   min-height: clamp(32rem, 62vw, 72vh);
+  position: relative;
 }
 
 .graph-shell {
@@ -1138,6 +1157,12 @@ input {
 
   .day-meta-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .focus-card-overlay {
+    position: static;
+    width: 100%;
+    margin-top: 0.75rem;
   }
 }
 

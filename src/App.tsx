@@ -58,6 +58,7 @@ const extraUi: Record<
     readLede: string;
     noParagraph: string;
     openInRead: string;
+    noSearchResults: string;
   }
 > = {
   en: {
@@ -85,6 +86,7 @@ const extraUi: Record<
     readLede: 'Continue from the paragraph you last opened in this reading view.',
     noParagraph: 'No paragraph selected',
     openInRead: 'Open in Read the CCC',
+    noSearchResults: 'No results',
   },
   fr: {
     homeTab: 'Accueil',
@@ -111,6 +113,7 @@ const extraUi: Record<
     readLede: 'Reprenez au dernier paragraphe ouvert dans cette vue.',
     noParagraph: 'Aucun paragraphe selectionne',
     openInRead: 'Ouvrir dans Lire le CEC',
+    noSearchResults: 'Aucun resultat',
   },
   de: {
     homeTab: 'Start',
@@ -137,6 +140,7 @@ const extraUi: Record<
     readLede: 'Machen Sie mit dem zuletzt geoffneten Absatz weiter.',
     noParagraph: 'Kein Absatz ausgewahlt',
     openInRead: 'Im Lesemodus offnen',
+    noSearchResults: 'Keine Ergebnisse',
   },
   it: {
     homeTab: 'Home',
@@ -163,6 +167,7 @@ const extraUi: Record<
     readLede: 'Riprendi dall’ultimo paragrafo aperto in questa vista.',
     noParagraph: 'Nessun paragrafo selezionato',
     openInRead: 'Apri in Leggi il CCC',
+    noSearchResults: 'Nessun risultato',
   },
   la: {
     homeTab: 'Domus',
@@ -189,6 +194,7 @@ const extraUi: Record<
     readLede: 'Perge ab ultimo paragrapho in hac visione aperto.',
     noParagraph: 'Nullus paragraphus electus',
     openInRead: 'Aperi in Lege CCC',
+    noSearchResults: 'Nulla inventa',
   },
   es: {
     homeTab: 'Inicio',
@@ -215,6 +221,7 @@ const extraUi: Record<
     readLede: 'Continua desde el ultimo parrafo abierto en esta vista.',
     noParagraph: 'Ningun parrafo seleccionado',
     openInRead: 'Abrir en Leer el CCC',
+    noSearchResults: 'Sin resultados',
   },
   pt: {
     homeTab: 'Inicio',
@@ -241,6 +248,7 @@ const extraUi: Record<
     readLede: 'Continue a partir do ultimo paragrafo aberto nesta vista.',
     noParagraph: 'Nenhum paragrafo selecionado',
     openInRead: 'Abrir em Ler o CCC',
+    noSearchResults: 'Sem resultados',
   },
   mg: {
     homeTab: 'Fandraisana',
@@ -267,6 +275,7 @@ const extraUi: Record<
     readLede: 'Tohizo avy amin’ny andininy farany novakina teto.',
     noParagraph: 'Tsy misy andininy voafidy',
     openInRead: 'Sokafy amin’ny Vakio ny CCC',
+    noSearchResults: 'Tsy misy valiny',
   },
   zh: {
     homeTab: '首頁',
@@ -293,6 +302,7 @@ const extraUi: Record<
     readLede: '回到你上次在此閱讀頁面打開的段落。',
     noParagraph: '尚未選取段落',
     openInRead: '在閱讀 CCC 中打開',
+    noSearchResults: '沒有結果',
   },
   ar: {
     homeTab: 'الرئيسية',
@@ -319,6 +329,7 @@ const extraUi: Record<
     readLede: 'تابع من الفقرة الاخيرة التي فتحتها في هذه الواجهة.',
     noParagraph: 'لا توجد فقرة محددة',
     openInRead: 'افتح في اقرأ التعليم',
+    noSearchResults: 'لا نتائج',
   },
 };
 
@@ -736,6 +747,55 @@ function ParagraphLinks({ links }: { links: PanelLink[] }) {
   );
 }
 
+function FocusCard({
+  node,
+  language,
+  onOpenNode,
+  openLabel,
+}: {
+  node: CatechismNode;
+  language: AppLanguage;
+  onOpenNode: (id: number) => void;
+  openLabel: string;
+}) {
+  const t = uiStrings[language];
+  const panelExternalCounts = countExternalKinds(node);
+
+  return (
+    <div className="focus-card focus-card-overlay">
+      <p className="eyebrow">{t.focusedNode}</p>
+      <h2>
+        {t.paragraph} {node.id}
+      </h2>
+      <dl>
+        <div>
+          <dt>{t.outgoing}</dt>
+          <dd>{node.xrefs.length}</dd>
+        </div>
+        <div>
+          <dt>{t.incoming}</dt>
+          <dd>{node.incoming.length}</dd>
+        </div>
+        <div>
+          <dt>{t.rank}</dt>
+          <dd>{fmtScore(node.relativePagerank)}</dd>
+        </div>
+        <div>
+          <dt>{t.scripture}</dt>
+          <dd>{panelExternalCounts.scripture}</dd>
+        </div>
+        <div>
+          <dt>{t.document}</dt>
+          <dd>{panelExternalCounts.document}</dd>
+        </div>
+      </dl>
+      <button className="button" onClick={() => onOpenNode(node.id)} type="button">
+        {openLabel}
+      </button>
+    </div>
+  );
+}
+
 function ParagraphCard({
   node,
   data,
@@ -988,11 +1048,8 @@ function SearchSidebar({
 }) {
   const t = uiStrings[language];
   const [query, setQuery] = useState('');
-  const [hoveredResultId, setHoveredResultId] = useState<number | null>(null);
   const deferredQuery = useDeferredValue(query);
   const nodeMap = useMemo(() => new Map(data.nodes.map((node) => [node.id, node])), [data.nodes]);
-  const panelNode = hoveredResultId !== null ? nodeMap.get(hoveredResultId) ?? activeNode : activeNode;
-  const panelExternalCounts = panelNode ? countExternalKinds(panelNode) : null;
 
   const results = useMemo(() => {
     const search = deferredQuery.trim().toLowerCase();
@@ -1000,20 +1057,28 @@ function SearchSidebar({
       return [];
     }
 
-    return data.nodes
-      .filter((node) => {
-        const haystack = `${node.id} ${node.title} ${node.text} ${node.part}`.toLowerCase();
-        return haystack.includes(search);
-      })
-      .slice(0, 14);
-  }, [data.nodes, deferredQuery]);
+    const numericMatch = search.match(/\d+/);
+    const numericId = numericMatch ? Number(numericMatch[0]) : null;
+    const exactNumericNode =
+      numericId !== null && Number.isFinite(numericId) && nodeMap.has(numericId) ? nodeMap.get(numericId) ?? null : null;
+
+    const textResults = data.nodes.filter((node) => {
+      const haystack = `${node.id} ${node.title} ${node.text} ${node.part}`.toLowerCase();
+      return haystack.includes(search);
+    });
+
+    const deduped = exactNumericNode
+      ? [exactNumericNode, ...textResults.filter((node) => node.id !== exactNumericNode.id)]
+      : textResults;
+
+    return deduped.slice(0, 14);
+  }, [data.nodes, deferredQuery, nodeMap]);
 
   useEffect(() => {
     return () => onHoverNode?.(null);
   }, [onHoverNode]);
 
   function updateHover(id: number | null) {
-    setHoveredResultId(id);
     onHoverNode?.(id);
   }
 
@@ -1054,41 +1119,11 @@ function SearchSidebar({
             </button>
           </div>
         ))}
-      </div>
 
-      {panelNode ? (
-        <div className="focus-card">
-          <p className="eyebrow">{t.focusedNode}</p>
-          <h2>
-            {t.paragraph} {panelNode.id}
-          </h2>
-          <dl>
-            <div>
-              <dt>{t.outgoing}</dt>
-              <dd>{panelNode.xrefs.length}</dd>
-            </div>
-            <div>
-              <dt>{t.incoming}</dt>
-              <dd>{panelNode.incoming.length}</dd>
-            </div>
-            <div>
-              <dt>{t.rank}</dt>
-              <dd>{fmtScore(panelNode.relativePagerank)}</dd>
-            </div>
-            <div>
-              <dt>{t.scripture}</dt>
-              <dd>{panelExternalCounts?.scripture ?? 0}</dd>
-            </div>
-            <div>
-              <dt>{t.document}</dt>
-              <dd>{panelExternalCounts?.document ?? 0}</dd>
-            </div>
-          </dl>
-          <button className="button" onClick={() => onOpenNode(panelNode.id)} type="button">
-            {openLabel}
-          </button>
-        </div>
-      ) : null}
+        {deferredQuery.trim().length > 0 && results.length === 0 ? (
+          <div className="search-empty">{extraUi[language].noSearchResults}</div>
+        ) : null}
+      </div>
     </aside>
   );
 }
@@ -1131,6 +1166,7 @@ function ConnectionsPage({
   const previewId = graphHoverId ?? sidebarHoverId;
   const previewNode = previewId !== null ? nodeMap.get(previewId) ?? null : null;
   const panelNode = previewNode ?? selectedNode ?? nodeMap.get(1) ?? orderedNodes[0] ?? null;
+  const focusCardNode = selectedNode ?? nodeMap.get(1) ?? orderedNodes[0] ?? null;
   const panelIndex = panelNode ? orderedNodes.findIndex((node) => node.id === panelNode.id) : -1;
   const previousPanelNode = panelIndex > 0 ? orderedNodes[panelIndex - 1] : null;
   const nextPanelNode = panelIndex >= 0 && panelIndex < orderedNodes.length - 1 ? orderedNodes[panelIndex + 1] : null;
@@ -1213,6 +1249,9 @@ function ConnectionsPage({
           }}
           selectedId={selectedNode?.id ?? null}
         />
+        {focusCardNode ? (
+          <FocusCard language={language} node={focusCardNode} onOpenNode={(id) => selectNode(id)} openLabel={t.searchOpen} />
+        ) : null}
       </section>
 
       <section className="selection-panel">
