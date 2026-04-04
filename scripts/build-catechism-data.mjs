@@ -1160,6 +1160,10 @@ function normalizeDocumentLabel(label) {
     .trim();
 }
 
+function isCompareOnlyLabel(label) {
+  return /^[,.;:\s]*cf\.?[,.;:\s]*$/i.test(cleanText(label));
+}
+
 function normalizeBookAlias(value) {
   return value.toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim();
 }
@@ -1182,6 +1186,7 @@ function splitFootnoteIntoReferenceSegments(noteHtml) {
   const segments = [];
   let currentHtml = '';
   let currentText = '';
+  let compareMode = false;
 
   function pushCurrent() {
     if (!cleanText(currentText)) {
@@ -1193,6 +1198,7 @@ function splitFootnoteIntoReferenceSegments(noteHtml) {
     segments.push({
       html: currentHtml,
       text: cleanText(currentText),
+      compare: compareMode,
     });
     currentHtml = '';
     currentText = '';
@@ -1207,16 +1213,42 @@ function splitFootnoteIntoReferenceSegments(noteHtml) {
     if (node.type === 'text') {
       const text = node.data ?? '';
       let chunk = '';
+      let index = 0;
 
-      for (const character of text) {
+      while (index < text.length) {
+        const nextCompare = text.slice(index).match(/\bcf\.?(?=\s|$)/i);
+        const nextCompareIndex = nextCompare ? index + nextCompare.index : -1;
+        const nextSemicolonIndex = text.indexOf(';', index);
+        const nextSplitIndex =
+          nextSemicolonIndex === -1
+            ? nextCompareIndex
+            : nextCompareIndex === -1
+              ? nextSemicolonIndex
+              : Math.min(nextSemicolonIndex, nextCompareIndex);
+
+        if (nextSplitIndex === -1) {
+          chunk += text.slice(index);
+          break;
+        }
+
+        chunk += text.slice(index, nextSplitIndex);
+        const character = text[nextSplitIndex];
         if (character === ';') {
           appendFragment(chunk, chunk);
           chunk = '';
           pushCurrent();
+          index = nextSplitIndex + 1;
           continue;
         }
 
-        chunk += character;
+        appendFragment(chunk, chunk);
+        chunk = '';
+        pushCurrent();
+
+        const compareText = nextCompare?.[0] ?? '';
+        appendFragment(compareText, compareText);
+        compareMode = true;
+        index = nextSplitIndex + compareText.length;
       }
 
       appendFragment(chunk, chunk);
@@ -1230,17 +1262,7 @@ function splitFootnoteIntoReferenceSegments(noteHtml) {
 
   pushCurrent();
 
-  let compareMode = false;
-  return segments.map((segment) => {
-    if (/^cf\.?\s+/i.test(segment.text)) {
-      compareMode = true;
-    }
-
-    return {
-      ...segment,
-      compare: compareMode,
-    };
-  });
+  return segments;
 }
 
 function extractExternalReferences(footnotes) {
@@ -1285,7 +1307,7 @@ function extractExternalReferences(footnotes) {
         continue;
       }
 
-      if (/^cf\.?$/i.test(segmentLabel)) {
+      if (isCompareOnlyLabel(segmentLabel)) {
         continue;
       }
 
@@ -1319,6 +1341,10 @@ function extractExternalReferences(footnotes) {
     for (const [index, segment] of documentSegments.entries()) {
       const canonicalLabel = normalizeDocumentLabel(segment.label);
       if (!canonicalLabel) {
+        continue;
+      }
+
+      if (isCompareOnlyLabel(canonicalLabel)) {
         continue;
       }
 
