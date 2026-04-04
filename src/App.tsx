@@ -875,7 +875,6 @@ function ParagraphCard({
   links?: PanelLink[];
 }) {
   const t = uiStrings[language];
-  const panelExternalCounts = countExternalKinds(node);
   const panelHierarchy = getNodeHierarchy(node, language, data.hierarchyTitles);
   const panelTone = nodeColors.get(node.id) ?? null;
   const panelStyle = panelTone
@@ -916,21 +915,6 @@ function ParagraphCard({
             </h2>
             <p className="lede">{getParagraphSubtitle(node, language)}</p>
           </div>
-
-          <div className="paragraph-metrics">
-            <span>
-              {node.xrefs.length} {t.outgoing}
-            </span>
-            <span>
-              {node.incoming.length} {t.incoming}
-            </span>
-            <span>
-              {panelExternalCounts.scripture} {t.scripture}
-            </span>
-            <span>
-              {panelExternalCounts.document} {t.document}
-            </span>
-          </div>
         </div>
 
         <button
@@ -942,12 +926,6 @@ function ParagraphCard({
         >
           ›
         </button>
-      </div>
-
-      <div className="breadcrumb-trail">
-        {node.breadcrumbs.map((crumb) => (
-          <span key={crumb}>{getLocalizedBreadcrumb(node, crumb, language, data.hierarchyTitles)}</span>
-        ))}
       </div>
 
       <div className="paragraph-text" dangerouslySetInnerHTML={{ __html: node.textHtml }} />

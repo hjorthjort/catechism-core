@@ -729,6 +729,10 @@ input {
   min-width: 0;
 }
 
+.selected-paragraph-summary h2 {
+  font-size: clamp(1.95rem, 3.75vw, 3.6rem);
+}
+
 .paragraph-hierarchy {
   display: grid;
   gap: 0.24rem;
