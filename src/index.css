@@ -829,6 +829,21 @@ input {
   font-size: 0.82rem;
 }
 
+.breadcrumb-trail a {
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: var(--panel-accent-soft, rgba(255, 255, 255, 0.55));
+  border: 1px solid var(--panel-accent-border, rgba(24, 28, 35, 0.08));
+  font-size: 0.82rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.breadcrumb-trail a:hover {
+  border-color: var(--accent);
+  color: var(--accent-dark);
+}
+
 .paragraph-text {
   font-family: 'Iowan Old Style', 'Palatino Linotype', serif;
   font-size: clamp(1rem, 0.95rem + 0.35vw, 1.16rem);

@@ -30,6 +30,7 @@ const brandKicker = 'CCC';
 const brandTitle = 'CCC Explorer';
 const buildHash = import.meta.env.VITE_GIT_COMMIT_HASH ?? 'unknown';
 const readCookieName = 'ccc-read-paragraph';
+const readHistoryCookieName = 'ccc-read-history';
 
 const extraUi: Record<
   AppLanguage,
@@ -53,7 +54,6 @@ const extraUi: Record<
     inBriefLede: string;
     partIntro: string;
     readTitle: string;
-    readLede: string;
     noParagraph: string;
     openInRead: string;
     noSearchResults: string;
@@ -79,7 +79,6 @@ const extraUi: Record<
     inBriefLede: 'A high-level pass through the Catechism by parts and sections.',
     partIntro: 'Part opening',
     readTitle: 'Read the CCC',
-    readLede: 'Continue from the paragraph you last opened in this reading view.',
     noParagraph: 'No paragraph selected',
     openInRead: 'Open in Read the CCC',
     noSearchResults: 'No results',
@@ -104,7 +103,6 @@ const extraUi: Record<
     inBriefLede: 'Une vue d’ensemble du Catechisme par parties et sections.',
     partIntro: 'Ouverture de la partie',
     readTitle: 'Lire le CEC',
-    readLede: 'Reprenez au dernier paragraphe ouvert dans cette vue.',
     noParagraph: 'Aucun paragraphe selectionne',
     openInRead: 'Ouvrir dans Lire le CEC',
     noSearchResults: 'Aucun resultat',
@@ -129,7 +127,6 @@ const extraUi: Record<
     inBriefLede: 'Ein Uberblick uber den Katechismus nach Teilen und Abschnitten.',
     partIntro: 'Teilauftakt',
     readTitle: 'Den KKK lesen',
-    readLede: 'Machen Sie mit dem zuletzt geoffneten Absatz weiter.',
     noParagraph: 'Kein Absatz ausgewahlt',
     openInRead: 'Im Lesemodus offnen',
     noSearchResults: 'Keine Ergebnisse',
@@ -154,7 +151,6 @@ const extraUi: Record<
     inBriefLede: 'Una lettura ad alto livello del Catechismo per parti e sezioni.',
     partIntro: 'Apertura della parte',
     readTitle: 'Leggi il CCC',
-    readLede: 'Riprendi dall’ultimo paragrafo aperto in questa vista.',
     noParagraph: 'Nessun paragrafo selezionato',
     openInRead: 'Apri in Leggi il CCC',
     noSearchResults: 'Nessun risultato',
@@ -179,7 +175,6 @@ const extraUi: Record<
     inBriefLede: 'Conspectus altior Catechismi per partes et sectiones.',
     partIntro: 'Initium partis',
     readTitle: 'Lege CCC',
-    readLede: 'Perge ab ultimo paragrapho in hac visione aperto.',
     noParagraph: 'Nullus paragraphus electus',
     openInRead: 'Aperi in Lege CCC',
     noSearchResults: 'Nulla inventa',
@@ -204,7 +199,6 @@ const extraUi: Record<
     inBriefLede: 'Una vista de alto nivel del Catecismo por partes y secciones.',
     partIntro: 'Apertura de la parte',
     readTitle: 'Leer el CCC',
-    readLede: 'Continua desde el ultimo parrafo abierto en esta vista.',
     noParagraph: 'Ningun parrafo seleccionado',
     openInRead: 'Abrir en Leer el CCC',
     noSearchResults: 'Sin resultados',
@@ -229,7 +223,6 @@ const extraUi: Record<
     inBriefLede: 'Uma leitura de alto nivel do Catecismo por partes e secoes.',
     partIntro: 'Abertura da parte',
     readTitle: 'Ler o CCC',
-    readLede: 'Continue a partir do ultimo paragrafo aberto nesta vista.',
     noParagraph: 'Nenhum paragrafo selecionado',
     openInRead: 'Abrir em Ler o CCC',
     noSearchResults: 'Sem resultados',
@@ -254,7 +247,6 @@ const extraUi: Record<
     inBriefLede: 'Topimaso ambony momba ny Katesizy araka ny fizarana sy sokajy.',
     partIntro: 'Fiandohan’ny fizarana',
     readTitle: 'Vakio ny CCC',
-    readLede: 'Tohizo avy amin’ny andininy farany novakina teto.',
     noParagraph: 'Tsy misy andininy voafidy',
     openInRead: 'Sokafy amin’ny Vakio ny CCC',
     noSearchResults: 'Tsy misy valiny',
@@ -279,7 +271,6 @@ const extraUi: Record<
     inBriefLede: '依照部分與節，快速閱讀《教理》的高層結構。',
     partIntro: '部分開頭',
     readTitle: '閱讀 CCC',
-    readLede: '回到你上次在此閱讀頁面打開的段落。',
     noParagraph: '尚未選取段落',
     openInRead: '在閱讀 CCC 中打開',
     noSearchResults: '沒有結果',
@@ -304,7 +295,6 @@ const extraUi: Record<
     inBriefLede: 'قراءة عالية المستوى للتعليم المسيحي بحسب الاجزاء والاقسام.',
     partIntro: 'افتتاح الجزء',
     readTitle: 'اقرأ التعليم',
-    readLede: 'تابع من الفقرة الاخيرة التي فتحتها في هذه الواجهة.',
     noParagraph: 'لا توجد فقرة محددة',
     openInRead: 'افتح في اقرأ التعليم',
     noSearchResults: 'لا نتائج',
@@ -680,6 +670,34 @@ function writeCookieNumber(name: string, value: number) {
   document.cookie = `${name}=${value}; path=/; max-age=${60 * 60 * 24 * 365}`;
 }
 
+function readCookieNumbers(name: string) {
+  const cookie = document.cookie
+    .split('; ')
+    .find((entry) => entry.startsWith(`${name}=`))
+    ?.split('=')
+    .slice(1)
+    .join('=');
+
+  if (!cookie) {
+    return [];
+  }
+
+  return cookie
+    .split(',')
+    .map((value) => Number(value))
+    .filter((value, index, array) => Number.isFinite(value) && array.indexOf(value) === index);
+}
+
+function writeCookieNumbers(name: string, values: number[]) {
+  document.cookie = `${name}=${values.join(',')}; path=/; max-age=${60 * 60 * 24 * 365}`;
+}
+
+function pushRecentParagraph(history: number[], id: number, limit = 10) {
+  const next = history.filter((value) => value !== id);
+  next.push(id);
+  return next.slice(-limit);
+}
+
 function slugifyAnchor(value: string) {
   return value
     .toLowerCase()
@@ -813,6 +831,48 @@ function ParagraphLinks({ links }: { links: PanelLink[] }) {
         </Link>
       ))}
     </div>
+  );
+}
+
+function RecentReadTrail({
+  nodeIds,
+  nodeMap,
+  buildHref,
+  paragraphLabel,
+}: {
+  nodeIds: number[];
+  nodeMap: Map<number, CatechismNode>;
+  buildHref: (path: string, options?: QueryOptions) => string;
+  paragraphLabel: string;
+}) {
+  const items = nodeIds
+    .map((id) => nodeMap.get(id))
+    .filter((node): node is CatechismNode => Boolean(node));
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <nav aria-label="Recent paragraphs" className="breadcrumb-trail recent-reading-trail">
+      {items.map((item, index) => {
+        const label = `${paragraphLabel} ${item.id}`;
+        const isCurrent = index === items.length - 1;
+        if (isCurrent) {
+          return (
+            <span aria-current="page" key={item.id}>
+              {label}
+            </span>
+          );
+        }
+
+        return (
+          <Link key={item.id} to={buildHref('/read', { read: item.id })}>
+            {label}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -1677,6 +1737,7 @@ function ReadPage({
   const readId = readValue ? Number(readValue) : null;
   const validReadId = readId !== null && Number.isFinite(readId) && nodeMap.has(readId) ? readId : null;
   const cookieReadId = readCookieNumber(readCookieName);
+  const cookieHistory = readCookieNumbers(readHistoryCookieName).filter((id) => nodeMap.has(id));
   const selectedId = validReadId ?? (cookieReadId !== null && nodeMap.has(cookieReadId) ? cookieReadId : 1);
   const [sidebarHoverId, setSidebarHoverId] = useState<number | null>(null);
   const node = nodeMap.get(selectedId) ?? orderedNodes[0] ?? null;
@@ -1684,13 +1745,15 @@ function ReadPage({
   const nodeIndex = node ? orderedNodes.findIndex((entry) => entry.id === node.id) : -1;
   const previousNode = nodeIndex > 0 ? orderedNodes[nodeIndex - 1] : null;
   const nextNode = nodeIndex >= 0 && nodeIndex < orderedNodes.length - 1 ? orderedNodes[nodeIndex + 1] : null;
+  const recentNodeIds = node ? pushRecentParagraph(cookieHistory, node.id) : cookieHistory;
 
   const setReadNode = useCallback(
     (id: number) => {
       writeCookieNumber(readCookieName, id);
+      writeCookieNumbers(readHistoryCookieName, pushRecentParagraph(cookieHistory, id));
       navigate(buildHref('/read', { read: id }));
     },
-    [buildHref, navigate],
+    [buildHref, cookieHistory, navigate],
   );
 
   useEffect(() => {
@@ -1705,7 +1768,8 @@ function ReadPage({
     }
 
     writeCookieNumber(readCookieName, node.id);
-  }, [node]);
+    writeCookieNumbers(readHistoryCookieName, recentNodeIds);
+  }, [node, recentNodeIds]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -1743,7 +1807,12 @@ function ReadPage({
       <section className="section-heading workspace-heading">
         <p className="eyebrow">{brandKicker}</p>
         <h1>{x.readTitle}</h1>
-        <p className="lede">{x.readLede}</p>
+        <RecentReadTrail
+          buildHref={buildHref}
+          nodeIds={recentNodeIds}
+          nodeMap={nodeMap}
+          paragraphLabel={uiStrings[language].paragraph}
+        />
       </section>
 
       <section className="selection-panel">
