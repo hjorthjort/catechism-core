@@ -1195,18 +1195,18 @@ input {
 
   .explore-sidebar {
     order: 1;
+    position: static;
+    top: auto;
+    max-height: none;
   }
 
   .workspace-main {
     order: 2;
   }
 
+  .search-field,
   .search-field-mobile {
     display: grid;
-  }
-
-  .explore-sidebar > .search-field {
-    display: none;
   }
 
   .related-passage-header {
