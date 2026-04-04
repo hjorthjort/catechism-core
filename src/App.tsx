@@ -49,7 +49,6 @@ const extraUi: Record<
     nextYearRange: string;
     chosenParagraph: string;
     showInConnections: string;
-    continueReading: string;
     inBriefTitle: string;
     inBriefLede: string;
     partIntro: string;
@@ -76,7 +75,6 @@ const extraUi: Record<
     nextYearRange: 'Scheduled for April 3, 2026 through April 2, 2027.',
     chosenParagraph: 'Chosen paragraph',
     showInConnections: 'See in Connections',
-    continueReading: 'Continue in Read the CCC',
     inBriefTitle: 'In brief',
     inBriefLede: 'A high-level pass through the Catechism by parts and sections.',
     partIntro: 'Part opening',
@@ -102,7 +100,6 @@ const extraUi: Record<
     nextYearRange: 'Programme du 3 avril 2026 au 2 avril 2027.',
     chosenParagraph: 'Paragraphe choisi',
     showInConnections: 'Voir dans Connexions',
-    continueReading: 'Continuer dans Lire le CEC',
     inBriefTitle: 'En bref',
     inBriefLede: 'Une vue d’ensemble du Catechisme par parties et sections.',
     partIntro: 'Ouverture de la partie',
@@ -128,7 +125,6 @@ const extraUi: Record<
     nextYearRange: 'Geplant vom 3. April 2026 bis 2. April 2027.',
     chosenParagraph: 'Gewahlter Absatz',
     showInConnections: 'In Verbindungen ansehen',
-    continueReading: 'Im Lesemodus fortsetzen',
     inBriefTitle: 'Kurzfassung',
     inBriefLede: 'Ein Uberblick uber den Katechismus nach Teilen und Abschnitten.',
     partIntro: 'Teilauftakt',
@@ -154,7 +150,6 @@ const extraUi: Record<
     nextYearRange: 'Programma dal 3 aprile 2026 al 2 aprile 2027.',
     chosenParagraph: 'Paragrafo scelto',
     showInConnections: 'Vedi in Connessioni',
-    continueReading: 'Continua in Leggi il CCC',
     inBriefTitle: 'In breve',
     inBriefLede: 'Una lettura ad alto livello del Catechismo per parti e sezioni.',
     partIntro: 'Apertura della parte',
@@ -180,7 +175,6 @@ const extraUi: Record<
     nextYearRange: 'Dispositum a die 3 Aprilis 2026 usque ad diem 2 Aprilis 2027.',
     chosenParagraph: 'Paragraphus electus',
     showInConnections: 'Vide in Nexibus',
-    continueReading: 'Perge in Lege CCC',
     inBriefTitle: 'Summatim',
     inBriefLede: 'Conspectus altior Catechismi per partes et sectiones.',
     partIntro: 'Initium partis',
@@ -206,7 +200,6 @@ const extraUi: Record<
     nextYearRange: 'Programado del 3 de abril de 2026 al 2 de abril de 2027.',
     chosenParagraph: 'Parrafo elegido',
     showInConnections: 'Ver en Conexiones',
-    continueReading: 'Continuar en Leer el CCC',
     inBriefTitle: 'En breve',
     inBriefLede: 'Una vista de alto nivel del Catecismo por partes y secciones.',
     partIntro: 'Apertura de la parte',
@@ -232,7 +225,6 @@ const extraUi: Record<
     nextYearRange: 'Agendado de 3 de abril de 2026 a 2 de abril de 2027.',
     chosenParagraph: 'Paragrafo escolhido',
     showInConnections: 'Ver em Conexoes',
-    continueReading: 'Continuar em Ler o CCC',
     inBriefTitle: 'Em resumo',
     inBriefLede: 'Uma leitura de alto nivel do Catecismo por partes e secoes.',
     partIntro: 'Abertura da parte',
@@ -258,7 +250,6 @@ const extraUi: Record<
     nextYearRange: 'Voalahatra ny 3 Aprily 2026 hatramin’ny 2 Aprily 2027.',
     chosenParagraph: 'Andininy voafidy',
     showInConnections: 'Jereo ao amin’ny Rohy',
-    continueReading: 'Tohizo amin’ny Vakio ny CCC',
     inBriefTitle: 'Fohifohy',
     inBriefLede: 'Topimaso ambony momba ny Katesizy araka ny fizarana sy sokajy.',
     partIntro: 'Fiandohan’ny fizarana',
@@ -284,7 +275,6 @@ const extraUi: Record<
     nextYearRange: '排程涵蓋 2026 年 4 月 3 日至 2027 年 4 月 2 日。',
     chosenParagraph: '選定段落',
     showInConnections: '在連結中查看',
-    continueReading: '在閱讀 CCC 中繼續',
     inBriefTitle: '提綱',
     inBriefLede: '依照部分與節，快速閱讀《教理》的高層結構。',
     partIntro: '部分開頭',
@@ -310,7 +300,6 @@ const extraUi: Record<
     nextYearRange: 'الجدول من 3 أبريل 2026 الى 2 أبريل 2027.',
     chosenParagraph: 'الفقرة المختارة',
     showInConnections: 'اعرضها في الروابط',
-    continueReading: 'تابع في اقرأ التعليم',
     inBriefTitle: 'باختصار',
     inBriefLede: 'قراءة عالية المستوى للتعليم المسيحي بحسب الاجزاء والاقسام.',
     partIntro: 'افتتاح الجزء',
@@ -1261,6 +1250,7 @@ function ConnectionsPage({
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const t = uiStrings[language];
+  const x = extraUi[language];
   const nodeMap = useMemo(() => new Map(data.nodes.map((node) => [node.id, node])), [data.nodes]);
   const nodeColors = useMemo(() => buildNodeColorMap(data.nodes), [data.nodes]);
   const orderedNodes = useMemo(() => [...data.nodes].sort((a, b) => a.id - b.id), [data.nodes]);
@@ -1272,6 +1262,7 @@ function ConnectionsPage({
   const [sidebarHoverId, setSidebarHoverId] = useState<number | null>(null);
   const [clusterRootId, setClusterRootId] = useState<number | null>(null);
   const selectedNode = hasSelected && selectedId !== null ? nodeMap.get(selectedId) ?? null : null;
+  const selectedNodeId = selectedNode?.id ?? null;
   const previewId = graphHoverId ?? sidebarHoverId;
   const previewNode = previewId !== null ? nodeMap.get(previewId) ?? null : null;
   const panelNode = previewNode ?? selectedNode ?? nodeMap.get(1) ?? orderedNodes[0] ?? null;
@@ -1283,22 +1274,19 @@ function ConnectionsPage({
   const previousPanelNode = panelIndex > 0 ? orderedNodes[panelIndex - 1] : null;
   const nextPanelNode = panelIndex >= 0 && panelIndex < orderedNodes.length - 1 ? orderedNodes[panelIndex + 1] : null;
 
-  const selectNode = useCallback(
-    (id: number, keepCluster = false) => {
-      if (selectedNode?.id === id) {
-        setClusterRootId(null);
-        navigate(buildHref('/connections'));
-        return;
-      }
+  function selectNode(id: number, keepCluster = false) {
+    if (selectedNodeId === id) {
+      setClusterRootId(null);
+      navigate(buildHref('/connections'));
+      return;
+    }
 
-      if (!keepCluster) {
-        setClusterRootId(null);
-      }
+    if (!keepCluster) {
+      setClusterRootId(null);
+    }
 
-      navigate(buildHref('/connections', { paragraph: id }));
-    },
-    [buildHref, navigate, selectedNode?.id],
-  );
+    navigate(buildHref('/connections', { paragraph: id }));
+  }
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -1370,6 +1358,7 @@ function ConnectionsPage({
           <ParagraphCard
             data={data}
             language={language}
+            links={[{ label: x.openInRead, to: buildHref('/read', { read: panelNode.id }) }]}
             nextNode={nextPanelNode}
             node={panelNode}
             nodeColors={nodeColors}
@@ -1418,7 +1407,7 @@ function HomePage({
 
   const panelLinks = [
     { label: x.showInConnections, to: buildHref('/connections', { paragraph: node.id, center: true }) },
-    { label: x.continueReading, to: buildHref('/read', { read: node.id }) },
+    { label: x.openInRead, to: buildHref('/read', { read: node.id }) },
   ];
 
   return (
@@ -1543,7 +1532,7 @@ function InBriefPage({
                       language={language}
                       links={[
                         { label: x.showInConnections, to: buildHref('/connections', { paragraph: currentNode.id }) },
-                        { label: x.continueReading, to: buildHref('/read', { read: currentNode.id }) },
+                        { label: x.openInRead, to: buildHref('/read', { read: currentNode.id }) },
                       ]}
                       nextNode={nextId ? nodeMap.get(nextId) ?? null : null}
                       node={currentNode}
@@ -1599,7 +1588,7 @@ function InBriefPage({
                             language={language}
                             links={[
                               { label: x.showInConnections, to: buildHref('/connections', { paragraph: currentNode.id }) },
-                              { label: x.continueReading, to: buildHref('/read', { read: currentNode.id }) },
+                              { label: x.openInRead, to: buildHref('/read', { read: currentNode.id }) },
                             ]}
                             nextNode={nextId ? nodeMap.get(nextId) ?? null : null}
                             node={currentNode}
@@ -1646,7 +1635,7 @@ function InBriefPage({
                         language={language}
                         links={[
                           { label: x.showInConnections, to: buildHref('/connections', { paragraph: currentNode.id }) },
-                          { label: x.continueReading, to: buildHref('/read', { read: currentNode.id }) },
+                          { label: x.openInRead, to: buildHref('/read', { read: currentNode.id }) },
                         ]}
                         nextNode={nextId ? nodeMap.get(nextId) ?? null : null}
                         node={currentNode}
