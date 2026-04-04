@@ -367,6 +367,14 @@ const documentCatalog = {
     url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19651207_gaudium-et-spes_en.html',
     parser: 'legacy',
   },
+  DF: {
+    id: 'DF',
+    title: 'Dei Filius',
+    url: 'https://www.vatican.va/archive/hist_councils/i-vatican-council/documents/vat-i_const_18700424_dei-filius_la.html',
+    parser: 'dei-filius',
+    language: 'la',
+    refresh: true,
+  },
   DV: {
     id: 'DV',
     title: 'Dei verbum',
@@ -530,6 +538,7 @@ const documentCatalog = {
 const documentAliasPatterns = {
   LG: [/lumen gentium/i],
   GS: [/gaudium et spes/i, /vatican council ii,\s*gs\b/i],
+  DF: [/dei filius/i, /vatican council i,\s*dei filius/i],
   DV: [/dei verbum/i],
   SC: [/sacrosanctum concilium/i],
   AG: [/ad gentes/i],
@@ -2325,6 +2334,164 @@ function parseNumberedSectionsFromHtml(html, parser) {
   );
 }
 
+function numberToRomanNumeral(value) {
+  const numerals = [
+    ['M', 1000],
+    ['CM', 900],
+    ['D', 500],
+    ['CD', 400],
+    ['C', 100],
+    ['XC', 90],
+    ['L', 50],
+    ['XL', 40],
+    ['X', 10],
+    ['IX', 9],
+    ['V', 5],
+    ['IV', 4],
+    ['I', 1],
+  ];
+  let remaining = Number(value);
+  if (!Number.isFinite(remaining) || remaining <= 0) {
+    return '';
+  }
+
+  let result = '';
+  for (const [symbol, numericValue] of numerals) {
+    while (remaining >= numericValue) {
+      result += symbol;
+      remaining -= numericValue;
+    }
+  }
+
+  return result;
+}
+
+function buildHtmlParagraphs(parts) {
+  const paragraphs = parts
+    .filter(Boolean)
+    .map((part) => ({
+      html: part,
+      text: cleanText(cheerio.load(`<div>${part}</div>`)('div').text()),
+    }))
+    .filter((entry) => entry.text);
+
+  return {
+    html: paragraphs.map((entry) => entry.html).join(''),
+    text: cleanText(paragraphs.map((entry) => entry.text).join(' ')),
+    paragraphs,
+  };
+}
+
+function parseDeiFiliusSections(html) {
+  const $ = cheerio.load(html);
+  const sections = new Map();
+  const root = extractLegacyDocumentContainer($);
+  let mode = 'preface';
+  let currentChapter = null;
+  let currentCanonGroup = null;
+  let currentCanon = null;
+
+  function storeEntry(key, parts) {
+    if (!key || !parts || parts.length === 0) {
+      return;
+    }
+    sections.set(key, buildHtmlParagraphs(parts));
+  }
+
+  function flushChapter() {
+    if (!currentChapter) {
+      return;
+    }
+    storeEntry(currentChapter.key, currentChapter.parts);
+    currentChapter = null;
+  }
+
+  function flushCanon() {
+    if (!currentCanon) {
+      return;
+    }
+    storeEntry(currentCanon.key, currentCanon.parts);
+    currentCanon = null;
+  }
+
+  root.find('p').each((_, element) => {
+    const entry = $(element);
+    const text = cleanText(entry.text());
+    if (!text) {
+      return;
+    }
+
+    if (/^-{8,}$/.test(text) || /^\*?ASS\b/i.test(text)) {
+      return false;
+    }
+
+    if (/^CANONES$/i.test(text)) {
+      flushCanon();
+      flushChapter();
+      mode = 'canons';
+      currentCanonGroup = null;
+      return;
+    }
+
+    const chapterMatch = text.match(/^CAPUT\s+([IVXLC]+)/i);
+    if (chapterMatch) {
+      flushCanon();
+      flushChapter();
+      currentCanonGroup = null;
+      mode = 'chapters';
+      const chapterNumber = romanNumeralToNumber(chapterMatch[1]);
+      if (!chapterNumber) {
+        return;
+      }
+      currentChapter = {
+        key: `chapter:${chapterNumber}`,
+        parts: [],
+      };
+      return;
+    }
+
+    if (mode === 'chapters' && currentChapter) {
+      currentChapter.parts.push(`<p>${entry.html()?.trim() ?? escapeHtml(text)}</p>`);
+      return;
+    }
+
+    if (mode !== 'canons') {
+      return;
+    }
+
+    const canonGroupMatch = text.match(/^([IVXLC]+)\.\s+(.+)$/i);
+    if (canonGroupMatch) {
+      flushCanon();
+      currentCanonGroup = {
+        chapter: romanNumeralToNumber(canonGroupMatch[1]),
+        headingHtml: `<p><strong>${escapeHtml(text)}</strong></p>`,
+      };
+      return;
+    }
+
+    const canonMatch = text.match(/^(\d+)\.\s*(.*)$/);
+    if (canonMatch && currentCanonGroup?.chapter) {
+      flushCanon();
+      currentCanon = {
+        key: `canon:${currentCanonGroup.chapter}:${Number(canonMatch[1])}`,
+        parts: [
+          currentCanonGroup.headingHtml,
+          `<p>${entry.html()?.trim() ?? escapeHtml(text)}</p>`,
+        ],
+      };
+      return;
+    }
+
+    if (currentCanon) {
+      currentCanon.parts.push(`<p>${entry.html()?.trim() ?? escapeHtml(text)}</p>`);
+    }
+  });
+
+  flushCanon();
+  flushChapter();
+  return sections;
+}
+
 function splitCanonHtmlChunks(rawHtml) {
   const html = rawHtml?.trim();
   if (!html) {
@@ -2481,6 +2648,20 @@ async function loadDocumentSections(documentId) {
     sections = await loadCicSections();
   } else if (config.parser === 'cceo') {
     sections = await loadCceoSections();
+  } else if (config.parser === 'dei-filius') {
+    let html;
+    try {
+      html = await fetchHtml(config.url);
+    } catch (error) {
+      if (String(error).includes('Offline cache miss')) {
+        return null;
+      }
+      throw error;
+    }
+    const parsed = parseDeiFiliusSections(html);
+    sections = new Map(
+      [...parsed.entries()].map(([key, payload]) => [key, { ...payload, url: config.url }]),
+    );
   } else {
     let html;
     try {
@@ -2644,6 +2825,103 @@ function parseDocumentLocator(locatorText) {
   };
 }
 
+const deiFiliusDenzingerMap = [
+  { start: 3001, end: 3003, sectionKey: 'chapter:1', label: 'Chapter I' },
+  { start: 3004, end: 3007, sectionKey: 'chapter:2', label: 'Chapter II' },
+  { start: 3008, end: 3014, sectionKey: 'chapter:3', label: 'Chapter III' },
+  { start: 3015, end: 3020, sectionKey: 'chapter:4', label: 'Chapter IV' },
+  { start: 3021, end: 3025, canonChapter: 1, canonStart: 1, labelPrefix: 'Canon I.' },
+  { start: 3026, end: 3029, canonChapter: 2, canonStart: 1, labelPrefix: 'Canon II.' },
+  { start: 3030, end: 3035, canonChapter: 3, canonStart: 1, labelPrefix: 'Canon III.' },
+  { start: 3036, end: 3038, canonChapter: 4, canonStart: 1, labelPrefix: 'Canon IV.' },
+];
+
+function addSectionLabel(sectionLabelMap, key, label) {
+  if (!sectionLabelMap.has(key)) {
+    sectionLabelMap.set(key, label);
+  }
+}
+
+function appendUniqueSection(sections, key) {
+  if (!sections.includes(key)) {
+    sections.push(key);
+  }
+}
+
+function extractDenzingerNumbers(text) {
+  const match = text.match(/\bDS\s*([0-9;\-\s]+)/i);
+  if (!match) {
+    return [];
+  }
+  return extractLocatorNumbers(match[1]);
+}
+
+function parseDeiFiliusReference(label, locatorText) {
+  const sections = [];
+  const sectionLabelMap = new Map();
+  const denzingerNumbers = extractDenzingerNumbers(locatorText);
+  const chapterMatch = locatorText.match(/^(?:cap(?:ut)?\.?\s*)?([IVXLC]+|\d+)\b/i);
+  const explicitChapter = chapterMatch ? romanNumeralToNumber(chapterMatch[1]) : null;
+  const canonMatch = locatorText.match(/can(?:n|ones?)?\.?\s*(?:§+\s*)?([IVXLC]+|\d+)(?:\s*-\s*([IVXLC]+|\d+))?/i);
+
+  if (explicitChapter) {
+    const key = `chapter:${explicitChapter}`;
+    appendUniqueSection(sections, key);
+    addSectionLabel(sectionLabelMap, key, `Chapter ${numberToRomanNumeral(explicitChapter)}`);
+  }
+
+  let canonChapter = explicitChapter;
+  if (!canonChapter && denzingerNumbers.length > 0) {
+    const canonRange = deiFiliusDenzingerMap.find(
+      (entry) => entry.canonChapter && denzingerNumbers.some((value) => value >= entry.start && value <= entry.end),
+    );
+    canonChapter = canonRange?.canonChapter ?? null;
+  }
+
+  if (canonMatch && canonChapter) {
+    const canonStart = romanNumeralToNumber(canonMatch[1]);
+    const canonEnd = canonMatch[2] ? romanNumeralToNumber(canonMatch[2]) : canonStart;
+    if (Number.isFinite(canonStart) && Number.isFinite(canonEnd)) {
+      for (let current = canonStart; current <= canonEnd; current += 1) {
+        const key = `canon:${canonChapter}:${current}`;
+        appendUniqueSection(sections, key);
+        addSectionLabel(sectionLabelMap, key, `Canon ${numberToRomanNumeral(canonChapter)}.${current}`);
+      }
+    }
+  }
+
+  for (const value of denzingerNumbers) {
+    const entry = deiFiliusDenzingerMap.find((item) => value >= item.start && value <= item.end);
+    if (!entry) {
+      continue;
+    }
+
+    if (entry.sectionKey) {
+      appendUniqueSection(sections, entry.sectionKey);
+      addSectionLabel(sectionLabelMap, entry.sectionKey, entry.label);
+      continue;
+    }
+
+    const canonNumber = entry.canonStart + (value - entry.start);
+    const key = `canon:${entry.canonChapter}:${canonNumber}`;
+    appendUniqueSection(sections, key);
+    addSectionLabel(sectionLabelMap, key, `${entry.labelPrefix}${canonNumber}`);
+  }
+
+  if (sections.length === 0) {
+    return null;
+  }
+
+  return {
+    documentId: 'DF',
+    title: documentCatalog.DF.title,
+    citation: label,
+    sections,
+    pinpointMap: new Map(),
+    sectionLabelMap,
+  };
+}
+
 function parseDocumentReference(reference) {
   const label = normalizeDocumentLabel(reference.canonicalLabel ?? reference.label);
   const catalogMatch = findDocumentCatalogMatch(label);
@@ -2653,6 +2931,9 @@ function parseDocumentReference(reference) {
 
   const documentId = catalogMatch.documentId;
   const locatorText = label.slice(catalogMatch.match.index + catalogMatch.match[0].length).replace(/^[\s,:-]+/, '');
+  if (documentId === 'DF') {
+    return parseDeiFiliusReference(label, locatorText);
+  }
   const { sections, pinpointMap } = parseDocumentLocator(locatorText);
   if (sections.length === 0) {
     return null;
@@ -3784,10 +4065,11 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
         }
 
         const renderedEntry = renderDocumentSectionEntry(entry, parsed.pinpointMap?.get(section) ?? []);
+        const sectionLabel = String(parsed.sectionLabelMap?.get(section) ?? section);
 
         return {
-          html: `<p><strong>${escapeHtml(parsed.title)} ${section}</strong></p>${renderedEntry.html}`,
-          text: `${parsed.title} ${section}. ${renderedEntry.text}`,
+          html: `<p><strong>${escapeHtml(parsed.title)} ${escapeHtml(sectionLabel)}</strong></p>${renderedEntry.html}`,
+          text: `${parsed.title} ${sectionLabel}. ${renderedEntry.text}`,
           url: entry.url,
         };
       })
