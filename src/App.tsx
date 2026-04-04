@@ -1009,14 +1009,15 @@ function ParagraphCard({
     [footnotesWithStructuredBubbles, node.footnotes],
   );
   const [referenceLanguageOverrides, setReferenceLanguageOverrides] = useState<{
-    nodeId: number;
+    scope: string;
     values: Record<string, AppLanguage>;
   }>({
-    nodeId: node.id,
+    scope: `${node.id}:${language}`,
     values: {},
   });
+  const referenceLanguageScope = `${node.id}:${language}`;
   const activeReferenceLanguageOverrides =
-    referenceLanguageOverrides.nodeId === node.id ? referenceLanguageOverrides.values : {};
+    referenceLanguageOverrides.scope === referenceLanguageScope ? referenceLanguageOverrides.values : {};
   const panelTone = nodeColors.get(node.id) ?? null;
   const panelStyle = panelTone
     ? ({
@@ -1173,9 +1174,9 @@ function ParagraphCard({
                             key={variantLanguage}
                             onClick={() =>
                               setReferenceLanguageOverrides((current) => ({
-                                nodeId: node.id,
+                                scope: referenceLanguageScope,
                                 values: {
-                                  ...(current.nodeId === node.id ? current.values : {}),
+                                  ...(current.scope === referenceLanguageScope ? current.values : {}),
                                   [reference.id]: variantLanguage,
                                 },
                               }))
