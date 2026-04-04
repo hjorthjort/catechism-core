@@ -571,6 +571,33 @@ function getExternalSourceLinkLabel(
   return getLocalizedSourceLabel(source, language) ?? getExternalSourceBadge(source, language);
 }
 
+function getExternalSourceContent(
+  source: CatechismData['externalSources'][string] | undefined,
+  language: AppLanguage,
+) {
+  if (!source) {
+    return null;
+  }
+
+  const variants = source.contentByLanguage;
+  if (variants && Object.keys(variants).length > 1) {
+    const variant = variants[language];
+    if (!variant) {
+      return null;
+    }
+
+    return {
+      html: variant.html,
+      translationNote: variant.translationNote,
+    };
+  }
+
+  return {
+    html: source.contentHtml,
+    translationNote: source.translationNote,
+  };
+}
+
 function footnoteJumpAnchorId(footnoteId: string) {
   return `footnote-jump-${footnoteId}`;
 }
@@ -1069,6 +1096,14 @@ function ParagraphCard({
           <h3>{t.externalReferences}</h3>
           <div className="external-reference-list">
             {node.externalReferences.map((reference) => (
+              (() => {
+                const source =
+                  reference.sourceId && data.externalSources[reference.sourceId]
+                    ? data.externalSources[reference.sourceId]
+                    : undefined;
+                const sourceContent = getExternalSourceContent(source, language);
+
+                return (
               <div
                 className={`external-reference ${reference.kind}`}
                 id={firstExternalReferenceByFootnoteId.has(reference.id) ? footnoteJumpAnchorId(reference.footnoteId) : undefined}
@@ -1087,36 +1122,38 @@ function ParagraphCard({
                 </strong>
                 <div className="external-reference-headline">
                   <p>{reference.label}</p>
-                  {reference.sourceId &&
-                  data.externalSources[reference.sourceId] &&
-                  getExternalSourceLinkLabel(data.externalSources[reference.sourceId], language) ? (
+                  {source && getExternalSourceLinkLabel(source, language) ? (
                     <a
                       className="external-source-badge external-source-badge-link"
-                      href={data.externalSources[reference.sourceId].url}
+                      href={source.url}
                       rel="noreferrer"
                       target="_blank"
-                      title={getExternalSourceLinkLabel(data.externalSources[reference.sourceId], language) ?? undefined}
+                      title={getExternalSourceLinkLabel(source, language) ?? undefined}
                     >
-                      {getExternalSourceLinkLabel(data.externalSources[reference.sourceId], language)}
+                      {getExternalSourceLinkLabel(source, language)}
                     </a>
                   ) : null}
                 </div>
-                {reference.sourceId && data.externalSources[reference.sourceId] ? (
+                {source ? (
                   <div className="external-reference-source">
-                    {data.externalSources[reference.sourceId].translationNote ? (
+                    {sourceContent?.translationNote ? (
                       <p className="external-reference-note">
-                        {data.externalSources[reference.sourceId].translationNote}
+                        {sourceContent.translationNote}
                       </p>
                     ) : null}
-                    <div
-                      className="external-reference-content"
-                      dangerouslySetInnerHTML={{
-                        __html: data.externalSources[reference.sourceId].contentHtml,
-                      }}
-                    />
+                    {sourceContent?.html ? (
+                      <div
+                        className="external-reference-content"
+                        dangerouslySetInnerHTML={{
+                          __html: sourceContent.html,
+                        }}
+                      />
+                    ) : null}
                   </div>
                 ) : null}
               </div>
+                );
+              })()
             ))}
             {plainBubbleFootnotes.map((note) => (
               <div className="external-reference footnote-reference" id={footnoteJumpAnchorId(note.id)} key={note.id}>

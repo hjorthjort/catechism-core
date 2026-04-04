@@ -2996,6 +2996,19 @@ function renderDocumentSectionEntry(entry, pinpoints = []) {
   };
 }
 
+function shouldRebuildAquinasSource(existing) {
+  if (existing?.kind !== 'document') {
+    return false;
+  }
+
+  const sourceLabel = existing.sourceLabel ?? '';
+  if (sourceLabel !== 'Isidore.co' && sourceLabel !== 'Corpus Thomisticum') {
+    return false;
+  }
+
+  return !existing.contentByLanguage;
+}
+
 const aquinasSummaPartMap = {
   I: { folder: 'FP', label: 'I' },
   'I-II': { folder: 'FS', label: 'I-II' },
@@ -3293,6 +3306,20 @@ async function buildCorpusThomisticumSource(parsed, url, elements, titleNote) {
     contentText: hasTranslation
       ? cleanText(`${original.text} ${translated.contentText}`)
       : original.text,
+    contentByLanguage: hasTranslation
+      ? {
+          la: {
+            html: original.html,
+            text: original.text,
+            translationNote: titleNote,
+          },
+          en: {
+            html: translated.contentHtml,
+            text: translated.contentText,
+            translationNote: `Translated with AI from the Latin original. ${titleNote}`,
+          },
+        }
+      : undefined,
   };
 }
 
@@ -3406,6 +3433,16 @@ async function buildAquinasSummaSource(parsed) {
     translationNote: 'Open-source bilingual Latin and English text.',
     contentHtml: `<p><strong>Latin</strong></p>${bilingual.latinHtml}<p><strong>English</strong></p>${bilingual.englishHtml}`,
     contentText: cleanText(`${bilingual.latinText} ${bilingual.englishText}`),
+    contentByLanguage: {
+      la: {
+        html: bilingual.latinHtml,
+        text: bilingual.latinText,
+      },
+      en: {
+        html: bilingual.englishHtml,
+        text: bilingual.englishText,
+      },
+    },
   };
 }
 
@@ -3436,6 +3473,16 @@ async function buildAquinasAnchoredBilingualSource(parsed, url, anchorName) {
     translationNote: 'Open-source bilingual Latin and English text.',
     contentHtml: `<p><strong>Latin</strong></p>${bilingual.latinHtml}<p><strong>English</strong></p>${bilingual.englishHtml}`,
     contentText: cleanText(`${bilingual.latinText} ${bilingual.englishText}`),
+    contentByLanguage: {
+      la: {
+        html: bilingual.latinHtml,
+        text: bilingual.latinText,
+      },
+      en: {
+        html: bilingual.englishHtml,
+        text: bilingual.englishText,
+      },
+    },
   };
 }
 
@@ -3500,6 +3547,16 @@ async function buildAquinasAdoroTeSource(parsed) {
     contentText: cleanText(
       `${cheerio.load(`<div>${latinParts.join('')}</div>`)('div').text()} ${cheerio.load(`<div>${englishParts.join('')}</div>`)('div').text()}`,
     ),
+    contentByLanguage: {
+      la: {
+        html: latinParts.join(''),
+        text: cleanText(cheerio.load(`<div>${latinParts.join('')}</div>`)('div').text()),
+      },
+      en: {
+        html: englishParts.join(''),
+        text: cleanText(cheerio.load(`<div>${englishParts.join('')}</div>`)('div').text()),
+      },
+    },
   };
 }
 
@@ -4013,6 +4070,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
       translationStatus: source.translationStatus,
       contentHtml: source.contentHtml,
       contentText: source.contentText,
+      contentByLanguage: source.contentByLanguage,
     };
   }
 
@@ -4040,6 +4098,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
         citation: parsed.citation,
         sourceLabel: nonEnglishLabel,
         translationNote,
+        contentByLanguage: existing.contentByLanguage,
       };
       continue;
     }
@@ -4119,7 +4178,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
     aquinasIndex += 1;
     debugLog('building aquinas source', aquinasIndex, aquinasQueries.size, parsed.kind, parsed.citation);
     const existing = existingExternalSources[parsed.sourceId] ?? existingDocumentSourceByKey.get(parsed.sourceId);
-    if (existing?.kind === 'document') {
+    if (existing?.kind === 'document' && !shouldRebuildAquinasSource(existing)) {
       externalSources[parsed.sourceId] = {
         ...existing,
         id: parsed.sourceId,
