@@ -376,9 +376,7 @@ input {
 .focus-card h2,
 .selected-paragraph h3,
 .related-passages h2,
-.related-passage-card h3,
-.footnotes-block h2,
-.footnotes-block h3 {
+.related-passage-card h3 {
   margin: 0 0 0.5rem;
   font-family: 'Iowan Old Style', serif;
   font-size: 1.5rem;
@@ -390,7 +388,6 @@ input {
 .search-result small,
 .focus-card p,
 .paragraph-text,
-.footnote-item,
 .external-reference p,
 .graph-tooltip p {
   color: var(--ink-soft);
@@ -851,8 +848,7 @@ input {
 }
 
 .source-link-block,
-.external-references-block,
-.footnotes-block {
+.external-references-block {
   margin-top: 2rem;
 }
 
@@ -942,6 +938,11 @@ input {
   border-color: rgba(208, 107, 51, 0.2);
 }
 
+.external-reference.footnote-reference {
+  background: rgba(24, 28, 35, 0.04);
+  border-color: rgba(24, 28, 35, 0.1);
+}
+
 .reference-kind {
   display: inline-block;
   margin-bottom: 0.45rem;
@@ -961,6 +962,11 @@ input {
 .external-reference.document .reference-kind {
   background: rgba(208, 107, 51, 0.12);
   color: #9e4a1d;
+}
+
+.external-reference.footnote-reference .reference-kind {
+  background: rgba(24, 28, 35, 0.08);
+  color: #3f4652;
 }
 
 .external-reference strong {
@@ -1035,20 +1041,6 @@ input {
 
 .external-source-link {
   width: fit-content;
-}
-
-.footnotes-list {
-  display: grid;
-  gap: 0.85rem;
-}
-
-.footnote-item {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  scroll-margin-top: 6.25rem;
-  gap: 0.75rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid rgba(24, 28, 35, 0.09);
 }
 
 .related-passages {
@@ -1235,11 +1227,6 @@ input {
 
   .focus-card dl {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .footnote-item {
-    grid-template-columns: 1fr;
-    flex-direction: column;
   }
 
   .explore-canvas,

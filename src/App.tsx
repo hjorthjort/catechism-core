@@ -900,6 +900,10 @@ function ParagraphCard({
   const t = uiStrings[language];
   const panelHierarchy = getNodeHierarchy(node, language, data.hierarchyTitles);
   const paragraphHtml = useMemo(() => normalizeParagraphFootnoteLinks(node.textHtml), [node.textHtml]);
+  const footnotesWithStructuredBubbles = useMemo(
+    () => new Set(node.externalReferences.map((reference) => reference.footnoteId)),
+    [node.externalReferences],
+  );
   const firstExternalReferenceByFootnoteId = useMemo(() => {
     const seen = new Set<string>();
     const firstIds = new Set<string>();
@@ -915,6 +919,10 @@ function ParagraphCard({
 
     return firstIds;
   }, [node.externalReferences]);
+  const plainBubbleFootnotes = useMemo(
+    () => node.footnotes.filter((note) => !footnotesWithStructuredBubbles.has(note.id)),
+    [footnotesWithStructuredBubbles, node.footnotes],
+  );
   const panelTone = nodeColors.get(node.id) ?? null;
   const panelStyle = panelTone
     ? ({
@@ -1007,7 +1015,7 @@ function ParagraphCard({
         </div>
       ) : null}
 
-      {node.externalReferences.length > 0 ? (
+      {node.externalReferences.length > 0 || plainBubbleFootnotes.length > 0 ? (
         <section className="external-references-block">
           <h3>{t.externalReferences}</h3>
           <div className="external-reference-list">
@@ -1061,22 +1069,15 @@ function ParagraphCard({
                 ) : null}
               </div>
             ))}
-          </div>
-        </section>
-      ) : null}
-
-      {node.footnotes.length > 0 ? (
-        <section className="footnotes-block">
-          <h3>{t.footnotes}</h3>
-          <div className="footnotes-list">
-            {node.footnotes.map((note) => (
-              <div
-                className="footnote-item"
-                id={!node.externalReferences.some((reference) => reference.footnoteId === note.id) ? footnoteJumpAnchorId(note.id) : undefined}
-                key={note.id}
-              >
-                <strong>{note.number}.</strong>
-                <span dangerouslySetInnerHTML={{ __html: note.html }} />
+            {plainBubbleFootnotes.map((note) => (
+              <div className="external-reference footnote-reference" id={footnoteJumpAnchorId(note.id)} key={note.id}>
+                <span className="reference-kind">{t.footnote}</span>
+                <strong>
+                  {t.footnote} {note.number}
+                </strong>
+                <div className="external-reference-source">
+                  <div className="external-reference-content" dangerouslySetInnerHTML={{ __html: note.html }} />
+                </div>
               </div>
             ))}
           </div>
