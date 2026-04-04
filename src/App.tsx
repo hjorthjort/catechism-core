@@ -544,20 +544,41 @@ function getNodeHierarchy(
   };
 }
 
-function getExternalSourceBadge(source: CatechismData['externalSources'][string] | undefined) {
+function getLocalizedSourceLabel(
+  source: CatechismData['externalSources'][string] | undefined,
+  language: AppLanguage,
+) {
   if (!source) {
     return null;
   }
 
-  if (source.translationStatus === 'ai') {
-    return 'Translated with AI';
-  }
-
-  if (source.translationStatus === 'official') {
-    return 'Official Vatican text';
+  const t = uiStrings[language];
+  if (source.sourceLabel === 'Vatican.va Bible archive') {
+    return t.vaticanBibleArchive;
   }
 
   return source.sourceLabel;
+}
+
+function getExternalSourceBadge(
+  source: CatechismData['externalSources'][string] | undefined,
+  language: AppLanguage,
+) {
+  if (!source) {
+    return null;
+  }
+
+  const t = uiStrings[language];
+
+  if (source.translationStatus === 'ai') {
+    return t.translatedWithAi;
+  }
+
+  if (source.translationStatus === 'official') {
+    return t.officialVaticanText;
+  }
+
+  return getLocalizedSourceLabel(source, language);
 }
 
 function isEditableTarget(target: EventTarget | null) {
@@ -912,8 +933,14 @@ function ParagraphCard({
 
       {node.vaticanSource ? (
         <div className="source-link-block">
-          <a className="source-link source-link-compact" href={node.vaticanSource.url} rel="noreferrer" target="_blank">
-            <span className="source-link-badge">Official Vatican text</span>
+          <a
+            className="source-link source-link-compact"
+            href={node.vaticanSource.url}
+            rel="noreferrer"
+            target="_blank"
+            title={t.openSource}
+          >
+            <span className="source-link-badge">{t.officialVaticanText}</span>
           </a>
         </div>
       ) : null}
@@ -925,7 +952,7 @@ function ParagraphCard({
             {node.externalReferences.map((reference) => (
               <div className={`external-reference ${reference.kind}`} key={reference.id}>
                 {reference.compare ? (
-                  <div className="external-reference-compare" title="Compare">
+                  <div className="external-reference-compare" title={t.compareLabel}>
                     <img alt="" aria-hidden="true" src="/compare-icon.svg" />
                   </div>
                 ) : null}
@@ -940,9 +967,9 @@ function ParagraphCard({
                   <div className="external-reference-source">
                     <div className="external-reference-source-header">
                       <strong>{data.externalSources[reference.sourceId].title}</strong>
-                      {getExternalSourceBadge(data.externalSources[reference.sourceId]) ? (
+                      {getExternalSourceBadge(data.externalSources[reference.sourceId], language) ? (
                         <span className="external-source-badge">
-                          {getExternalSourceBadge(data.externalSources[reference.sourceId])}
+                          {getExternalSourceBadge(data.externalSources[reference.sourceId], language)}
                         </span>
                       ) : null}
                     </div>
@@ -965,9 +992,10 @@ function ParagraphCard({
                       href={data.externalSources[reference.sourceId].url}
                       rel="noreferrer"
                       target="_blank"
+                      title={t.openSource}
                     >
                       {t.openSource}
-                      <span>{data.externalSources[reference.sourceId].sourceLabel}</span>
+                      <span>{getLocalizedSourceLabel(data.externalSources[reference.sourceId], language)}</span>
                     </a>
                   </div>
                 ) : null}
@@ -1774,6 +1802,7 @@ function RoutedShell({
   const languageMeta = getLanguageMeta(language);
   const devMode = searchParams.get('dev') === 'true';
   const x = extraUi[language];
+  const t = uiStrings[language];
 
   const buildHref = useCallback(
     (path: string, options: QueryOptions = {}) =>
@@ -1826,7 +1855,7 @@ function RoutedShell({
             <span />
           </button>
 
-          <div className="language-switcher language-switcher-desktop" aria-label="Language selector">
+          <div className="language-switcher language-switcher-desktop" aria-label={t.languageSelector}>
             {languages.map((entry) => (
               <button
                 className={entry.code === language ? 'is-active' : undefined}
@@ -1855,7 +1884,7 @@ function RoutedShell({
             ))}
           </nav>
 
-          <div className="language-switcher language-switcher-mobile" aria-label="Language selector">
+          <div className="language-switcher language-switcher-mobile" aria-label={t.languageSelector}>
             {languages.map((entry) => (
               <button
                 className={entry.code === language ? 'is-active' : undefined}
