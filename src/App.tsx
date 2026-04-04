@@ -49,7 +49,6 @@ const extraUi: Record<
     nextYearRange: string;
     chosenParagraph: string;
     showInConnections: string;
-    showInBrief: string;
     continueReading: string;
     inBriefTitle: string;
     inBriefLede: string;
@@ -77,7 +76,6 @@ const extraUi: Record<
     nextYearRange: 'Scheduled for April 3, 2026 through April 2, 2027.',
     chosenParagraph: 'Chosen paragraph',
     showInConnections: 'See in Connections',
-    showInBrief: 'See in In brief',
     continueReading: 'Continue in Read the CCC',
     inBriefTitle: 'In brief',
     inBriefLede: 'A high-level pass through the Catechism by parts and sections.',
@@ -104,7 +102,6 @@ const extraUi: Record<
     nextYearRange: 'Programme du 3 avril 2026 au 2 avril 2027.',
     chosenParagraph: 'Paragraphe choisi',
     showInConnections: 'Voir dans Connexions',
-    showInBrief: 'Voir dans En bref',
     continueReading: 'Continuer dans Lire le CEC',
     inBriefTitle: 'En bref',
     inBriefLede: 'Une vue d’ensemble du Catechisme par parties et sections.',
@@ -131,7 +128,6 @@ const extraUi: Record<
     nextYearRange: 'Geplant vom 3. April 2026 bis 2. April 2027.',
     chosenParagraph: 'Gewahlter Absatz',
     showInConnections: 'In Verbindungen ansehen',
-    showInBrief: 'In Kurzfassung ansehen',
     continueReading: 'Im Lesemodus fortsetzen',
     inBriefTitle: 'Kurzfassung',
     inBriefLede: 'Ein Uberblick uber den Katechismus nach Teilen und Abschnitten.',
@@ -158,7 +154,6 @@ const extraUi: Record<
     nextYearRange: 'Programma dal 3 aprile 2026 al 2 aprile 2027.',
     chosenParagraph: 'Paragrafo scelto',
     showInConnections: 'Vedi in Connessioni',
-    showInBrief: 'Vedi in In breve',
     continueReading: 'Continua in Leggi il CCC',
     inBriefTitle: 'In breve',
     inBriefLede: 'Una lettura ad alto livello del Catechismo per parti e sezioni.',
@@ -185,7 +180,6 @@ const extraUi: Record<
     nextYearRange: 'Dispositum a die 3 Aprilis 2026 usque ad diem 2 Aprilis 2027.',
     chosenParagraph: 'Paragraphus electus',
     showInConnections: 'Vide in Nexibus',
-    showInBrief: 'Vide Summatim',
     continueReading: 'Perge in Lege CCC',
     inBriefTitle: 'Summatim',
     inBriefLede: 'Conspectus altior Catechismi per partes et sectiones.',
@@ -212,7 +206,6 @@ const extraUi: Record<
     nextYearRange: 'Programado del 3 de abril de 2026 al 2 de abril de 2027.',
     chosenParagraph: 'Parrafo elegido',
     showInConnections: 'Ver en Conexiones',
-    showInBrief: 'Ver en En breve',
     continueReading: 'Continuar en Leer el CCC',
     inBriefTitle: 'En breve',
     inBriefLede: 'Una vista de alto nivel del Catecismo por partes y secciones.',
@@ -239,7 +232,6 @@ const extraUi: Record<
     nextYearRange: 'Agendado de 3 de abril de 2026 a 2 de abril de 2027.',
     chosenParagraph: 'Paragrafo escolhido',
     showInConnections: 'Ver em Conexoes',
-    showInBrief: 'Ver em Em resumo',
     continueReading: 'Continuar em Ler o CCC',
     inBriefTitle: 'Em resumo',
     inBriefLede: 'Uma leitura de alto nivel do Catecismo por partes e secoes.',
@@ -266,7 +258,6 @@ const extraUi: Record<
     nextYearRange: 'Voalahatra ny 3 Aprily 2026 hatramin’ny 2 Aprily 2027.',
     chosenParagraph: 'Andininy voafidy',
     showInConnections: 'Jereo ao amin’ny Rohy',
-    showInBrief: 'Jereo amin’ny Fohifohy',
     continueReading: 'Tohizo amin’ny Vakio ny CCC',
     inBriefTitle: 'Fohifohy',
     inBriefLede: 'Topimaso ambony momba ny Katesizy araka ny fizarana sy sokajy.',
@@ -293,7 +284,6 @@ const extraUi: Record<
     nextYearRange: '排程涵蓋 2026 年 4 月 3 日至 2027 年 4 月 2 日。',
     chosenParagraph: '選定段落',
     showInConnections: '在連結中查看',
-    showInBrief: '在提綱中查看',
     continueReading: '在閱讀 CCC 中繼續',
     inBriefTitle: '提綱',
     inBriefLede: '依照部分與節，快速閱讀《教理》的高層結構。',
@@ -320,7 +310,6 @@ const extraUi: Record<
     nextYearRange: 'الجدول من 3 أبريل 2026 الى 2 أبريل 2027.',
     chosenParagraph: 'الفقرة المختارة',
     showInConnections: 'اعرضها في الروابط',
-    showInBrief: 'اعرضها في باختصار',
     continueReading: 'تابع في اقرأ التعليم',
     inBriefTitle: 'باختصار',
     inBriefLede: 'قراءة عالية المستوى للتعليم المسيحي بحسب الاجزاء والاقسام.',
@@ -338,6 +327,7 @@ type QueryOptions = {
   read?: number | null;
   date?: string | null;
   dev?: boolean;
+  center?: boolean;
   hash?: string | null;
 };
 
@@ -593,6 +583,10 @@ function buildRouteUrl(path: string, language: AppLanguage, options: QueryOption
     searchParams.set('dev', 'true');
   }
 
+  if (options.center) {
+    searchParams.set('center', 'true');
+  }
+
   if (options.paragraph !== undefined && options.paragraph !== null) {
     searchParams.set('paragraph', String(options.paragraph));
   }
@@ -659,20 +653,6 @@ function slugifyAnchor(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-}
-
-function getSectionAnchor(node: CatechismNode) {
-  const sectionEntry = node.breadcrumbs.find((entry) => entry.startsWith('Section '));
-  if (sectionEntry) {
-    return `section-${slugifyAnchor(sectionEntry)}`;
-  }
-
-  const partEntry = node.breadcrumbs.find((entry) => entry.startsWith('Part '));
-  if (partEntry) {
-    return `part-${slugifyAnchor(partEntry)}`;
-  }
-
-  return `part-${slugifyAnchor(node.part)}`;
 }
 
 function buildOutlineParts(
@@ -1190,6 +1170,7 @@ function ConnectionsPage({
   const orderedNodes = useMemo(() => [...data.nodes].sort((a, b) => a.id - b.id), [data.nodes]);
   const selectedValue = searchParams.get('paragraph');
   const selectedId = selectedValue ? Number(selectedValue) : null;
+  const shouldCenterOnOpen = searchParams.get('center') === 'true';
   const hasSelected = selectedId !== null && Number.isFinite(selectedId) && nodeMap.has(selectedId);
   const [graphHoverId, setGraphHoverId] = useState<number | null>(null);
   const [sidebarHoverId, setSidebarHoverId] = useState<number | null>(null);
@@ -1199,6 +1180,9 @@ function ConnectionsPage({
   const previewNode = previewId !== null ? nodeMap.get(previewId) ?? null : null;
   const panelNode = previewNode ?? selectedNode ?? nodeMap.get(1) ?? orderedNodes[0] ?? null;
   const focusCardNode = selectedNode ?? nodeMap.get(1) ?? orderedNodes[0] ?? null;
+  const [initialFocusId] = useState<number | null>(() =>
+    shouldCenterOnOpen && selectedNode ? selectedNode.id : 1,
+  );
   const panelIndex = panelNode ? orderedNodes.findIndex((node) => node.id === panelNode.id) : -1;
   const previousPanelNode = panelIndex > 0 ? orderedNodes[panelIndex - 1] : null;
   const nextPanelNode = panelIndex >= 0 && panelIndex < orderedNodes.length - 1 ? orderedNodes[panelIndex + 1] : null;
@@ -1263,7 +1247,7 @@ function ConnectionsPage({
           caption={[t.graphZoom, t.graphPan, t.graphClickDetail]}
           clusterRootId={clusterRootId}
           edges={data.edges}
-          focusId={1}
+          focusId={initialFocusId}
           highlightId={selectedNode?.id ?? null}
           hierarchyTitles={data.hierarchyTitles}
           hoverDelayMs={0}
@@ -1338,8 +1322,7 @@ function HomePage({
   }
 
   const panelLinks = [
-    { label: x.showInConnections, to: buildHref('/connections', { paragraph: node.id }) },
-    { label: x.showInBrief, to: buildHref('/in-brief', { paragraph: node.id, hash: getSectionAnchor(node) }) },
+    { label: x.showInConnections, to: buildHref('/connections', { paragraph: node.id, center: true }) },
     { label: x.continueReading, to: buildHref('/read', { read: node.id }) },
   ];
 
@@ -1729,8 +1712,7 @@ function ReadPage({
               data={data}
               language={language}
               links={[
-                { label: x.showInConnections, to: buildHref('/connections', { paragraph: node.id }) },
-                { label: x.showInBrief, to: buildHref('/in-brief', { paragraph: node.id, hash: getSectionAnchor(node) }) },
+                { label: x.showInConnections, to: buildHref('/connections', { paragraph: node.id, center: true }) },
               ]}
               nextNode={nextNode}
               node={node}
