@@ -28,6 +28,14 @@ export type ExternalSource = {
   translationNote?: string;
   contentHtml: string;
   contentText: string;
+  contentByLanguage?: Record<
+    string,
+    {
+      html: string;
+      text: string;
+      translationNote?: string;
+    }
+  >;
 };
 
 export type VaticanSource = {

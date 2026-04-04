@@ -30,6 +30,7 @@ const brandKicker = 'CCC';
 const brandTitle = 'CCC Explorer';
 const buildHash = import.meta.env.VITE_GIT_COMMIT_HASH ?? 'unknown';
 const readCookieName = 'ccc-read-paragraph';
+const readHistoryCookieName = 'ccc-read-history';
 
 const extraUi: Record<
   AppLanguage,
@@ -49,12 +50,10 @@ const extraUi: Record<
     nextYearRange: string;
     chosenParagraph: string;
     showInConnections: string;
-    continueReading: string;
     inBriefTitle: string;
     inBriefLede: string;
     partIntro: string;
     readTitle: string;
-    readLede: string;
     noParagraph: string;
     openInRead: string;
     noSearchResults: string;
@@ -76,12 +75,10 @@ const extraUi: Record<
     nextYearRange: 'Scheduled for April 3, 2026 through April 2, 2027.',
     chosenParagraph: 'Chosen paragraph',
     showInConnections: 'See in Connections',
-    continueReading: 'Continue in Read the CCC',
     inBriefTitle: 'In brief',
     inBriefLede: 'A high-level pass through the Catechism by parts and sections.',
     partIntro: 'Part opening',
     readTitle: 'Read the CCC',
-    readLede: 'Continue from the paragraph you last opened in this reading view.',
     noParagraph: 'No paragraph selected',
     openInRead: 'Open in Read the CCC',
     noSearchResults: 'No results',
@@ -102,12 +99,10 @@ const extraUi: Record<
     nextYearRange: 'Programme du 3 avril 2026 au 2 avril 2027.',
     chosenParagraph: 'Paragraphe choisi',
     showInConnections: 'Voir dans Connexions',
-    continueReading: 'Continuer dans Lire le CEC',
     inBriefTitle: 'En bref',
     inBriefLede: 'Une vue d’ensemble du Catechisme par parties et sections.',
     partIntro: 'Ouverture de la partie',
     readTitle: 'Lire le CEC',
-    readLede: 'Reprenez au dernier paragraphe ouvert dans cette vue.',
     noParagraph: 'Aucun paragraphe selectionne',
     openInRead: 'Ouvrir dans Lire le CEC',
     noSearchResults: 'Aucun resultat',
@@ -128,12 +123,10 @@ const extraUi: Record<
     nextYearRange: 'Geplant vom 3. April 2026 bis 2. April 2027.',
     chosenParagraph: 'Gewahlter Absatz',
     showInConnections: 'In Verbindungen ansehen',
-    continueReading: 'Im Lesemodus fortsetzen',
     inBriefTitle: 'Kurzfassung',
     inBriefLede: 'Ein Uberblick uber den Katechismus nach Teilen und Abschnitten.',
     partIntro: 'Teilauftakt',
     readTitle: 'Den KKK lesen',
-    readLede: 'Machen Sie mit dem zuletzt geoffneten Absatz weiter.',
     noParagraph: 'Kein Absatz ausgewahlt',
     openInRead: 'Im Lesemodus offnen',
     noSearchResults: 'Keine Ergebnisse',
@@ -154,12 +147,10 @@ const extraUi: Record<
     nextYearRange: 'Programma dal 3 aprile 2026 al 2 aprile 2027.',
     chosenParagraph: 'Paragrafo scelto',
     showInConnections: 'Vedi in Connessioni',
-    continueReading: 'Continua in Leggi il CCC',
     inBriefTitle: 'In breve',
     inBriefLede: 'Una lettura ad alto livello del Catechismo per parti e sezioni.',
     partIntro: 'Apertura della parte',
     readTitle: 'Leggi il CCC',
-    readLede: 'Riprendi dall’ultimo paragrafo aperto in questa vista.',
     noParagraph: 'Nessun paragrafo selezionato',
     openInRead: 'Apri in Leggi il CCC',
     noSearchResults: 'Nessun risultato',
@@ -180,12 +171,10 @@ const extraUi: Record<
     nextYearRange: 'Dispositum a die 3 Aprilis 2026 usque ad diem 2 Aprilis 2027.',
     chosenParagraph: 'Paragraphus electus',
     showInConnections: 'Vide in Nexibus',
-    continueReading: 'Perge in Lege CCC',
     inBriefTitle: 'Summatim',
     inBriefLede: 'Conspectus altior Catechismi per partes et sectiones.',
     partIntro: 'Initium partis',
     readTitle: 'Lege CCC',
-    readLede: 'Perge ab ultimo paragrapho in hac visione aperto.',
     noParagraph: 'Nullus paragraphus electus',
     openInRead: 'Aperi in Lege CCC',
     noSearchResults: 'Nulla inventa',
@@ -206,12 +195,10 @@ const extraUi: Record<
     nextYearRange: 'Programado del 3 de abril de 2026 al 2 de abril de 2027.',
     chosenParagraph: 'Parrafo elegido',
     showInConnections: 'Ver en Conexiones',
-    continueReading: 'Continuar en Leer el CCC',
     inBriefTitle: 'En breve',
     inBriefLede: 'Una vista de alto nivel del Catecismo por partes y secciones.',
     partIntro: 'Apertura de la parte',
     readTitle: 'Leer el CCC',
-    readLede: 'Continua desde el ultimo parrafo abierto en esta vista.',
     noParagraph: 'Ningun parrafo seleccionado',
     openInRead: 'Abrir en Leer el CCC',
     noSearchResults: 'Sin resultados',
@@ -232,12 +219,10 @@ const extraUi: Record<
     nextYearRange: 'Agendado de 3 de abril de 2026 a 2 de abril de 2027.',
     chosenParagraph: 'Paragrafo escolhido',
     showInConnections: 'Ver em Conexoes',
-    continueReading: 'Continuar em Ler o CCC',
     inBriefTitle: 'Em resumo',
     inBriefLede: 'Uma leitura de alto nivel do Catecismo por partes e secoes.',
     partIntro: 'Abertura da parte',
     readTitle: 'Ler o CCC',
-    readLede: 'Continue a partir do ultimo paragrafo aberto nesta vista.',
     noParagraph: 'Nenhum paragrafo selecionado',
     openInRead: 'Abrir em Ler o CCC',
     noSearchResults: 'Sem resultados',
@@ -258,12 +243,10 @@ const extraUi: Record<
     nextYearRange: 'Voalahatra ny 3 Aprily 2026 hatramin’ny 2 Aprily 2027.',
     chosenParagraph: 'Andininy voafidy',
     showInConnections: 'Jereo ao amin’ny Rohy',
-    continueReading: 'Tohizo amin’ny Vakio ny CCC',
     inBriefTitle: 'Fohifohy',
     inBriefLede: 'Topimaso ambony momba ny Katesizy araka ny fizarana sy sokajy.',
     partIntro: 'Fiandohan’ny fizarana',
     readTitle: 'Vakio ny CCC',
-    readLede: 'Tohizo avy amin’ny andininy farany novakina teto.',
     noParagraph: 'Tsy misy andininy voafidy',
     openInRead: 'Sokafy amin’ny Vakio ny CCC',
     noSearchResults: 'Tsy misy valiny',
@@ -284,12 +267,10 @@ const extraUi: Record<
     nextYearRange: '排程涵蓋 2026 年 4 月 3 日至 2027 年 4 月 2 日。',
     chosenParagraph: '選定段落',
     showInConnections: '在連結中查看',
-    continueReading: '在閱讀 CCC 中繼續',
     inBriefTitle: '提綱',
     inBriefLede: '依照部分與節，快速閱讀《教理》的高層結構。',
     partIntro: '部分開頭',
     readTitle: '閱讀 CCC',
-    readLede: '回到你上次在此閱讀頁面打開的段落。',
     noParagraph: '尚未選取段落',
     openInRead: '在閱讀 CCC 中打開',
     noSearchResults: '沒有結果',
@@ -310,12 +291,10 @@ const extraUi: Record<
     nextYearRange: 'الجدول من 3 أبريل 2026 الى 2 أبريل 2027.',
     chosenParagraph: 'الفقرة المختارة',
     showInConnections: 'اعرضها في الروابط',
-    continueReading: 'تابع في اقرأ التعليم',
     inBriefTitle: 'باختصار',
     inBriefLede: 'قراءة عالية المستوى للتعليم المسيحي بحسب الاجزاء والاقسام.',
     partIntro: 'افتتاح الجزء',
     readTitle: 'اقرأ التعليم',
-    readLede: 'تابع من الفقرة الاخيرة التي فتحتها في هذه الواجهة.',
     noParagraph: 'لا توجد فقرة محددة',
     openInRead: 'افتح في اقرأ التعليم',
     noSearchResults: 'لا نتائج',
@@ -592,6 +571,42 @@ function getExternalSourceLinkLabel(
   return getLocalizedSourceLabel(source, language) ?? getExternalSourceBadge(source, language);
 }
 
+function getExternalSourceContent(
+  source: CatechismData['externalSources'][string] | undefined,
+  language: AppLanguage,
+  overrideLanguage?: AppLanguage | null,
+) {
+  if (!source) {
+    return null;
+  }
+
+  const variants = source.contentByLanguage;
+  if (variants && Object.keys(variants).length > 0) {
+    const selectedLanguage = overrideLanguage && variants[overrideLanguage] ? overrideLanguage : language;
+    const variant = variants[selectedLanguage];
+    if (!variant) {
+      return {
+        availableLanguages: Object.keys(variants) as AppLanguage[],
+        selectedLanguage: null,
+      };
+    }
+
+    return {
+      availableLanguages: Object.keys(variants) as AppLanguage[],
+      html: variant.html,
+      selectedLanguage,
+      translationNote: variant.translationNote,
+    };
+  }
+
+  return {
+    availableLanguages: [],
+    html: source.contentHtml,
+    selectedLanguage: language,
+    translationNote: source.translationNote,
+  };
+}
+
 function footnoteJumpAnchorId(footnoteId: string) {
   return `footnote-jump-${footnoteId}`;
 }
@@ -689,6 +704,34 @@ function readCookieNumber(name: string) {
 
 function writeCookieNumber(name: string, value: number) {
   document.cookie = `${name}=${value}; path=/; max-age=${60 * 60 * 24 * 365}`;
+}
+
+function readCookieNumbers(name: string) {
+  const cookie = document.cookie
+    .split('; ')
+    .find((entry) => entry.startsWith(`${name}=`))
+    ?.split('=')
+    .slice(1)
+    .join('=');
+
+  if (!cookie) {
+    return [];
+  }
+
+  return cookie
+    .split(',')
+    .map((value) => Number(value))
+    .filter((value, index, array) => Number.isFinite(value) && array.indexOf(value) === index);
+}
+
+function writeCookieNumbers(name: string, values: number[]) {
+  document.cookie = `${name}=${values.join(',')}; path=/; max-age=${60 * 60 * 24 * 365}`;
+}
+
+function pushRecentParagraph(history: number[], id: number, limit = 10) {
+  const next = history.filter((value) => value !== id);
+  next.push(id);
+  return next.slice(-limit);
 }
 
 function slugifyAnchor(value: string) {
@@ -827,6 +870,48 @@ function ParagraphLinks({ links }: { links: PanelLink[] }) {
   );
 }
 
+function RecentReadTrail({
+  nodeIds,
+  nodeMap,
+  buildHref,
+  paragraphLabel,
+}: {
+  nodeIds: number[];
+  nodeMap: Map<number, CatechismNode>;
+  buildHref: (path: string, options?: QueryOptions) => string;
+  paragraphLabel: string;
+}) {
+  const items = nodeIds
+    .map((id) => nodeMap.get(id))
+    .filter((node): node is CatechismNode => Boolean(node));
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <nav aria-label="Recent paragraphs" className="breadcrumb-trail recent-reading-trail">
+      {items.map((item, index) => {
+        const label = `${paragraphLabel} ${item.id}`;
+        const isCurrent = index === items.length - 1;
+        if (isCurrent) {
+          return (
+            <span aria-current="page" key={item.id}>
+              {label}
+            </span>
+          );
+        }
+
+        return (
+          <Link key={item.id} to={buildHref('/read', { read: item.id })}>
+            {label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 function FocusCard({
   node,
   language,
@@ -923,6 +1008,16 @@ function ParagraphCard({
     () => node.footnotes.filter((note) => !footnotesWithStructuredBubbles.has(note.id)),
     [footnotesWithStructuredBubbles, node.footnotes],
   );
+  const [referenceLanguageOverrides, setReferenceLanguageOverrides] = useState<{
+    scope: string;
+    values: Record<string, AppLanguage>;
+  }>({
+    scope: `${node.id}:${language}`,
+    values: {},
+  });
+  const referenceLanguageScope = `${node.id}:${language}`;
+  const activeReferenceLanguageOverrides =
+    referenceLanguageOverrides.scope === referenceLanguageScope ? referenceLanguageOverrides.values : {};
   const panelTone = nodeColors.get(node.id) ?? null;
   const panelStyle = panelTone
     ? ({
@@ -1017,9 +1112,26 @@ function ParagraphCard({
 
       {node.externalReferences.length > 0 || plainBubbleFootnotes.length > 0 ? (
         <section className="external-references-block">
-          <h3>{t.externalReferences}</h3>
           <div className="external-reference-list">
             {node.externalReferences.map((reference) => (
+              (() => {
+                const source =
+                  reference.sourceId && data.externalSources[reference.sourceId]
+                    ? data.externalSources[reference.sourceId]
+                    : undefined;
+                const sourceContent = getExternalSourceContent(
+                  source,
+                  language,
+                  activeReferenceLanguageOverrides[reference.id] ?? null,
+                );
+                const availableLanguages = sourceContent?.availableLanguages ?? [];
+                const activeSourceLanguage = sourceContent?.selectedLanguage ?? null;
+                const showLanguageSelector = Boolean(
+                  availableLanguages.length &&
+                    (!activeSourceLanguage || activeReferenceLanguageOverrides[reference.id]),
+                );
+
+                return (
               <div
                 className={`external-reference ${reference.kind}`}
                 id={firstExternalReferenceByFootnoteId.has(reference.id) ? footnoteJumpAnchorId(reference.footnoteId) : undefined}
@@ -1038,36 +1150,62 @@ function ParagraphCard({
                 </strong>
                 <div className="external-reference-headline">
                   <p>{reference.label}</p>
-                  {reference.sourceId &&
-                  data.externalSources[reference.sourceId] &&
-                  getExternalSourceLinkLabel(data.externalSources[reference.sourceId], language) ? (
+                  {source && getExternalSourceLinkLabel(source, language) ? (
                     <a
                       className="external-source-badge external-source-badge-link"
-                      href={data.externalSources[reference.sourceId].url}
+                      href={source.url}
                       rel="noreferrer"
                       target="_blank"
-                      title={getExternalSourceLinkLabel(data.externalSources[reference.sourceId], language) ?? undefined}
+                      title={getExternalSourceLinkLabel(source, language) ?? undefined}
                     >
-                      {getExternalSourceLinkLabel(data.externalSources[reference.sourceId], language)}
+                      {getExternalSourceLinkLabel(source, language)}
                     </a>
                   ) : null}
                 </div>
-                {reference.sourceId && data.externalSources[reference.sourceId] ? (
+                {source ? (
                   <div className="external-reference-source">
-                    {data.externalSources[reference.sourceId].translationNote ? (
+                    {showLanguageSelector ? (
+                      <div className="external-reference-language-selector">
+                        {availableLanguages.map((variantLanguage) => (
+                          <button
+                            className={`external-reference-language-button ${
+                              activeSourceLanguage === variantLanguage ? 'is-active' : ''
+                            }`}
+                            key={variantLanguage}
+                            onClick={() =>
+                              setReferenceLanguageOverrides((current) => ({
+                                scope: referenceLanguageScope,
+                                values: {
+                                  ...(current.scope === referenceLanguageScope ? current.values : {}),
+                                  [reference.id]: variantLanguage,
+                                },
+                              }))
+                            }
+                            type="button"
+                          >
+                            {getLanguageMeta(variantLanguage).flag} {variantLanguage.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    {sourceContent?.translationNote ? (
                       <p className="external-reference-note">
-                        {data.externalSources[reference.sourceId].translationNote}
+                        {sourceContent.translationNote}
                       </p>
                     ) : null}
-                    <div
-                      className="external-reference-content"
-                      dangerouslySetInnerHTML={{
-                        __html: data.externalSources[reference.sourceId].contentHtml,
-                      }}
-                    />
+                    {sourceContent?.html ? (
+                      <div
+                        className="external-reference-content"
+                        dangerouslySetInnerHTML={{
+                          __html: sourceContent.html,
+                        }}
+                      />
+                    ) : null}
                   </div>
                 ) : null}
               </div>
+                );
+              })()
             ))}
             {plainBubbleFootnotes.map((note) => (
               <div className="external-reference footnote-reference" id={footnoteJumpAnchorId(note.id)} key={note.id}>
@@ -1261,6 +1399,7 @@ function ConnectionsPage({
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const t = uiStrings[language];
+  const x = extraUi[language];
   const nodeMap = useMemo(() => new Map(data.nodes.map((node) => [node.id, node])), [data.nodes]);
   const nodeColors = useMemo(() => buildNodeColorMap(data.nodes), [data.nodes]);
   const orderedNodes = useMemo(() => [...data.nodes].sort((a, b) => a.id - b.id), [data.nodes]);
@@ -1272,6 +1411,7 @@ function ConnectionsPage({
   const [sidebarHoverId, setSidebarHoverId] = useState<number | null>(null);
   const [clusterRootId, setClusterRootId] = useState<number | null>(null);
   const selectedNode = hasSelected && selectedId !== null ? nodeMap.get(selectedId) ?? null : null;
+  const selectedNodeId = selectedNode?.id ?? null;
   const previewId = graphHoverId ?? sidebarHoverId;
   const previewNode = previewId !== null ? nodeMap.get(previewId) ?? null : null;
   const panelNode = previewNode ?? selectedNode ?? nodeMap.get(1) ?? orderedNodes[0] ?? null;
@@ -1283,22 +1423,19 @@ function ConnectionsPage({
   const previousPanelNode = panelIndex > 0 ? orderedNodes[panelIndex - 1] : null;
   const nextPanelNode = panelIndex >= 0 && panelIndex < orderedNodes.length - 1 ? orderedNodes[panelIndex + 1] : null;
 
-  const selectNode = useCallback(
-    (id: number, keepCluster = false) => {
-      if (selectedNode?.id === id) {
-        setClusterRootId(null);
-        navigate(buildHref('/connections'));
-        return;
-      }
+  function selectNode(id: number, keepCluster = false) {
+    if (selectedNodeId === id) {
+      setClusterRootId(null);
+      navigate(buildHref('/connections'));
+      return;
+    }
 
-      if (!keepCluster) {
-        setClusterRootId(null);
-      }
+    if (!keepCluster) {
+      setClusterRootId(null);
+    }
 
-      navigate(buildHref('/connections', { paragraph: id }));
-    },
-    [buildHref, navigate, selectedNode?.id],
-  );
+    navigate(buildHref('/connections', { paragraph: id }));
+  }
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -1370,6 +1507,7 @@ function ConnectionsPage({
           <ParagraphCard
             data={data}
             language={language}
+            links={[{ label: x.openInRead, to: buildHref('/read', { read: panelNode.id }) }]}
             nextNode={nextPanelNode}
             node={panelNode}
             nodeColors={nodeColors}
@@ -1418,7 +1556,7 @@ function HomePage({
 
   const panelLinks = [
     { label: x.showInConnections, to: buildHref('/connections', { paragraph: node.id, center: true }) },
-    { label: x.continueReading, to: buildHref('/read', { read: node.id }) },
+    { label: x.openInRead, to: buildHref('/read', { read: node.id }) },
   ];
 
   return (
@@ -1543,7 +1681,7 @@ function InBriefPage({
                       language={language}
                       links={[
                         { label: x.showInConnections, to: buildHref('/connections', { paragraph: currentNode.id }) },
-                        { label: x.continueReading, to: buildHref('/read', { read: currentNode.id }) },
+                        { label: x.openInRead, to: buildHref('/read', { read: currentNode.id }) },
                       ]}
                       nextNode={nextId ? nodeMap.get(nextId) ?? null : null}
                       node={currentNode}
@@ -1599,7 +1737,7 @@ function InBriefPage({
                             language={language}
                             links={[
                               { label: x.showInConnections, to: buildHref('/connections', { paragraph: currentNode.id }) },
-                              { label: x.continueReading, to: buildHref('/read', { read: currentNode.id }) },
+                              { label: x.openInRead, to: buildHref('/read', { read: currentNode.id }) },
                             ]}
                             nextNode={nextId ? nodeMap.get(nextId) ?? null : null}
                             node={currentNode}
@@ -1646,7 +1784,7 @@ function InBriefPage({
                         language={language}
                         links={[
                           { label: x.showInConnections, to: buildHref('/connections', { paragraph: currentNode.id }) },
-                          { label: x.continueReading, to: buildHref('/read', { read: currentNode.id }) },
+                          { label: x.openInRead, to: buildHref('/read', { read: currentNode.id }) },
                         ]}
                         nextNode={nextId ? nodeMap.get(nextId) ?? null : null}
                         node={currentNode}
@@ -1688,6 +1826,7 @@ function ReadPage({
   const readId = readValue ? Number(readValue) : null;
   const validReadId = readId !== null && Number.isFinite(readId) && nodeMap.has(readId) ? readId : null;
   const cookieReadId = readCookieNumber(readCookieName);
+  const cookieHistory = readCookieNumbers(readHistoryCookieName).filter((id) => nodeMap.has(id));
   const selectedId = validReadId ?? (cookieReadId !== null && nodeMap.has(cookieReadId) ? cookieReadId : 1);
   const [sidebarHoverId, setSidebarHoverId] = useState<number | null>(null);
   const node = nodeMap.get(selectedId) ?? orderedNodes[0] ?? null;
@@ -1695,13 +1834,15 @@ function ReadPage({
   const nodeIndex = node ? orderedNodes.findIndex((entry) => entry.id === node.id) : -1;
   const previousNode = nodeIndex > 0 ? orderedNodes[nodeIndex - 1] : null;
   const nextNode = nodeIndex >= 0 && nodeIndex < orderedNodes.length - 1 ? orderedNodes[nodeIndex + 1] : null;
+  const recentNodeIds = node ? pushRecentParagraph(cookieHistory, node.id) : cookieHistory;
 
   const setReadNode = useCallback(
     (id: number) => {
       writeCookieNumber(readCookieName, id);
+      writeCookieNumbers(readHistoryCookieName, pushRecentParagraph(cookieHistory, id));
       navigate(buildHref('/read', { read: id }));
     },
-    [buildHref, navigate],
+    [buildHref, cookieHistory, navigate],
   );
 
   useEffect(() => {
@@ -1716,7 +1857,8 @@ function ReadPage({
     }
 
     writeCookieNumber(readCookieName, node.id);
-  }, [node]);
+    writeCookieNumbers(readHistoryCookieName, recentNodeIds);
+  }, [node, recentNodeIds]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -1754,7 +1896,12 @@ function ReadPage({
       <section className="section-heading workspace-heading">
         <p className="eyebrow">{brandKicker}</p>
         <h1>{x.readTitle}</h1>
-        <p className="lede">{x.readLede}</p>
+        <RecentReadTrail
+          buildHref={buildHref}
+          nodeIds={recentNodeIds}
+          nodeMap={nodeMap}
+          paragraphLabel={uiStrings[language].paragraph}
+        />
       </section>
 
       <section className="selection-panel">

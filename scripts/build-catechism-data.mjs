@@ -111,6 +111,7 @@ const languageConfigs = [
     pdfPattern: /\/archive\/catechism_ar\/[^/]+\.pdf$/i,
   },
 ];
+const supportedAppLanguageCodes = new Set(['en', ...languageConfigs.map((config) => config.code)]);
 
 const bibleTranslation = {
   id: 'web',
@@ -367,11 +368,20 @@ const documentCatalog = {
     url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19651207_gaudium-et-spes_en.html',
     parser: 'legacy',
   },
+  DF: {
+    id: 'DF',
+    title: 'Dei Filius',
+    url: 'https://www.vatican.va/archive/hist_councils/i-vatican-council/documents/vat-i_const_18700424_dei-filius_la.html',
+    parser: 'dei-filius',
+    language: 'la',
+    refresh: true,
+  },
   DV: {
     id: 'DV',
     title: 'Dei verbum',
     url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19651118_dei-verbum_en.html',
     parser: 'legacy',
+    refresh: true,
   },
   SC: {
     id: 'SC',
@@ -526,9 +536,27 @@ const documentCatalog = {
   },
 };
 
+const vaticanDocumentLanguageCodeMap = {
+  ar: 'ar',
+  de: 'de',
+  ge: 'de',
+  en: 'en',
+  es: 'es',
+  sp: 'es',
+  fr: 'fr',
+  it: 'it',
+  la: 'la',
+  lt: 'la',
+  pt: 'pt',
+  po: 'pt',
+  zh: 'zh',
+  'zh-t': 'zh',
+};
+
 const documentAliasPatterns = {
   LG: [/lumen gentium/i],
   GS: [/gaudium et spes/i, /vatican council ii,\s*gs\b/i],
+  DF: [/dei filius/i, /vatican council i,\s*dei filius/i],
   DV: [/dei verbum/i],
   SC: [/sacrosanctum concilium/i],
   AG: [/ad gentes/i],
@@ -1473,6 +1501,20 @@ function extractLinks(html, baseUrl) {
   return [...links];
 }
 
+function inferVaticanDocumentLanguage(url, labelText = '') {
+  let pathCode = null;
+  try {
+    const pathname = new URL(url).pathname;
+    const match = pathname.match(/_([a-z]{2}(?:-[a-z])?)\.(?:html?|pdf)$/i);
+    pathCode = match?.[1]?.toLowerCase() ?? null;
+  } catch {
+    pathCode = null;
+  }
+
+  const labelCode = cleanText(labelText).toLowerCase();
+  return vaticanDocumentLanguageCodeMap[pathCode ?? ''] ?? vaticanDocumentLanguageCodeMap[labelCode] ?? null;
+}
+
 function extractParagraphStart(text, options = {}) {
   const normalizedBase = stripBidiMarks(text);
   const normalized = options.allowLeadingNoise
@@ -2261,6 +2303,7 @@ function parseNumberedSectionsFromHtml(html, parser) {
   const root = container.length ? container : $.root();
   const sections = new Map();
   let current = null;
+  let reachedNotes = false;
 
   root.find('p').each((_, element) => {
     const entry = $(element);
@@ -2269,8 +2312,21 @@ function parseNumberedSectionsFromHtml(html, parser) {
       return;
     }
 
+    if (parser === 'legacy' && /^notes$/i.test(text)) {
+      reachedNotes = true;
+    }
+
+    if (reachedNotes) {
+      return;
+    }
+
     const match = text.match(/^(\d+)\.\s*(.*)$/);
     if (match) {
+      if (parser === 'legacy' && current && Number(match[1]) < current.number) {
+        reachedNotes = true;
+        return;
+      }
+
       if (current) {
         sections.set(current.number, current);
       }
@@ -2313,6 +2369,164 @@ function parseNumberedSectionsFromHtml(html, parser) {
       })(),
     ]),
   );
+}
+
+function numberToRomanNumeral(value) {
+  const numerals = [
+    ['M', 1000],
+    ['CM', 900],
+    ['D', 500],
+    ['CD', 400],
+    ['C', 100],
+    ['XC', 90],
+    ['L', 50],
+    ['XL', 40],
+    ['X', 10],
+    ['IX', 9],
+    ['V', 5],
+    ['IV', 4],
+    ['I', 1],
+  ];
+  let remaining = Number(value);
+  if (!Number.isFinite(remaining) || remaining <= 0) {
+    return '';
+  }
+
+  let result = '';
+  for (const [symbol, numericValue] of numerals) {
+    while (remaining >= numericValue) {
+      result += symbol;
+      remaining -= numericValue;
+    }
+  }
+
+  return result;
+}
+
+function buildHtmlParagraphs(parts) {
+  const paragraphs = parts
+    .filter(Boolean)
+    .map((part) => ({
+      html: part,
+      text: cleanText(cheerio.load(`<div>${part}</div>`)('div').text()),
+    }))
+    .filter((entry) => entry.text);
+
+  return {
+    html: paragraphs.map((entry) => entry.html).join(''),
+    text: cleanText(paragraphs.map((entry) => entry.text).join(' ')),
+    paragraphs,
+  };
+}
+
+function parseDeiFiliusSections(html) {
+  const $ = cheerio.load(html);
+  const sections = new Map();
+  const root = extractLegacyDocumentContainer($);
+  let mode = 'preface';
+  let currentChapter = null;
+  let currentCanonGroup = null;
+  let currentCanon = null;
+
+  function storeEntry(key, parts) {
+    if (!key || !parts || parts.length === 0) {
+      return;
+    }
+    sections.set(key, buildHtmlParagraphs(parts));
+  }
+
+  function flushChapter() {
+    if (!currentChapter) {
+      return;
+    }
+    storeEntry(currentChapter.key, currentChapter.parts);
+    currentChapter = null;
+  }
+
+  function flushCanon() {
+    if (!currentCanon) {
+      return;
+    }
+    storeEntry(currentCanon.key, currentCanon.parts);
+    currentCanon = null;
+  }
+
+  root.find('p').each((_, element) => {
+    const entry = $(element);
+    const text = cleanText(entry.text());
+    if (!text) {
+      return;
+    }
+
+    if (/^-{8,}$/.test(text) || /^\*?ASS\b/i.test(text)) {
+      return false;
+    }
+
+    if (/^CANON(?:ES|I)$/i.test(text)) {
+      flushCanon();
+      flushChapter();
+      mode = 'canons';
+      currentCanonGroup = null;
+      return;
+    }
+
+    const chapterMatch = text.match(/^(?:CAPUT|CAPITOLO)\s+([IVXLC]+)/i);
+    if (chapterMatch) {
+      flushCanon();
+      flushChapter();
+      currentCanonGroup = null;
+      mode = 'chapters';
+      const chapterNumber = romanNumeralToNumber(chapterMatch[1]);
+      if (!chapterNumber) {
+        return;
+      }
+      currentChapter = {
+        key: `chapter:${chapterNumber}`,
+        parts: [],
+      };
+      return;
+    }
+
+    if (mode === 'chapters' && currentChapter) {
+      currentChapter.parts.push(`<p>${entry.html()?.trim() ?? escapeHtml(text)}</p>`);
+      return;
+    }
+
+    if (mode !== 'canons') {
+      return;
+    }
+
+    const canonGroupMatch = text.match(/^([IVXLC]+)\s*[.-]\s+(.+)$/i);
+    if (canonGroupMatch) {
+      flushCanon();
+      currentCanonGroup = {
+        chapter: romanNumeralToNumber(canonGroupMatch[1]),
+        headingHtml: `<p><strong>${escapeHtml(text)}</strong></p>`,
+      };
+      return;
+    }
+
+    const canonMatch = text.match(/^(\d+)\.\s*(.*)$/);
+    if (canonMatch && currentCanonGroup?.chapter) {
+      flushCanon();
+      currentCanon = {
+        key: `canon:${currentCanonGroup.chapter}:${Number(canonMatch[1])}`,
+        parts: [
+          currentCanonGroup.headingHtml,
+          `<p>${entry.html()?.trim() ?? escapeHtml(text)}</p>`,
+        ],
+      };
+      return;
+    }
+
+    if (currentCanon) {
+      currentCanon.parts.push(`<p>${entry.html()?.trim() ?? escapeHtml(text)}</p>`);
+    }
+  });
+
+  flushCanon();
+  flushChapter();
+  return sections;
 }
 
 function splitCanonHtmlChunks(rawHtml) {
@@ -2452,43 +2666,135 @@ async function loadCceoSections() {
 }
 
 const documentSectionCache = new Map();
+const documentVariantCache = new Map();
 
-async function loadDocumentSections(documentId) {
-  const cached = documentSectionCache.get(documentId);
+function supportsOfficialDocumentVariants(config) {
+  return Boolean(config?.url && /\/archive\/hist_councils\//i.test(config.url));
+}
+
+async function loadDocumentVariantUrls(documentId) {
+  const cached = documentVariantCache.get(documentId);
   if (cached) {
     return cached;
   }
 
   const config = documentCatalog[documentId];
+  if (!config || !supportsOfficialDocumentVariants(config)) {
+    const fallback = new Map();
+    documentVariantCache.set(documentId, fallback);
+    return fallback;
+  }
+
+  let html;
+  try {
+    html = await fetchHtml(config.url);
+  } catch (error) {
+    if (String(error).includes('Offline cache miss')) {
+      const fallback = new Map();
+      documentVariantCache.set(documentId, fallback);
+      return fallback;
+    }
+    throw error;
+  }
+
+  const $ = cheerio.load(html);
+  const variants = new Map();
+  const baseUrl = new URL(config.url);
+  const baseMatch = baseUrl.pathname.match(/^(.*)_([a-z]{2}(?:-[a-z])?)\.(html?|pdf)$/i);
+  const baseStem = baseMatch?.[1] ?? null;
+  const baseLanguage = inferVaticanDocumentLanguage(config.url);
+  if (baseLanguage && /\.(?:html?)$/i.test(baseUrl.pathname)) {
+    variants.set(baseLanguage, config.url);
+  }
+
+  $('a[href]').each((_, element) => {
+    const href = $(element).attr('href');
+    if (!href) {
+      return;
+    }
+
+    let url;
+    try {
+      url = new URL(href, config.url);
+    } catch {
+      return;
+    }
+
+    const pathMatch = url.pathname.match(/^(.*)_([a-z]{2}(?:-[a-z])?)\.(html?|pdf)$/i);
+    if (!pathMatch || !baseStem || pathMatch[1] !== baseStem) {
+      return;
+    }
+
+    if (!/\.html?$/i.test(url.pathname)) {
+      return;
+    }
+
+    const language = inferVaticanDocumentLanguage(url.toString(), $(element).text());
+    if (!language || !supportedAppLanguageCodes.has(language)) {
+      return;
+    }
+
+    variants.set(language, url.toString());
+  });
+
+  documentVariantCache.set(documentId, variants);
+  return variants;
+}
+
+async function loadDocumentSections(documentId, override = null) {
+  const config = documentCatalog[documentId];
   if (!config) {
     return null;
   }
 
-  debugLog('loading document sections', documentId);
+  const cacheKey = `${documentId}:${override?.language ?? config.language ?? 'default'}`;
+  const cached = documentSectionCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const url = override?.url ?? config.url;
+  const parser = override?.parser ?? config.parser;
+
+  debugLog('loading document sections', documentId, override?.language ?? config.language ?? 'default');
 
   let sections;
-  if (config.parser === 'cic') {
+  if (parser === 'cic') {
     sections = await loadCicSections();
-  } else if (config.parser === 'cceo') {
+  } else if (parser === 'cceo') {
     sections = await loadCceoSections();
-  } else {
+  } else if (parser === 'dei-filius') {
     let html;
     try {
-      html = await fetchHtml(config.url);
+      html = await fetchHtml(url);
     } catch (error) {
       if (String(error).includes('Offline cache miss')) {
         return null;
       }
       throw error;
     }
-    const parsed = parseNumberedSectionsFromHtml(html, config.parser);
+    const parsed = parseDeiFiliusSections(html);
     sections = new Map(
-      [...parsed.entries()].map(([number, payload]) => [number, { ...payload, url: config.url }]),
+      [...parsed.entries()].map(([key, payload]) => [key, { ...payload, url }]),
+    );
+  } else {
+    let html;
+    try {
+      html = await fetchHtml(url);
+    } catch (error) {
+      if (String(error).includes('Offline cache miss')) {
+        return null;
+      }
+      throw error;
+    }
+    const parsed = parseNumberedSectionsFromHtml(html, parser);
+    sections = new Map(
+      [...parsed.entries()].map(([number, payload]) => [number, { ...payload, url }]),
     );
   }
 
-  documentSectionCache.set(documentId, sections);
-  debugLog('loaded document sections', documentId, sections.size);
+  documentSectionCache.set(cacheKey, sections);
+  debugLog('loaded document sections', documentId, override?.language ?? config.language ?? 'default', sections.size);
   return sections;
 }
 
@@ -2634,6 +2940,103 @@ function parseDocumentLocator(locatorText) {
   };
 }
 
+const deiFiliusDenzingerMap = [
+  { start: 3001, end: 3003, sectionKey: 'chapter:1', label: 'Chapter I' },
+  { start: 3004, end: 3007, sectionKey: 'chapter:2', label: 'Chapter II' },
+  { start: 3008, end: 3014, sectionKey: 'chapter:3', label: 'Chapter III' },
+  { start: 3015, end: 3020, sectionKey: 'chapter:4', label: 'Chapter IV' },
+  { start: 3021, end: 3025, canonChapter: 1, canonStart: 1, labelPrefix: 'Canon I.' },
+  { start: 3026, end: 3029, canonChapter: 2, canonStart: 1, labelPrefix: 'Canon II.' },
+  { start: 3030, end: 3035, canonChapter: 3, canonStart: 1, labelPrefix: 'Canon III.' },
+  { start: 3036, end: 3038, canonChapter: 4, canonStart: 1, labelPrefix: 'Canon IV.' },
+];
+
+function addSectionLabel(sectionLabelMap, key, label) {
+  if (!sectionLabelMap.has(key)) {
+    sectionLabelMap.set(key, label);
+  }
+}
+
+function appendUniqueSection(sections, key) {
+  if (!sections.includes(key)) {
+    sections.push(key);
+  }
+}
+
+function extractDenzingerNumbers(text) {
+  const match = text.match(/\bDS\s*([0-9;\-\s]+)/i);
+  if (!match) {
+    return [];
+  }
+  return extractLocatorNumbers(match[1]);
+}
+
+function parseDeiFiliusReference(label, locatorText) {
+  const sections = [];
+  const sectionLabelMap = new Map();
+  const denzingerNumbers = extractDenzingerNumbers(locatorText);
+  const chapterMatch = locatorText.match(/^(?:cap(?:ut)?\.?\s*)?([IVXLC]+|\d+)\b/i);
+  const explicitChapter = chapterMatch ? romanNumeralToNumber(chapterMatch[1]) : null;
+  const canonMatch = locatorText.match(/can(?:n|ones?)?\.?\s*(?:§+\s*)?([IVXLC]+|\d+)(?:\s*-\s*([IVXLC]+|\d+))?/i);
+
+  if (explicitChapter) {
+    const key = `chapter:${explicitChapter}`;
+    appendUniqueSection(sections, key);
+    addSectionLabel(sectionLabelMap, key, `Chapter ${numberToRomanNumeral(explicitChapter)}`);
+  }
+
+  let canonChapter = explicitChapter;
+  if (!canonChapter && denzingerNumbers.length > 0) {
+    const canonRange = deiFiliusDenzingerMap.find(
+      (entry) => entry.canonChapter && denzingerNumbers.some((value) => value >= entry.start && value <= entry.end),
+    );
+    canonChapter = canonRange?.canonChapter ?? null;
+  }
+
+  if (canonMatch && canonChapter) {
+    const canonStart = romanNumeralToNumber(canonMatch[1]);
+    const canonEnd = canonMatch[2] ? romanNumeralToNumber(canonMatch[2]) : canonStart;
+    if (Number.isFinite(canonStart) && Number.isFinite(canonEnd)) {
+      for (let current = canonStart; current <= canonEnd; current += 1) {
+        const key = `canon:${canonChapter}:${current}`;
+        appendUniqueSection(sections, key);
+        addSectionLabel(sectionLabelMap, key, `Canon ${numberToRomanNumeral(canonChapter)}.${current}`);
+      }
+    }
+  }
+
+  for (const value of denzingerNumbers) {
+    const entry = deiFiliusDenzingerMap.find((item) => value >= item.start && value <= item.end);
+    if (!entry) {
+      continue;
+    }
+
+    if (entry.sectionKey) {
+      appendUniqueSection(sections, entry.sectionKey);
+      addSectionLabel(sectionLabelMap, entry.sectionKey, entry.label);
+      continue;
+    }
+
+    const canonNumber = entry.canonStart + (value - entry.start);
+    const key = `canon:${entry.canonChapter}:${canonNumber}`;
+    appendUniqueSection(sections, key);
+    addSectionLabel(sectionLabelMap, key, `${entry.labelPrefix}${canonNumber}`);
+  }
+
+  if (sections.length === 0) {
+    return null;
+  }
+
+  return {
+    documentId: 'DF',
+    title: documentCatalog.DF.title,
+    citation: label,
+    sections,
+    pinpointMap: new Map(),
+    sectionLabelMap,
+  };
+}
+
 function parseDocumentReference(reference) {
   const label = normalizeDocumentLabel(reference.canonicalLabel ?? reference.label);
   const catalogMatch = findDocumentCatalogMatch(label);
@@ -2643,6 +3046,9 @@ function parseDocumentReference(reference) {
 
   const documentId = catalogMatch.documentId;
   const locatorText = label.slice(catalogMatch.match.index + catalogMatch.match[0].length).replace(/^[\s,:-]+/, '');
+  if (documentId === 'DF') {
+    return parseDeiFiliusReference(label, locatorText);
+  }
   const { sections, pinpointMap } = parseDocumentLocator(locatorText);
   if (sections.length === 0) {
     return null;
@@ -2703,6 +3109,61 @@ function renderDocumentSectionEntry(entry, pinpoints = []) {
     html: selected.map((item) => item.html).join(''),
     text: cleanText(selected.map((item) => item.text).join(' ')),
   };
+}
+
+function shouldRebuildAquinasSource(existing) {
+  if (existing?.kind !== 'document') {
+    return false;
+  }
+
+  const sourceLabel = existing.sourceLabel ?? '';
+  if (sourceLabel !== 'Isidore.co' && sourceLabel !== 'Corpus Thomisticum') {
+    return false;
+  }
+
+  return !existing.contentByLanguage;
+}
+
+function ensureContentByLanguage(source, fallbackLanguage, fallbackTranslationNote = source?.translationNote) {
+  if (!source) {
+    return undefined;
+  }
+
+  if (source.contentByLanguage && Object.keys(source.contentByLanguage).length > 0) {
+    return source.contentByLanguage;
+  }
+
+  if (!fallbackLanguage || !source.contentHtml) {
+    return undefined;
+  }
+
+  return {
+    [fallbackLanguage]: {
+      html: source.contentHtml,
+      text: source.contentText,
+      translationNote: fallbackTranslationNote,
+    },
+  };
+}
+
+function buildDocumentSourceParts(parsed, sections) {
+  return parsed.sections
+    .map((section) => {
+      const entry = sections.get(section);
+      if (!entry) {
+        return null;
+      }
+
+      const renderedEntry = renderDocumentSectionEntry(entry, parsed.pinpointMap?.get(section) ?? []);
+      const sectionLabel = String(parsed.sectionLabelMap?.get(section) ?? section);
+
+      return {
+        html: `<p><strong>${escapeHtml(parsed.title)} ${escapeHtml(sectionLabel)}</strong></p>${renderedEntry.html}`,
+        text: `${parsed.title} ${sectionLabel}. ${renderedEntry.text}`,
+        url: entry.url,
+      };
+    })
+    .filter(Boolean);
 }
 
 const aquinasSummaPartMap = {
@@ -3002,6 +3463,20 @@ async function buildCorpusThomisticumSource(parsed, url, elements, titleNote) {
     contentText: hasTranslation
       ? cleanText(`${original.text} ${translated.contentText}`)
       : original.text,
+    contentByLanguage: hasTranslation
+      ? {
+          la: {
+            html: original.html,
+            text: original.text,
+            translationNote: titleNote,
+          },
+          en: {
+            html: translated.contentHtml,
+            text: translated.contentText,
+            translationNote: `Translated with AI from the Latin original. ${titleNote}`,
+          },
+        }
+      : undefined,
   };
 }
 
@@ -3115,6 +3590,16 @@ async function buildAquinasSummaSource(parsed) {
     translationNote: 'Open-source bilingual Latin and English text.',
     contentHtml: `<p><strong>Latin</strong></p>${bilingual.latinHtml}<p><strong>English</strong></p>${bilingual.englishHtml}`,
     contentText: cleanText(`${bilingual.latinText} ${bilingual.englishText}`),
+    contentByLanguage: {
+      la: {
+        html: bilingual.latinHtml,
+        text: bilingual.latinText,
+      },
+      en: {
+        html: bilingual.englishHtml,
+        text: bilingual.englishText,
+      },
+    },
   };
 }
 
@@ -3145,6 +3630,16 @@ async function buildAquinasAnchoredBilingualSource(parsed, url, anchorName) {
     translationNote: 'Open-source bilingual Latin and English text.',
     contentHtml: `<p><strong>Latin</strong></p>${bilingual.latinHtml}<p><strong>English</strong></p>${bilingual.englishHtml}`,
     contentText: cleanText(`${bilingual.latinText} ${bilingual.englishText}`),
+    contentByLanguage: {
+      la: {
+        html: bilingual.latinHtml,
+        text: bilingual.latinText,
+      },
+      en: {
+        html: bilingual.englishHtml,
+        text: bilingual.englishText,
+      },
+    },
   };
 }
 
@@ -3209,6 +3704,16 @@ async function buildAquinasAdoroTeSource(parsed) {
     contentText: cleanText(
       `${cheerio.load(`<div>${latinParts.join('')}</div>`)('div').text()} ${cheerio.load(`<div>${englishParts.join('')}</div>`)('div').text()}`,
     ),
+    contentByLanguage: {
+      la: {
+        html: latinParts.join(''),
+        text: cleanText(cheerio.load(`<div>${latinParts.join('')}</div>`)('div').text()),
+      },
+      en: {
+        html: englishParts.join(''),
+        text: cleanText(cheerio.load(`<div>${englishParts.join('')}</div>`)('div').text()),
+      },
+    },
   };
 }
 
@@ -3256,6 +3761,12 @@ async function buildAquinasScgSource(parsed) {
     translationNote: 'Open-source English translation.',
     contentHtml: `<p><strong>English</strong></p>${englishParts.join('')}`,
     contentText: cleanText(cheerio.load(`<div>${englishParts.join('')}</div>`)('div').text()),
+    contentByLanguage: {
+      en: {
+        html: englishParts.join(''),
+        text: cleanText(cheerio.load(`<div>${englishParts.join('')}</div>`)('div').text()),
+      },
+    },
   };
 }
 
@@ -3287,6 +3798,12 @@ async function buildAquinasHebrewsSource(parsed) {
     translationNote: 'Open-source English translation.',
     contentHtml: `<p><strong>English</strong></p>${englishParts.join('')}`,
     contentText: cleanText(cheerio.load(`<div>${englishParts.join('')}</div>`)('div').text()),
+    contentByLanguage: {
+      en: {
+        html: englishParts.join(''),
+        text: cleanText(cheerio.load(`<div>${englishParts.join('')}</div>`)('div').text()),
+      },
+    },
   };
 }
 
@@ -3681,6 +4198,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
         citation: query,
         url: sourceUrl ?? existing.url,
         sourceLabel: sourceUrl ? 'Vatican.va Bible archive' : existing.sourceLabel,
+        contentByLanguage: ensureContentByLanguage(existing, existing.language ?? bibleTranslation.language),
       };
       continue;
     }
@@ -3722,6 +4240,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
       translationStatus: source.translationStatus,
       contentHtml: source.contentHtml,
       contentText: source.contentText,
+      contentByLanguage: ensureContentByLanguage(source, bibleTranslation.language),
     };
   }
 
@@ -3731,15 +4250,17 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
     debugLog('building document source', documentIndex, documentQueries.size, parsed.documentId, parsed.citation);
     const sourceId = `document:${slugSegment(parsed.documentId)}:${slugSegment(parsed.citation)}`;
     const lookupKey = `${parsed.documentId}:${slugSegment(parsed.citation)}`;
-    const existing = existingExternalSources[sourceId] ?? existingDocumentSourceByKey.get(lookupKey);
+    const config = documentCatalog[parsed.documentId];
+    const existing =
+      config?.refresh === true ? null : existingExternalSources[sourceId] ?? existingDocumentSourceByKey.get(lookupKey);
     if (existing?.kind === 'document') {
-      const config = documentCatalog[parsed.documentId];
+      const hasOfficialVariants = Object.keys(existing.contentByLanguage ?? {}).length > 1;
       const nonEnglishLabel =
-        config?.language && config.language !== 'en'
+        !hasOfficialVariants && config?.language && config.language !== 'en'
           ? `Vatican.va (${languageLabel(config.language)} original)`
           : existing.sourceLabel;
       const translationNote =
-        config?.language && config.language !== 'en' && existing.translationStatus === 'ai'
+        !hasOfficialVariants && config?.language && config.language !== 'en' && existing.translationStatus === 'ai'
           ? `Translated with AI from the official ${languageLabel(config.language)} Vatican text.`
           : existing.translationNote;
       externalSources[sourceId] = {
@@ -3748,6 +4269,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
         citation: parsed.citation,
         sourceLabel: nonEnglishLabel,
         translationNote,
+        contentByLanguage: ensureContentByLanguage(existing, existing.language ?? config?.language ?? 'en', translationNote),
       };
       continue;
     }
@@ -3761,38 +4283,53 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
       continue;
     }
 
-    const config = documentCatalog[parsed.documentId];
     if (!config) {
       continue;
     }
 
-    const sourceParts = parsed.sections
-      .map((section) => {
-        const entry = sections.get(section);
-        if (!entry) {
-          return null;
-        }
-
-        const renderedEntry = renderDocumentSectionEntry(entry, parsed.pinpointMap?.get(section) ?? []);
-
-        return {
-          html: `<p><strong>${escapeHtml(parsed.title)} ${section}</strong></p>${renderedEntry.html}`,
-          text: `${parsed.title} ${section}. ${renderedEntry.text}`,
-          url: entry.url,
-        };
-      })
-      .filter(Boolean);
+    const sourceParts = buildDocumentSourceParts(parsed, sections);
 
     if (sourceParts.length === 0) {
       continue;
     }
 
+    const variantUrls = await loadDocumentVariantUrls(parsed.documentId);
+    const contentByLanguage = {};
+
+    if (supportsOfficialDocumentVariants(config)) {
+      for (const [variantLanguage, variantUrl] of variantUrls.entries()) {
+        const variantSections = await loadDocumentSections(parsed.documentId, {
+          language: variantLanguage,
+          parser: config.parser,
+          url: variantUrl,
+        });
+        if (!variantSections) {
+          continue;
+        }
+
+        const variantParts = buildDocumentSourceParts(parsed, variantSections);
+        if (variantParts.length === 0) {
+          continue;
+        }
+
+        contentByLanguage[variantLanguage] = {
+          html: variantParts.map((entry) => entry.html).join(''),
+          text: variantParts.map((entry) => entry.text).join(' '),
+        };
+      }
+    }
+
+    const hasOfficialVariants = Object.keys(contentByLanguage).length > 1;
     let contentHtml = sourceParts.map((entry) => entry.html).join('');
     let contentText = sourceParts.map((entry) => entry.text).join(' ');
     let translationStatus = 'official';
     let translationNote;
 
-    if (config.language && config.language !== 'en') {
+    if (hasOfficialVariants) {
+      const preferredLanguage = contentByLanguage.en ? 'en' : config.language ?? [...Object.keys(contentByLanguage)][0];
+      contentHtml = contentByLanguage[preferredLanguage]?.html ?? contentHtml;
+      contentText = contentByLanguage[preferredLanguage]?.text ?? contentText;
+    } else if (config.language && config.language !== 'en') {
       const translated = await translateHtmlParagraphs(contentHtml, config.language);
       if (!translated.contentHtml) {
         continue;
@@ -3812,13 +4349,21 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
       url: sourceParts[0].url,
       language: config.language ?? 'en',
       sourceLabel:
-        config.language && config.language !== 'en'
+        !hasOfficialVariants && config.language && config.language !== 'en'
           ? `Vatican.va (${languageLabel(config.language)} original)`
           : 'Vatican.va',
       translationStatus,
       translationNote,
       contentHtml,
       contentText,
+      contentByLanguage:
+        Object.keys(contentByLanguage).length > 0
+          ? contentByLanguage
+          : ensureContentByLanguage(
+              { contentHtml, contentText, contentByLanguage: undefined, translationNote },
+              config.language ?? 'en',
+              translationNote,
+            ),
     };
   }
 
@@ -3827,11 +4372,12 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
     aquinasIndex += 1;
     debugLog('building aquinas source', aquinasIndex, aquinasQueries.size, parsed.kind, parsed.citation);
     const existing = existingExternalSources[parsed.sourceId] ?? existingDocumentSourceByKey.get(parsed.sourceId);
-    if (existing?.kind === 'document') {
+    if (existing?.kind === 'document' && !shouldRebuildAquinasSource(existing)) {
       externalSources[parsed.sourceId] = {
         ...existing,
         id: parsed.sourceId,
         citation: parsed.citation,
+        contentByLanguage: ensureContentByLanguage(existing, existing.language ?? 'en'),
       };
       continue;
     }
