@@ -926,6 +926,11 @@ function ParagraphCard({
           <div className="external-reference-list">
             {node.externalReferences.map((reference) => (
               <div className={`external-reference ${reference.kind}`} key={reference.id}>
+                {reference.compare ? (
+                  <div className="external-reference-compare" title="Compare">
+                    <img alt="" aria-hidden="true" src="/compare-icon.svg" />
+                  </div>
+                ) : null}
                 <span className="reference-kind">
                   {reference.kind === 'scripture' ? t.scripture : t.document}
                 </span>

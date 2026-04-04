@@ -13,6 +13,7 @@ export type ExternalReference = {
   kind: 'scripture' | 'document';
   canonicalLabel?: string;
   sourceId?: string | null;
+  compare?: boolean;
 };
 
 export type ExternalSource = {

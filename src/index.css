@@ -850,11 +850,32 @@ input {
 }
 
 .external-reference {
+  position: relative;
   padding: 0.95rem 1rem;
   border-radius: 18px;
   border: 1px solid rgba(24, 28, 35, 0.08);
   background: rgba(255, 255, 255, 0.56);
   min-width: 0;
+}
+
+.external-reference-compare {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.8rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.78);
+  border: 1px solid rgba(24, 28, 35, 0.08);
+}
+
+.external-reference-compare img {
+  display: block;
+  width: 0.95rem;
+  height: 0.95rem;
+  opacity: 0.72;
 }
 
 .external-reference.scripture {

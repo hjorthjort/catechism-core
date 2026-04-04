@@ -1176,42 +1176,148 @@ function getBibleBook(value) {
   };
 }
 
-function extractScriptureReferencesFromFootnote(note) {
-  const $ = cheerio.load(`<div>${note.html}</div>`);
-  const references = [];
-  let counter = 1;
+function splitFootnoteIntoReferenceSegments(noteHtml) {
+  const $ = cheerio.load(`<div>${noteHtml}</div>`);
+  const root = $('div').first();
+  const segments = [];
+  let currentHtml = '';
+  let currentText = '';
 
-  $('a[href^="#!/search/"]').each((_, link) => {
-    const href = $(link).attr('href') ?? '';
-    const query = decodeURIComponent(href.replace('#!/search/', ''));
-    const canonicalLabel = cleanText(query).replace(/\.$/, '');
-    if (!canonicalLabel) {
+  function pushCurrent() {
+    if (!cleanText(currentText)) {
+      currentHtml = '';
+      currentText = '';
       return;
     }
 
-    references.push({
-      id: `${note.id}:scripture:${counter}`,
-      footnoteId: note.id,
-      footnoteNumber: note.number,
-      label: cleanText($(link).text()) || canonicalLabel,
-      canonicalLabel,
-      kind: 'scripture',
+    segments.push({
+      html: currentHtml,
+      text: cleanText(currentText),
     });
-    counter += 1;
+    currentHtml = '';
+    currentText = '';
+  }
+
+  function appendFragment(html, text) {
+    currentHtml += html;
+    currentText += text;
+  }
+
+  root.contents().each((_, node) => {
+    if (node.type === 'text') {
+      const text = node.data ?? '';
+      let chunk = '';
+
+      for (const character of text) {
+        if (character === ';') {
+          appendFragment(chunk, chunk);
+          chunk = '';
+          pushCurrent();
+          continue;
+        }
+
+        chunk += character;
+      }
+
+      appendFragment(chunk, chunk);
+      return;
+    }
+
+    const html = $.html(node) ?? '';
+    const text = $(node).text();
+    appendFragment(html, text);
   });
 
-  return references;
+  pushCurrent();
+
+  let compareMode = false;
+  return segments.map((segment) => {
+    if (/^cf\.?\s+/i.test(segment.text)) {
+      compareMode = true;
+    }
+
+    return {
+      ...segment,
+      compare: compareMode,
+    };
+  });
 }
 
 function extractExternalReferences(footnotes) {
   const references = [];
 
   for (const note of footnotes) {
-    references.push(...extractScriptureReferencesFromFootnote(note));
-    const segments = extractDocumentReferenceSegments(note);
+    const segments = splitFootnoteIntoReferenceSegments(note.html);
+    let scriptureCounter = 1;
+    const documentSegments = [];
 
-    for (const [index, segment] of segments.entries()) {
-      const canonicalLabel = normalizeDocumentLabel(segment);
+    for (const segment of segments) {
+      const $ = cheerio.load(`<div>${segment.html}</div>`);
+
+      $('a[href^="#!/search/"]').each((_, link) => {
+        const href = $(link).attr('href') ?? '';
+        const query = decodeURIComponent(href.replace('#!/search/', ''));
+        const canonicalLabel = cleanText(query).replace(/\.$/, '');
+        if (!canonicalLabel) {
+          return;
+        }
+
+        references.push({
+          id: `${note.id}:scripture:${scriptureCounter}`,
+          footnoteId: note.id,
+          footnoteNumber: note.number,
+          label: cleanText($(link).text()) || canonicalLabel,
+          canonicalLabel,
+          kind: 'scripture',
+          compare: segment.compare,
+        });
+        scriptureCounter += 1;
+      });
+
+      $('a[href^="#!/search/"]').remove();
+      const rawText = cleanText($('div').text());
+      if (!rawText) {
+        continue;
+      }
+
+      const segmentLabel = normalizeDocumentLabel(rawText);
+      if (!segmentLabel) {
+        continue;
+      }
+
+      if (/^cf\.?$/i.test(segmentLabel)) {
+        continue;
+      }
+
+      if (classifyReference(segmentLabel) === 'scripture') {
+        continue;
+      }
+
+      const isContinuation =
+        documentSegments.length > 0 &&
+        /^(?:\d+(?::\d+)?(?:\s*[-,]\s*\d+(?::\d+)?)?|§+\s*\d+|can(?:n)?\.?\s*\d+|cann?\.\s*\d+|preface\b|introduction\b|praenotanda\b)/i.test(
+          segmentLabel,
+        );
+
+      if (isContinuation) {
+        const previous = documentSegments[documentSegments.length - 1];
+        previous.label = `${previous.label}; ${segmentLabel}`;
+        previous.compare = previous.compare || segment.compare;
+        continue;
+      }
+
+      if (!/[a-z]/i.test(segmentLabel)) {
+        continue;
+      }
+
+      documentSegments.push({
+        label: segmentLabel,
+        compare: segment.compare,
+      });
+    }
+
+    for (const [index, segment] of documentSegments.entries()) {
+      const canonicalLabel = normalizeDocumentLabel(segment.label);
       if (!canonicalLabel) {
         continue;
       }
@@ -1220,9 +1326,10 @@ function extractExternalReferences(footnotes) {
         id: `${note.id}:document:${index + 1}`,
         footnoteId: note.id,
         footnoteNumber: note.number,
-        label: segment,
+        label: segment.label,
         canonicalLabel,
         kind: 'document',
+        compare: segment.compare,
       });
     }
   }
