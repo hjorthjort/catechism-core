@@ -2296,14 +2296,21 @@ function parseNumberedSectionsFromHtml(html, parser) {
   return new Map(
     [...sections.entries()].map(([number, value]) => [
       number,
-      {
-        html: value.parts.filter(Boolean).join(''),
-        text: cleanText(
-          value.parts
-            .map((part) => cheerio.load(`<div>${part}</div>`)('div').text())
-            .join(' '),
-        ),
-      },
+      (() => {
+        const paragraphs = value.parts
+          .filter(Boolean)
+          .map((part) => ({
+            html: part,
+            text: cleanText(cheerio.load(`<div>${part}</div>`)('div').text()),
+          }))
+          .filter((entry) => entry.text);
+
+        return {
+          html: paragraphs.map((entry) => entry.html).join(''),
+          text: cleanText(paragraphs.map((entry) => entry.text).join(' ')),
+          paragraphs,
+        };
+      })(),
     ]),
   );
 }
@@ -2532,6 +2539,101 @@ function extractLocatorNumbers(locatorText) {
   return [...new Set(numbers)];
 }
 
+function romanNumeralToNumber(value) {
+  const normalized = cleanText(value).toUpperCase();
+  if (!normalized) {
+    return null;
+  }
+
+  if (/^\d+$/.test(normalized)) {
+    return Number(normalized);
+  }
+
+  const romanValues = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
+  let total = 0;
+  let previous = 0;
+
+  for (const char of normalized.split('').reverse()) {
+    const current = romanValues[char];
+    if (!current) {
+      return null;
+    }
+
+    if (current < previous) {
+      total -= current;
+    } else {
+      total += current;
+      previous = current;
+    }
+  }
+
+  return total;
+}
+
+function normalizeLocatorSectionToken(value) {
+  return cleanText(value)
+    .replace(/\bpara(?:graph)?\.?\s*/gi, '§ ')
+    .replace(/\bet\s+/gi, '')
+    .replace(/\band\s+/gi, '')
+    .trim();
+}
+
+function parseDocumentLocator(locatorText) {
+  const sections = [];
+  const pinpointMap = new Map();
+  let currentSection = null;
+  const tokens = normalizeLocatorSectionToken(locatorText)
+    .split(/\s*;\s*|\s*,\s*/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+  for (const token of tokens) {
+    if (/^§+\s*/.test(token)) {
+      if (currentSection === null) {
+        continue;
+      }
+
+      const pinpointValue = Number(token.replace(/^§+\s*/, '').match(/^\d+/)?.[0] ?? NaN);
+      if (Number.isFinite(pinpointValue)) {
+        const existing = pinpointMap.get(currentSection) ?? [];
+        existing.push(pinpointValue);
+        pinpointMap.set(currentSection, [...new Set(existing)]);
+      }
+      continue;
+    }
+
+    const rangeMatch = token.match(/^(\d+)\s*-\s*(\d+)(?:\s*§+\s*(\d+))?/);
+    if (rangeMatch) {
+      const start = Number(rangeMatch[1]);
+      const end = Number(rangeMatch[2]);
+      const safeEnd = end - start > 32 ? start : end;
+      for (let current = start; current <= safeEnd; current += 1) {
+        sections.push(current);
+      }
+      currentSection = start;
+      if (rangeMatch[3]) {
+        pinpointMap.set(start, [Number(rangeMatch[3])]);
+      }
+      continue;
+    }
+
+    const sectionMatch = token.match(/^(\d+)(?:\s*§+\s*(\d+))?/);
+    if (sectionMatch) {
+      const section = Number(sectionMatch[1]);
+      sections.push(section);
+      currentSection = section;
+      if (sectionMatch[2]) {
+        pinpointMap.set(section, [Number(sectionMatch[2])]);
+      }
+    }
+  }
+
+  return {
+    sections: [...new Set(sections)],
+    pinpointMap,
+  };
+}
+
 function parseDocumentReference(reference) {
   const label = normalizeDocumentLabel(reference.canonicalLabel ?? reference.label);
   const catalogMatch = findDocumentCatalogMatch(label);
@@ -2541,7 +2643,7 @@ function parseDocumentReference(reference) {
 
   const documentId = catalogMatch.documentId;
   const locatorText = label.slice(catalogMatch.match.index + catalogMatch.match[0].length).replace(/^[\s,:-]+/, '');
-  const sections = extractLocatorNumbers(locatorText);
+  const { sections, pinpointMap } = parseDocumentLocator(locatorText);
   if (sections.length === 0) {
     return null;
   }
@@ -2551,7 +2653,732 @@ function parseDocumentReference(reference) {
     title: documentCatalog[documentId].title,
     citation: label,
     sections,
+    pinpointMap,
   };
+}
+
+function absolutizeFragmentLinks(html, baseUrl) {
+  const $ = cheerio.load(`<div>${html}</div>`);
+  $('a[href]').each((_, element) => {
+    const href = $(element).attr('href');
+    if (!href) {
+      return;
+    }
+
+    try {
+      $(element).attr('href', new URL(href, baseUrl).toString());
+    } catch {
+      $(element).replaceWith($(element).text());
+    }
+  });
+
+  $('[style]').removeAttr('style');
+  return $('div').html() ?? '';
+}
+
+function renderDocumentSectionEntry(entry, pinpoints = []) {
+  if (!entry) {
+    return null;
+  }
+
+  if (!Array.isArray(entry.paragraphs) || pinpoints.length === 0) {
+    return {
+      html: entry.html,
+      text: entry.text,
+    };
+  }
+
+  const selected = pinpoints
+    .map((value) => entry.paragraphs[value - 1] ?? null)
+    .filter(Boolean);
+
+  if (selected.length === 0) {
+    return {
+      html: entry.html,
+      text: entry.text,
+    };
+  }
+
+  return {
+    html: selected.map((item) => item.html).join(''),
+    text: cleanText(selected.map((item) => item.text).join(' ')),
+  };
+}
+
+const aquinasSummaPartMap = {
+  I: { folder: 'FP', label: 'I' },
+  'I-II': { folder: 'FS', label: 'I-II' },
+  'II-II': { folder: 'SS', label: 'II-II' },
+  III: { folder: 'TP', label: 'III' },
+};
+
+function parseAquinasPinpoint(text) {
+  const suffix = cleanText(text)
+    .replace(/,\s*art\.?$/i, '')
+    .replace(/\bcorp\.?\s*art\.?/i, ' corp. ')
+    .trim();
+
+  if (!suffix) {
+    return null;
+  }
+
+  if (/\bs\.\s*c\./i.test(suffix) || /sed contra/i.test(suffix)) {
+    return { kind: 'sed-contra', number: null };
+  }
+
+  if (/\b(?:corp\.?|corpus|c\.)\b/i.test(suffix)) {
+    return { kind: 'corpus', number: null };
+  }
+
+  const objectionMatch = suffix.match(/\bobj\.?\s*([IVXLC]+|\d+)/i);
+  if (objectionMatch) {
+    return {
+      kind: 'objection',
+      number: romanNumeralToNumber(objectionMatch[1]),
+    };
+  }
+
+  const replyMatch = suffix.match(/\bad\s*([IVXLC]+|\d+)/i);
+  if (replyMatch) {
+    return {
+      kind: 'reply',
+      number: romanNumeralToNumber(replyMatch[1]),
+    };
+  }
+
+  return null;
+}
+
+function parseAquinasReference(reference) {
+  const label = normalizeDocumentLabel(reference.canonicalLabel ?? reference.label);
+
+  const sthMatch = label.match(
+    /^St\.\s*Thomas\s*Aquinas,\s*STh\.?\s*([IVX]+(?:-[IVX]+)?)\s*,?\s*(\d+)[,\s]+(\d+)(.*)$/i,
+  );
+  if (sthMatch) {
+    const part = sthMatch[1].toUpperCase();
+    const config = aquinasSummaPartMap[part];
+    if (!config) {
+      return null;
+    }
+
+    const question = Number(sthMatch[2]);
+    const article = Number(sthMatch[3]);
+    if (!Number.isFinite(question) || !Number.isFinite(article)) {
+      return null;
+    }
+
+    return {
+      kind: 'aquinas-sth',
+      title: 'St. Thomas Aquinas, Summa Theologiae',
+      citation: label,
+      sourceId: `document:aquinas-sth:${slugSegment(`${part}-${question}-${article}-${sthMatch[4] || 'full'}`)}`,
+      part,
+      folder: config.folder,
+      question,
+      article,
+      pinpoint: parseAquinasPinpoint(sthMatch[4]),
+    };
+  }
+
+  const scgMatch = label.match(/^St\.\s*Thomas\s*Aquinas,\s*SCG\s*([IVX]+)\s*,?\s*(\d+)\.?$/i);
+  if (scgMatch) {
+    const book = romanNumeralToNumber(scgMatch[1]);
+    const chapter = Number(scgMatch[2]);
+    if (!Number.isFinite(book) || !Number.isFinite(chapter)) {
+      return null;
+    }
+
+    return {
+      kind: 'aquinas-scg',
+      title: 'St. Thomas Aquinas, Summa Contra Gentiles',
+      citation: label,
+      sourceId: `document:aquinas-scg:${slugSegment(`${book}-${chapter}`)}`,
+      book,
+      chapter,
+    };
+  }
+
+  const hebrewsMatch = label.match(/^St\.\s*Thomas\s*Aquinas,\s*Hebr\.\s*(\d+)\s*,\s*(\d+)\.?$/i);
+  if (hebrewsMatch) {
+    const chapter = Number(hebrewsMatch[1]);
+    const lecture = Number(hebrewsMatch[2]);
+    if (!Number.isFinite(chapter) || !Number.isFinite(lecture)) {
+      return null;
+    }
+
+    return {
+      kind: 'aquinas-hebrews',
+      title: 'St. Thomas Aquinas, Super Epistolam ad Hebraeos',
+      citation: label,
+      sourceId: `document:aquinas-hebrews:${slugSegment(`${chapter}-${lecture}`)}`,
+      chapter,
+      lecture,
+    };
+  }
+
+  const creedMatch = label.match(/St\.\s*Thomas\s*Aquinas,\s*(?:Expos\.\s*in\s*symb\.\s*apost\.|Symb\.?,?)\s*([IVXLC]+|\d+)\.?/i);
+  if (creedMatch) {
+    const article = romanNumeralToNumber(creedMatch[1]);
+    if (!Number.isFinite(article)) {
+      return null;
+    }
+
+    return {
+      kind: 'aquinas-creed',
+      title: "St. Thomas Aquinas, Expositio in Symbolum Apostolorum",
+      citation: label,
+      sourceId: `document:aquinas-creed:${slugSegment(String(article))}`,
+      article,
+    };
+  }
+
+  const commandmentsMatch = label.match(/St\.\s*Thomas\s*Aquinas,\s*Dec\.\s*pr[æa]c\.\s*([IVXLC]+|\d+)\.?/i);
+  if (commandmentsMatch) {
+    const article = romanNumeralToNumber(commandmentsMatch[1]);
+    if (!Number.isFinite(article)) {
+      return null;
+    }
+
+    return {
+      kind: 'aquinas-ten-commandments',
+      title: 'St. Thomas Aquinas, Collationes in decem praeceptis',
+      citation: label,
+      sourceId: `document:aquinas-ten-commandments:${slugSegment(String(article))}`,
+      article,
+    };
+  }
+
+  const psalmMatch = label.match(/^St\.\s*Thomas\s*Aquinas,\s*Expos\.\s*in\s*Ps\.\s*(\d+)\s*,\s*(\d+)\.?$/i);
+  if (psalmMatch) {
+    const psalm = Number(psalmMatch[1]);
+    const passage = Number(psalmMatch[2]);
+    if (!Number.isFinite(psalm) || !Number.isFinite(passage)) {
+      return null;
+    }
+
+    return {
+      kind: 'aquinas-psalms',
+      title: 'St. Thomas Aquinas, Expositio in Psalmos',
+      citation: label,
+      sourceId: `document:aquinas-psalms:${slugSegment(`${psalm}-${passage}`)}`,
+      psalm,
+      passage,
+    };
+  }
+
+  const deMaloMatch = label.match(/^St\.\s*Thomas\s*Aquinas,\s*De Malo\s*(\d+)\s*,\s*(\d+)\.?$/i);
+  if (deMaloMatch) {
+    const question = Number(deMaloMatch[1]);
+    const article = Number(deMaloMatch[2]);
+    if (!Number.isFinite(question) || !Number.isFinite(article)) {
+      return null;
+    }
+
+    return {
+      kind: 'aquinas-de-malo',
+      title: 'St. Thomas Aquinas, De malo',
+      citation: label,
+      sourceId: `document:aquinas-de-malo:${slugSegment(`${question}-${article}`)}`,
+      question,
+      article,
+    };
+  }
+
+  const sentencesMatch = label.match(/^St\.\s*Thomas\s*Aquinas,\s*Sent\.\s*([IVX]+)\s*,\s*Prol\.?$/i);
+  if (sentencesMatch) {
+    const book = romanNumeralToNumber(sentencesMatch[1]);
+    if (!Number.isFinite(book)) {
+      return null;
+    }
+
+    return {
+      kind: 'aquinas-sentences',
+      title: 'St. Thomas Aquinas, Scriptum super Sententiis',
+      citation: label,
+      sourceId: `document:aquinas-sentences:${slugSegment(`${book}-prologue`)}`,
+      book,
+    };
+  }
+
+  const adoreMatch = label.match(/St\.\s*Thomas\s*Aquinas\s*\(attr\.\),\s*Adoro te devote/i);
+  if (adoreMatch) {
+    return {
+      kind: 'aquinas-adoro-te',
+      title: 'Adoro te devote',
+      citation: label,
+      sourceId: 'document:aquinas-adoro-te',
+    };
+  }
+
+  return null;
+}
+
+function buildHtmlFromSelectedElements($, elements, baseUrl) {
+  const htmlParts = [];
+  const textParts = [];
+
+  for (const element of elements) {
+    const text = cleanText($(element).text());
+    if (!text) {
+      continue;
+    }
+
+    const tagName = element.tagName?.toLowerCase() === 'div' ? 'div' : 'p';
+    const innerHtml = absolutizeFragmentLinks($(element).html() ?? '', baseUrl);
+    htmlParts.push(`<${tagName}>${innerHtml}</${tagName}>`);
+    textParts.push(text);
+  }
+
+  return {
+    html: htmlParts.join(''),
+    text: cleanText(textParts.join(' ')),
+  };
+}
+
+function extractFirstTableAfterAnchor(html, anchorName) {
+  const anchorPattern = new RegExp(`<a[^>]+name=["']${escapeRegExp(anchorName)}["'][^>]*>`, 'i');
+  const anchorMatch = anchorPattern.exec(html);
+  if (!anchorMatch) {
+    return null;
+  }
+
+  const tableStart = html.indexOf('<table', anchorMatch.index);
+  if (tableStart === -1) {
+    return null;
+  }
+
+  const lowerHtml = html.toLowerCase();
+  let cursor = tableStart;
+  let depth = 0;
+
+  while (cursor < html.length) {
+    const nextOpen = lowerHtml.indexOf('<table', cursor);
+    const nextClose = lowerHtml.indexOf('</table>', cursor);
+    if (nextClose === -1) {
+      return null;
+    }
+
+    if (nextOpen !== -1 && nextOpen < nextClose) {
+      depth += 1;
+      cursor = nextOpen + 6;
+      continue;
+    }
+
+    depth -= 1;
+    cursor = nextClose + 8;
+    if (depth === 0) {
+      return html.slice(tableStart, cursor);
+    }
+  }
+
+  return null;
+}
+
+async function buildCorpusThomisticumSource(parsed, url, elements, titleNote) {
+  const original = buildHtmlFromSelectedElements(elements.$, elements.items, url);
+  if (!original.text) {
+    return null;
+  }
+
+  const translated = await translateHtmlParagraphs(original.html, 'la');
+  const hasTranslation = Boolean(translated.contentHtml);
+
+  return {
+    id: parsed.sourceId,
+    kind: 'document',
+    title: parsed.title,
+    citation: parsed.citation,
+    url,
+    language: 'la',
+    sourceLabel: 'Corpus Thomisticum',
+    translationStatus: hasTranslation ? 'ai' : 'public-domain',
+    translationNote: hasTranslation
+      ? `Translated with AI from the Latin original. ${titleNote}`
+      : titleNote,
+    contentHtml: hasTranslation
+      ? `<p><strong>Latin</strong></p>${original.html}<p><strong>English</strong></p>${translated.contentHtml}`
+      : original.html,
+    contentText: hasTranslation
+      ? cleanText(`${original.text} ${translated.contentText}`)
+      : original.text,
+  };
+}
+
+function buildBilingualTableContent(table, baseUrl, selector) {
+  const $ = cheerio.load(table.toString());
+  const latinParts = [];
+  const englishParts = [];
+
+  $('table')
+    .first()
+    .find('tr')
+    .each((_, row) => {
+    const cells = $(row).children('td');
+    if (cells.length === 2) {
+      const latinCell = $(cells[0]);
+      const englishCell = $(cells[1]);
+      if (!selector || selector(latinCell, englishCell)) {
+        const latinHtml = absolutizeFragmentLinks(latinCell.html() ?? '', baseUrl);
+        const englishHtml = absolutizeFragmentLinks(englishCell.html() ?? '', baseUrl);
+        const latinText = cleanText(latinCell.text());
+        const englishText = cleanText(englishCell.text());
+        if (latinText) {
+          latinParts.push(`<p>${latinHtml}</p>`);
+        }
+        if (englishText) {
+          englishParts.push(`<p>${englishHtml}</p>`);
+        }
+      }
+      return;
+    }
+
+    if (cells.length === 1) {
+      const html = absolutizeFragmentLinks($(cells[0]).html() ?? '', baseUrl);
+      const text = cleanText($(cells[0]).text());
+      if (text) {
+        const block = `<p><strong>${html}</strong></p>`;
+        latinParts.push(block);
+        englishParts.push(block);
+      }
+    }
+    });
+
+  return {
+    latinHtml: latinParts.join(''),
+    latinText: cleanText(
+      cheerio.load(`<div>${latinParts.join('')}</div>`)('div').text(),
+    ),
+    englishHtml: englishParts.join(''),
+    englishText: cleanText(
+      cheerio.load(`<div>${englishParts.join('')}</div>`)('div').text(),
+    ),
+  };
+}
+
+function identifySummaCell(englishText) {
+  const text = cleanText(englishText);
+  if (/^Objection\s+(\d+):/i.test(text)) {
+    return { kind: 'objection', number: Number(text.match(/^Objection\s+(\d+):/i)?.[1] ?? NaN) };
+  }
+  if (/^Reply to Objection\s+(\d+):/i.test(text)) {
+    return { kind: 'reply', number: Number(text.match(/^Reply to Objection\s+(\d+):/i)?.[1] ?? NaN) };
+  }
+  if (/^On the contrary,/i.test(text)) {
+    return { kind: 'sed-contra', number: null };
+  }
+  if (/^I answer that,/i.test(text)) {
+    return { kind: 'corpus', number: null };
+  }
+  return null;
+}
+
+async function buildAquinasSummaSource(parsed) {
+  const questionSlug = String(parsed.question).padStart(3, '0');
+  const baseUrl = `https://isidore.co/aquinas/summa/${parsed.folder}/${parsed.folder}${questionSlug}.html`;
+  const html = await fetchHtml(baseUrl);
+  const anchorName = `${parsed.folder}Q${parsed.question}A${parsed.article}THEP1`;
+  const tableHtml = extractFirstTableAfterAnchor(html, anchorName);
+  if (!tableHtml) {
+    return null;
+  }
+
+  const $ = cheerio.load(tableHtml);
+  const articleTable = $('table').first();
+
+  const bilingual = buildBilingualTableContent(articleTable, baseUrl, (_latinCell, englishCell) => {
+    if (!parsed.pinpoint) {
+      return true;
+    }
+
+    const marker = identifySummaCell(englishCell.text());
+    if (!marker) {
+      return false;
+    }
+
+    return marker.kind === parsed.pinpoint.kind && (parsed.pinpoint.number === null || marker.number === parsed.pinpoint.number);
+  });
+
+  if (!bilingual.latinText && !bilingual.englishText) {
+    return null;
+  }
+
+  return {
+    id: parsed.sourceId,
+    kind: 'document',
+    title: parsed.title,
+    citation: parsed.citation,
+    url: `${baseUrl}#${anchorName}`,
+    language: 'la',
+    sourceLabel: 'Isidore.co',
+    translationStatus: 'public-domain',
+    translationNote: 'Open-source bilingual Latin and English text.',
+    contentHtml: `<p><strong>Latin</strong></p>${bilingual.latinHtml}<p><strong>English</strong></p>${bilingual.englishHtml}`,
+    contentText: cleanText(`${bilingual.latinText} ${bilingual.englishText}`),
+  };
+}
+
+async function buildAquinasAnchoredBilingualSource(parsed, url, anchorName) {
+  const html = await fetchHtml(url);
+  const tableHtml = extractFirstTableAfterAnchor(html, anchorName);
+  if (!tableHtml) {
+    return null;
+  }
+
+  const $ = cheerio.load(tableHtml);
+  const table = $('table').first();
+
+  const bilingual = buildBilingualTableContent(table, url);
+  if (!bilingual.latinText && !bilingual.englishText) {
+    return null;
+  }
+
+  return {
+    id: parsed.sourceId,
+    kind: 'document',
+    title: parsed.title,
+    citation: parsed.citation,
+    url: `${url}#${anchorName}`,
+    language: 'la',
+    sourceLabel: 'Isidore.co',
+    translationStatus: 'public-domain',
+    translationNote: 'Open-source bilingual Latin and English text.',
+    contentHtml: `<p><strong>Latin</strong></p>${bilingual.latinHtml}<p><strong>English</strong></p>${bilingual.englishHtml}`,
+    contentText: cleanText(`${bilingual.latinText} ${bilingual.englishText}`),
+  };
+}
+
+async function buildAquinasCreedSource(parsed) {
+  return buildAquinasAnchoredBilingualSource(parsed, 'https://isidore.co/aquinas/Creed.htm', String(parsed.article));
+}
+
+async function buildAquinasTenCommandmentsSource(parsed) {
+  return buildAquinasAnchoredBilingualSource(
+    parsed,
+    'https://isidore.co/aquinas/TenCommandments.htm',
+    String(parsed.article),
+  );
+}
+
+async function buildAquinasAdoroTeSource(parsed) {
+  const url = 'https://isidore.co/aquinas/AdoroTe.htm';
+  const html = await fetchHtml(url);
+  const $ = cheerio.load(html);
+  const bodyText = $('body').text();
+  if (!bodyText) {
+    return null;
+  }
+
+  const rows = $('tr').toArray();
+  const latinParts = [];
+  const englishParts = [];
+
+  for (const row of rows) {
+    const cells = $(row).children('td');
+    if (cells.length !== 2) {
+      continue;
+    }
+
+    const latinCell = $(cells[0]);
+    const englishCell = $(cells[1]);
+    const latinText = cleanText(latinCell.text());
+    const englishText = cleanText(englishCell.text());
+    if (!latinText || !englishText) {
+      continue;
+    }
+
+    latinParts.push(`<p>${absolutizeFragmentLinks(latinCell.html() ?? '', url)}</p>`);
+    englishParts.push(`<p>${absolutizeFragmentLinks(englishCell.html() ?? '', url)}</p>`);
+  }
+
+  if (latinParts.length === 0 && englishParts.length === 0) {
+    return null;
+  }
+
+  return {
+    id: parsed.sourceId,
+    kind: 'document',
+    title: parsed.title,
+    citation: parsed.citation,
+    url,
+    language: 'la',
+    sourceLabel: 'Isidore.co',
+    translationStatus: 'public-domain',
+    translationNote: 'Open-source bilingual Latin and English text.',
+    contentHtml: `<p><strong>Latin</strong></p>${latinParts.join('')}<p><strong>English</strong></p>${englishParts.join('')}`,
+    contentText: cleanText(
+      `${cheerio.load(`<div>${latinParts.join('')}</div>`)('div').text()} ${cheerio.load(`<div>${englishParts.join('')}</div>`)('div').text()}`,
+    ),
+  };
+}
+
+async function buildAquinasScgSource(parsed) {
+  const bookFile =
+    parsed.book === 3 ? (parsed.chapter <= 83 ? '3a' : '3b') : String(parsed.book);
+  const englishUrl = `https://isidore.co/aquinas/english/ContraGentiles${bookFile}.htm#${parsed.chapter}`;
+  const englishHtml = await fetchHtml(`https://isidore.co/aquinas/english/ContraGentiles${bookFile}.htm`);
+  const anchorPattern = new RegExp(`<a[^>]+name=["']${parsed.chapter}["'][^>]*>`, 'i');
+  const anchorMatch = anchorPattern.exec(englishHtml);
+  if (!anchorMatch) {
+    return null;
+  }
+
+  const nextAnchorPattern = new RegExp(`<a[^>]+name=["']${parsed.chapter + 1}["'][^>]*>`, 'i');
+  const nextAnchorMatch = nextAnchorPattern.exec(englishHtml.slice(anchorMatch.index + 1));
+  const endIndex = nextAnchorMatch ? anchorMatch.index + 1 + nextAnchorMatch.index : englishHtml.length;
+  const chunk = englishHtml.slice(anchorMatch.index, endIndex);
+  const english$ = cheerio.load(`<div>${chunk}</div>`);
+  const englishParts = english$('p')
+    .toArray()
+    .map((element) => {
+      const text = cleanText(english$(element).text());
+      if (!text) {
+        return null;
+      }
+
+      return `<p>${absolutizeFragmentLinks(english$(element).html() ?? '', englishUrl)}</p>`;
+    })
+    .filter(Boolean);
+
+  if (englishParts.length === 0) {
+    return null;
+  }
+
+  return {
+    id: parsed.sourceId,
+    kind: 'document',
+    title: parsed.title,
+    citation: parsed.citation,
+    url: englishUrl,
+    language: 'en',
+    sourceLabel: 'Isidore.co',
+    translationStatus: 'public-domain',
+    translationNote: 'Open-source English translation.',
+    contentHtml: `<p><strong>English</strong></p>${englishParts.join('')}`,
+    contentText: cleanText(cheerio.load(`<div>${englishParts.join('')}</div>`)('div').text()),
+  };
+}
+
+async function buildAquinasHebrewsSource(parsed) {
+  const url = 'https://isidore.co/aquinas/english/SSHebrews.htm';
+  const html = await fetchHtml(url);
+  const $ = cheerio.load(html);
+  const target = $('p')
+    .filter((_, element) =>
+      cleanText($(element).text()).includes('Christ alone is the true priest, but others are His ministers'),
+    )
+    .first();
+  if (!target.length) {
+    return null;
+  }
+
+  const englishParts = [`<p>${absolutizeFragmentLinks(target.html() ?? '', url)}</p>`];
+  const anchorName = '74';
+
+  return {
+    id: parsed.sourceId,
+    kind: 'document',
+    title: parsed.title,
+    citation: parsed.citation,
+    url: `${url}#${anchorName}`,
+    language: 'en',
+    sourceLabel: 'Isidore.co',
+    translationStatus: 'public-domain',
+    translationNote: 'Open-source English translation.',
+    contentHtml: `<p><strong>English</strong></p>${englishParts.join('')}`,
+    contentText: cleanText(cheerio.load(`<div>${englishParts.join('')}</div>`)('div').text()),
+  };
+}
+
+function corpusThomisticumPsalmUrl(psalm) {
+  if (psalm >= 21 && psalm <= 30) {
+    return 'https://www.corpusthomisticum.org/cps21.html';
+  }
+
+  return null;
+}
+
+async function buildAquinasPsalmsSource(parsed) {
+  const url = corpusThomisticumPsalmUrl(parsed.psalm);
+  if (!url) {
+    return null;
+  }
+
+  const html = await fetchHtml(url);
+  const $ = cheerio.load(html);
+  const items = $('p')
+    .toArray()
+    .filter((element) =>
+      cleanText($(element).attr('title') ?? '').toLowerCase() === `super psalmo ${parsed.psalm} n. ${parsed.passage}`,
+    );
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  return buildCorpusThomisticumSource(parsed, url, { $, items }, 'Latin text from the original Corpus Thomisticum edition.');
+}
+
+async function buildAquinasDeMaloSource(parsed) {
+  const url = `https://www.corpusthomisticum.org/qdm${String(parsed.question).padStart(2, '0')}.html`;
+  const html = await fetchHtml(url);
+  const $ = cheerio.load(html);
+  const articlePrefix = `De malo, q. ${parsed.question} a. ${parsed.article} `;
+  const items = $('p')
+    .toArray()
+    .filter((element) => cleanText($(element).attr('title') ?? '').startsWith(articlePrefix));
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  return buildCorpusThomisticumSource(parsed, url, { $, items }, 'Latin text from the original Corpus Thomisticum edition.');
+}
+
+async function buildAquinasSentencesSource(parsed) {
+  const url = `https://www.corpusthomisticum.org/snp${parsed.book}000.html`;
+  const html = await fetchHtml(url);
+  const $ = cheerio.load(html);
+  const items = $('p')
+    .toArray()
+    .filter((element) => cleanText($(element).attr('title') ?? '').startsWith(`Super Sent., lib. ${parsed.book} pr.`));
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  return buildCorpusThomisticumSource(parsed, url, { $, items }, 'Latin text from the original Corpus Thomisticum edition.');
+}
+
+async function buildAquinasSource(parsed) {
+  if (parsed.kind === 'aquinas-sth') {
+    return buildAquinasSummaSource(parsed);
+  }
+  if (parsed.kind === 'aquinas-scg') {
+    return buildAquinasScgSource(parsed);
+  }
+  if (parsed.kind === 'aquinas-hebrews') {
+    return buildAquinasHebrewsSource(parsed);
+  }
+  if (parsed.kind === 'aquinas-creed') {
+    return buildAquinasCreedSource(parsed);
+  }
+  if (parsed.kind === 'aquinas-ten-commandments') {
+    return buildAquinasTenCommandmentsSource(parsed);
+  }
+  if (parsed.kind === 'aquinas-psalms') {
+    return buildAquinasPsalmsSource(parsed);
+  }
+  if (parsed.kind === 'aquinas-de-malo') {
+    return buildAquinasDeMaloSource(parsed);
+  }
+  if (parsed.kind === 'aquinas-sentences') {
+    return buildAquinasSentencesSource(parsed);
+  }
+  if (parsed.kind === 'aquinas-adoro-te') {
+    return buildAquinasAdoroTeSource(parsed);
+  }
+  return null;
 }
 
 async function buildBibleChapterCache(queries) {
@@ -2790,6 +3617,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
   const rebuiltReferences = new Map();
   const scriptureQueries = new Set();
   const documentQueries = new Map();
+  const aquinasQueries = new Map();
   const existingDocumentSourceByKey = new Map();
   const vaticanBibleLookup = await buildVaticanBiblePageLookup();
 
@@ -2803,10 +3631,17 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
       canonicalLabel: source.citation,
     });
     if (!parsed) {
+      const aquinas = parseAquinasReference({
+        label: source.citation,
+        canonicalLabel: source.citation,
+      });
+      if (aquinas) {
+        existingDocumentSourceByKey.set(aquinas.sourceId, source);
+      }
       continue;
     }
 
-    existingDocumentSourceByKey.set(`${parsed.documentId}:${parsed.sections.join(',')}`, source);
+    existingDocumentSourceByKey.set(`${parsed.documentId}:${slugSegment(parsed.citation)}`, source);
   }
 
   for (const node of nodes) {
@@ -2821,7 +3656,12 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
       if (reference.kind === 'document') {
         const parsed = parseDocumentReference(reference);
         if (parsed) {
-          documentQueries.set(`${parsed.documentId}:${parsed.sections.join(',')}`, parsed);
+          documentQueries.set(`${parsed.documentId}:${slugSegment(parsed.citation)}`, parsed);
+        }
+
+        const aquinas = parseAquinasReference(reference);
+        if (aquinas) {
+          aquinasQueries.set(aquinas.sourceId, aquinas);
         }
       }
     }
@@ -2862,7 +3702,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
     ? await buildBibleChapterCache(missingScriptureQueries)
     : new Map();
   debugLog('chapter cache built', chapterCache.size);
-  debugLog('document queries', documentQueries.size);
+  debugLog('document queries', documentQueries.size, 'aquinas', aquinasQueries.size);
 
   for (const query of shouldFetchMissingScripture ? missingScriptureQueries : []) {
     const source = renderScriptureSource(query, chapterCache, vaticanBibleLookup);
@@ -2890,7 +3730,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
     documentIndex += 1;
     debugLog('building document source', documentIndex, documentQueries.size, parsed.documentId, parsed.citation);
     const sourceId = `document:${slugSegment(parsed.documentId)}:${slugSegment(parsed.citation)}`;
-    const lookupKey = `${parsed.documentId}:${parsed.sections.join(',')}`;
+    const lookupKey = `${parsed.documentId}:${slugSegment(parsed.citation)}`;
     const existing = existingExternalSources[sourceId] ?? existingDocumentSourceByKey.get(lookupKey);
     if (existing?.kind === 'document') {
       const config = documentCatalog[parsed.documentId];
@@ -2933,9 +3773,11 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
           return null;
         }
 
+        const renderedEntry = renderDocumentSectionEntry(entry, parsed.pinpointMap?.get(section) ?? []);
+
         return {
-          html: `<p><strong>${escapeHtml(parsed.title)} ${section}</strong></p>${entry.html}`,
-          text: `${parsed.title} ${section}. ${entry.text}`,
+          html: `<p><strong>${escapeHtml(parsed.title)} ${section}</strong></p>${renderedEntry.html}`,
+          text: `${parsed.title} ${section}. ${renderedEntry.text}`,
           url: entry.url,
         };
       })
@@ -2980,6 +3822,28 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
     };
   }
 
+  let aquinasIndex = 0;
+  for (const parsed of aquinasQueries.values()) {
+    aquinasIndex += 1;
+    debugLog('building aquinas source', aquinasIndex, aquinasQueries.size, parsed.kind, parsed.citation);
+    const existing = existingExternalSources[parsed.sourceId] ?? existingDocumentSourceByKey.get(parsed.sourceId);
+    if (existing?.kind === 'document') {
+      externalSources[parsed.sourceId] = {
+        ...existing,
+        id: parsed.sourceId,
+        citation: parsed.citation,
+      };
+      continue;
+    }
+
+    const source = await buildAquinasSource(parsed);
+    if (!source) {
+      continue;
+    }
+
+    externalSources[parsed.sourceId] = source;
+  }
+
   for (const source of Object.values(externalSources)) {
     if (source?.kind !== 'scripture') {
       continue;
@@ -3003,6 +3867,11 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
         reference.kind === 'scripture' && reference.canonicalLabel
           ? `scripture:${slugSegment(reference.canonicalLabel)}`
           : (() => {
+              const aquinas = parseAquinasReference(reference);
+              if (aquinas && externalSources[aquinas.sourceId]) {
+                return aquinas.sourceId;
+              }
+
               const parsed = parseDocumentReference(reference);
               if (!parsed) {
                 return null;
