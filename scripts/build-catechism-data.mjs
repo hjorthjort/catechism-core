@@ -113,15 +113,250 @@ const languageConfigs = [
 ];
 const supportedAppLanguageCodes = new Set(['en', ...languageConfigs.map((config) => config.code)]);
 
-const bibleTranslation = {
-  id: 'web',
-  name: 'World English Bible',
-  language: 'en',
-  sourceLabel: 'Bible API / World English Bible',
-};
+const officialScriptureLanguages = ['en', 'it', 'es', 'la', 'zh'];
 
-const vaticanBibleIndexUrl = 'https://www.vatican.va/archive/ENG0839/_INDEX.HTM';
-const vaticanBibleBaseUrl = 'https://www.vatican.va/archive/ENG0839/';
+const canonicalBibleBookOrder = [
+  'GEN',
+  'EXO',
+  'LEV',
+  'NUM',
+  'DEU',
+  'JOS',
+  'JDG',
+  'RUT',
+  '1SA',
+  '2SA',
+  '1KI',
+  '2KI',
+  '1CH',
+  '2CH',
+  'EZR',
+  'NEH',
+  'TOB',
+  'JDT',
+  'EST',
+  '1MA',
+  '2MA',
+  'JOB',
+  'PSA',
+  'PRO',
+  'ECC',
+  'SNG',
+  'WIS',
+  'SIR',
+  'ISA',
+  'JER',
+  'LAM',
+  'BAR',
+  'EZK',
+  'DAN',
+  'HOS',
+  'JOL',
+  'AMO',
+  'OBA',
+  'JON',
+  'MIC',
+  'NAM',
+  'HAB',
+  'ZEP',
+  'HAG',
+  'ZEC',
+  'MAL',
+  'MAT',
+  'MRK',
+  'LUK',
+  'JHN',
+  'ACT',
+  'ROM',
+  '1CO',
+  '2CO',
+  'GAL',
+  'EPH',
+  'PHP',
+  'COL',
+  '1TH',
+  '2TH',
+  '1TI',
+  '2TI',
+  'TIT',
+  'PHM',
+  'HEB',
+  'JAS',
+  '1PE',
+  '2PE',
+  '1JN',
+  '2JN',
+  '3JN',
+  'JUD',
+  'REV',
+];
+
+const italianBibleIndexUrl = 'https://www.vatican.va/archive/ITA0001/_INDEX.HTM';
+const italianBibleBaseUrl = 'https://www.vatican.va/archive/ITA0001/';
+const spanishBibleIndexUrl = 'https://www.vatican.va/archive/ESL0506/_INDEX.HTM';
+const spanishBibleBaseUrl = 'https://www.vatican.va/archive/ESL0506/';
+const englishBibleIndexUrl = 'https://www.vatican.va/archive/ENG0839/_INDEX.HTM';
+const englishBibleBaseUrl = 'https://www.vatican.va/archive/ENG0839/';
+const latinBibleOldTestamentUrl =
+  'https://www.vatican.va/archive/bible/nova_vulgata/documents/nova-vulgata_vetus-testamentum_lt.html';
+const latinBibleNewTestamentUrl =
+  'https://www.vatican.va/archive/bible/nova_vulgata/documents/nova-vulgata_novum-testamentum_lt.html';
+const latinBibleBaseUrl = 'https://www.vatican.va/archive/bible/nova_vulgata/documents/';
+const chineseBibleIndexUrl = 'https://www.vatican.va/chinese/bibbia.htm';
+const chineseBibleBaseUrl = 'https://www.vatican.va/chinese/';
+
+const spanishBibleIndexOrder = [
+  'GEN',
+  'EXO',
+  'LEV',
+  'NUM',
+  'DEU',
+  'JOS',
+  'JDG',
+  '1SA',
+  '2SA',
+  '1KI',
+  '2KI',
+  'ISA',
+  'JER',
+  'EZK',
+  'HOS',
+  'JOL',
+  'AMO',
+  'OBA',
+  'JON',
+  'MIC',
+  'NAM',
+  'HAB',
+  'ZEP',
+  'HAG',
+  'ZEC',
+  'MAL',
+  'PSA',
+  'JOB',
+  'PRO',
+  'RUT',
+  'SNG',
+  'ECC',
+  'LAM',
+  'EST',
+  'DAN',
+  '1CH',
+  '2CH',
+  'EZR',
+  'NEH',
+  'EST_SUP',
+  'JDT',
+  'TOB',
+  '1MA',
+  '2MA',
+  'WIS',
+  'SIR',
+  'BAR',
+  'BAR_SUP',
+  'DAN_SUP',
+  'MAT',
+  'MRK',
+  'LUK',
+  'JHN',
+  'ACT',
+  'ROM',
+  '1CO',
+  '2CO',
+  'GAL',
+  'EPH',
+  'PHP',
+  'COL',
+  '1TH',
+  '2TH',
+  '1TI',
+  '2TI',
+  'TIT',
+  'HEB',
+  'JAS',
+  '1PE',
+  '2PE',
+  '1JN',
+  'REV',
+];
+
+const chineseBibleIndexOrder = [
+  'GEN',
+  'EXO',
+  'LEV',
+  'NUM',
+  'DEU',
+  'JOS',
+  'JDG',
+  'RUT',
+  '1SA',
+  '2SA',
+  '1KI',
+  '2KI',
+  '1CH',
+  '2CH',
+  'EZR',
+  'NEH',
+  'TOB',
+  'JDT',
+  'EST',
+  '1MA',
+  '2MA',
+  'JOB',
+  'PSA_1',
+  'PSA_51',
+  'PSA_101',
+  'PRO',
+  'ECC',
+  'SNG',
+  'WIS',
+  'SIR',
+  'ISA',
+  'JER',
+  'LAM',
+  'BAR',
+  'EZK',
+  'DAN',
+  'HOS',
+  'JOL',
+  'AMO',
+  'OBA',
+  'JON',
+  'MIC',
+  'NAM',
+  'HAB',
+  'ZEP',
+  'HAG',
+  'ZEC',
+  'MAL',
+  'MAT',
+  'MRK',
+  'LUK',
+  'JHN',
+  'ACT',
+  'ROM',
+  '1CO',
+  '2CO',
+  'GAL',
+  'EPH',
+  'PHP',
+  'COL',
+  '1TH',
+  '2TH',
+  '1TI',
+  '2TI',
+  'TIT',
+  'PHM',
+  'HEB',
+  'JAS',
+  '1PE',
+  '2PE',
+  '1JN',
+  '2JN',
+  '3JN',
+  'JUD',
+  'REV',
+];
 
 const bibleBookAliases = new Map(
   Object.entries({
@@ -3898,47 +4133,59 @@ async function buildAquinasSource(parsed) {
   return null;
 }
 
-async function buildBibleChapterCache(queries) {
-  const chapterKeys = new Map();
+function extractIndexEntries(html, baseUrl) {
+  const $ = cheerio.load(html);
+  const entries = [];
 
-  for (const query of queries) {
-    for (const segment of splitScriptureQuery(query)) {
-      const parsed = parseScriptureSegment(segment);
-      if (!parsed) {
+  $('li').each((_, element) => {
+    const rawHtml = $(element).html() ?? '';
+    const titleNode = $(element).children('font').first();
+    const titleText = cleanText(titleNode.text()) || cleanText($(element).clone().children('ul').remove().end().text());
+    if (!titleText) {
+      return;
+    }
+    if (/^(?:Int\.?(?:\s*\d+\.?)?|[\d.\s]+)$/.test(titleText)) {
+      return;
+    }
+
+    const linkMatches = [...rawHtml.matchAll(/<a\s+href=(["']?)([^"'>\s]+)\1[^>]*>([^<]+)<\/a>/gi)];
+    const numericChapters = new Map();
+    let titleHref = null;
+
+    for (const match of linkMatches) {
+      const href = match[2];
+      const label = cleanText(match[3]);
+      if (!href || !label) {
         continue;
       }
 
-      for (const chapter of parsed.chapters) {
-        chapterKeys.set(`${parsed.bookId}:${chapter}`, {
-          bookId: parsed.bookId,
-          chapter,
-          bookName: parsed.bookName,
-        });
-      }
-    }
-  }
-
-  const cache = new Map();
-  for (const entry of chapterKeys.values()) {
-    try {
-      const buffer = await getCachedBuffer(
-        `https://bible-api.com/data/${bibleTranslation.id}/${entry.bookId}/${entry.chapter}`,
-      );
-      const payload = JSON.parse(buffer.toString('utf8'));
-      cache.set(`${entry.bookId}:${entry.chapter}`, payload.verses ?? []);
-    } catch (error) {
-      if (String(error).includes('404') || String(error).includes('Offline cache miss')) {
+      const chapter = Number(label.replace(/\.$/, ''));
+      if (Number.isFinite(chapter)) {
+        numericChapters.set(chapter, new URL(href, baseUrl).toString());
         continue;
       }
-      throw error;
-    }
-  }
 
-  return cache;
+      if (!titleHref) {
+        titleHref = new URL(href, baseUrl).toString();
+      }
+    }
+
+    if (numericChapters.size === 0 && !titleHref) {
+      return;
+    }
+
+    entries.push({
+      title: titleText,
+      numericChapters,
+      titleHref,
+    });
+  });
+
+  return entries;
 }
 
-async function buildVaticanBiblePageLookup() {
-  const html = await fetchHtml(vaticanBibleIndexUrl);
+async function buildEnglishBiblePageLookup() {
+  const html = await fetchHtml(englishBibleIndexUrl);
   const $ = cheerio.load(html);
   const chapterLookup = new Map();
 
@@ -3974,12 +4221,12 @@ async function buildVaticanBiblePageLookup() {
 
       const chapter = Number(label);
       if (Number.isFinite(chapter)) {
-        numericChapters.set(chapter, new URL(href, vaticanBibleBaseUrl).toString());
+        numericChapters.set(chapter, new URL(href, englishBibleBaseUrl).toString());
         continue;
       }
 
       if (normalizedTitles.has(normalizeBibleTitle(label)) && !titleHref) {
-        titleHref = new URL(href, vaticanBibleBaseUrl).toString();
+        titleHref = new URL(href, englishBibleBaseUrl).toString();
       }
     }
 
@@ -3988,11 +4235,210 @@ async function buildVaticanBiblePageLookup() {
     }
 
     for (const [chapter, url] of numericChapters) {
-      chapterLookup.set(`${bookId}:${chapter}`, url);
+      chapterLookup.set(`${bookId}:${chapter}`, {
+        title: titles[0],
+        url,
+        kind: 'chapter-html',
+        language: 'en',
+      });
     }
   }
 
   return chapterLookup;
+}
+
+async function buildOrderedIntraTextLookup(indexUrl, baseUrl, bookOrder, language) {
+  const html = await fetchHtml(indexUrl);
+  const entries = extractIndexEntries(html, baseUrl);
+  const filteredEntries = entries.filter((entry) => !/^(El Antiguo Testamento|El Nuevo Testamento)$/i.test(entry.title));
+  const chapterLookup = new Map();
+
+  for (let index = 0; index < bookOrder.length; index += 1) {
+    const bookId = bookOrder[index];
+    const entry = filteredEntries[index];
+    if (!entry) {
+      continue;
+    }
+
+    const targetBookId =
+      bookId === 'EST_SUP' || bookId === 'DAN_SUP' || bookId === 'BAR_SUP'
+        ? bookId.slice(0, 3)
+        : bookId;
+
+    if (singleChapterBookIds.has(targetBookId) && entry.numericChapters.size === 0 && entry.titleHref) {
+      entry.numericChapters.set(1, entry.titleHref);
+    }
+    if (bookId === 'BAR_SUP' && entry.numericChapters.size === 0 && entry.titleHref) {
+      entry.numericChapters.set(1, entry.titleHref);
+    }
+
+    for (const [chapter, url] of entry.numericChapters) {
+      const canonicalChapter =
+        bookId === 'EST_SUP'
+          ? chapter + 10
+          : bookId === 'DAN_SUP'
+            ? { 2: 13, 3: 14 }[chapter] ?? null
+            : bookId === 'BAR_SUP'
+              ? 6
+              : chapter;
+      if (!canonicalChapter) {
+        continue;
+      }
+
+      chapterLookup.set(`${targetBookId}:${canonicalChapter}`, {
+        title: entry.title,
+        url,
+        kind: 'chapter-html',
+        language,
+      });
+    }
+  }
+
+  return chapterLookup;
+}
+
+async function buildLatinBiblePageLookup() {
+  const chapterLookup = new Map();
+  const urls = [latinBibleOldTestamentUrl, latinBibleNewTestamentUrl];
+  let bookIndex = 0;
+
+  for (const url of urls) {
+    const html = await fetchHtml(url);
+    const $ = cheerio.load(html);
+    const entries = $('a[href]')
+      .toArray()
+      .map((element) => ({
+        href: $(element).attr('href'),
+        title: cleanText($(element).text()),
+      }))
+      .filter((entry) => entry.href && /nova-vulgata_(?:vt|nt)_/.test(entry.href));
+
+    for (const entry of entries) {
+      const bookId = canonicalBibleBookOrder[bookIndex];
+      if (!bookId) {
+        continue;
+      }
+
+      const bookUrl = new URL(entry.href, latinBibleBaseUrl).toString();
+      const bookHtml = await fetchHtml(bookUrl);
+      const chapterMatches = [...bookHtml.matchAll(/<a name="(\d+)">/gi)];
+      for (const match of chapterMatches) {
+        const chapter = Number(match[1]);
+        if (!Number.isFinite(chapter)) {
+          continue;
+        }
+
+        chapterLookup.set(`${bookId}:${chapter}`, {
+          title: entry.title,
+          url: `${bookUrl}#${chapter}`,
+          bookUrl,
+          kind: 'book-html',
+          language: 'la',
+        });
+      }
+
+      bookIndex += 1;
+    }
+  }
+
+  return chapterLookup;
+}
+
+async function buildChineseBiblePageLookup() {
+  const html = await fetchHtml(chineseBibleIndexUrl);
+  const $ = cheerio.load(html, { decodeEntities: false });
+  const hrefs = [];
+
+  $('a[href$="_zh-t.pdf"]').each((_, element) => {
+    const href = $(element).attr('href');
+    if (href && !hrefs.includes(href)) {
+      hrefs.push(href);
+    }
+  });
+
+  const chapterLookup = new Map();
+  for (let index = 0; index < chineseBibleIndexOrder.length; index += 1) {
+    const key = chineseBibleIndexOrder[index];
+    const href = hrefs[index];
+    if (!key || !href) {
+      continue;
+    }
+
+    const url = new URL(href, chineseBibleBaseUrl).toString();
+
+    if (key === 'PSA_1') {
+      for (let chapter = 1; chapter <= 50; chapter += 1) {
+        chapterLookup.set(`PSA:${chapter}`, {
+          title: '聖詠集',
+          url,
+          bookUrl: url,
+          kind: 'book-pdf',
+          language: 'zh',
+        });
+      }
+      continue;
+    }
+
+    if (key === 'PSA_51') {
+      for (let chapter = 51; chapter <= 100; chapter += 1) {
+        chapterLookup.set(`PSA:${chapter}`, {
+          title: '聖詠集',
+          url,
+          bookUrl: url,
+          kind: 'book-pdf',
+          language: 'zh',
+        });
+      }
+      continue;
+    }
+
+    if (key === 'PSA_101') {
+      for (let chapter = 101; chapter <= 150; chapter += 1) {
+        chapterLookup.set(`PSA:${chapter}`, {
+          title: '聖詠集',
+          url,
+          bookUrl: url,
+          kind: 'book-pdf',
+          language: 'zh',
+        });
+      }
+      continue;
+    }
+
+    chapterLookup.set(`${key}:*`, {
+      title: cleanText(path.basename(href, '.pdf').replaceAll('-', ' ')),
+      url,
+      bookUrl: url,
+      kind: 'book-pdf',
+      language: 'zh',
+    });
+  }
+
+  return chapterLookup;
+}
+
+async function buildOfficialBibleLookups() {
+  const english = await buildEnglishBiblePageLookup();
+  const italian = await buildOrderedIntraTextLookup(
+    italianBibleIndexUrl,
+    italianBibleBaseUrl,
+    canonicalBibleBookOrder,
+    'it',
+  );
+  const spanish = await buildOrderedIntraTextLookup(
+    spanishBibleIndexUrl,
+    spanishBibleBaseUrl,
+    spanishBibleIndexOrder,
+    'es',
+  );
+
+  return {
+    en: english,
+    it: italian,
+    es: spanish,
+    la: await buildLatinBiblePageLookup(),
+    zh: await buildChineseBiblePageLookup(),
+  };
 }
 
 function versesForSelection(verses, selection) {
@@ -4012,9 +4458,284 @@ function versesForSelection(verses, selection) {
   );
 }
 
-function scriptureSourceUrlForQuery(query, vaticanBibleLookup) {
+function parseEnglishOfficialChapter(html) {
+  const $ = cheerio.load(html);
+  const verses = [];
+  let pendingVerse = null;
+
+  $('p').each((_, element) => {
+    const text = cleanText($(element).text());
+    if (!text) {
+      return;
+    }
+
+    if (/^\d+$/.test(text)) {
+      pendingVerse = Number(text);
+      return;
+    }
+
+    if (pendingVerse === null) {
+      return;
+    }
+
+    verses.push({
+      verse: pendingVerse,
+      text: text.replace(/^\d+\s+/, ''),
+    });
+    pendingVerse = null;
+  });
+
+  return verses;
+}
+
+function parseItalianOfficialChapter(html) {
+  const text = html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ');
+  const verses = [];
+  let currentVerse = null;
+  let currentTextParts = [];
+
+  const flush = () => {
+    if (currentVerse === null || currentTextParts.length === 0) {
+      return;
+    }
+
+    verses.push({
+      verse: currentVerse,
+      text: cleanText(currentTextParts.join(' ')),
+    });
+  };
+
+  for (const line of text.split('\n')) {
+    const cleaned = cleanText(line);
+    if (!cleaned) {
+      continue;
+    }
+
+    const match = cleaned.match(/^\[(\d+)\]\s*(.*)$/);
+    if (!match) {
+      if (currentVerse !== null) {
+        currentTextParts.push(cleaned);
+      }
+      continue;
+    }
+
+    flush();
+    currentVerse = Number(match[1]);
+    currentTextParts = match[2] ? [match[2]] : [];
+  }
+
+  flush();
+
+  return verses;
+}
+
+function parseSpanishOfficialChapter(html) {
+  const $ = cheerio.load(html);
+  const verses = [];
+
+  $('p').each((_, element) => {
+    const text = cleanText($(element).text());
+    const match = text.match(/^(\d+)\s+(.+)$/);
+    if (!match) {
+      return;
+    }
+
+    verses.push({
+      verse: Number(match[1]),
+      text: match[2],
+    });
+  });
+
+  return verses;
+}
+
+function parseLatinOfficialBook(html) {
+  const chapters = new Map();
+  const chapterMatches = [
+    ...html.matchAll(
+      /<a name="(\d+)">[\s\S]*?<\/a><\/b><\/font>([\s\S]*?)(?=<\/p>\s*<p><font color="#663300" size="4"><b><a name="\d+">|<!--FINE TESTO-->|<\/td>)/gi,
+    ),
+  ];
+
+  for (const match of chapterMatches) {
+    const chapter = Number(match[1]);
+    if (!Number.isFinite(chapter)) {
+      continue;
+    }
+
+    const chunk = match[2]
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&#x201c;/gi, '"')
+      .replace(/&#x201d;/gi, '"');
+
+    const lines = chunk
+      .split('\n')
+      .map((line) => cleanText(line))
+      .filter(Boolean);
+
+    const verses = [];
+    let currentVerse = null;
+    let currentTextParts = [];
+
+    const flush = () => {
+      if (currentVerse === null || currentTextParts.length === 0) {
+        return;
+      }
+
+      verses.push({
+        verse: currentVerse,
+        text: cleanText(currentTextParts.join(' ')),
+      });
+    };
+
+    for (const line of lines) {
+      const verseMatch = line.match(/^(\d+)\s+(.+)$/);
+      if (verseMatch) {
+        flush();
+        currentVerse = Number(verseMatch[1]);
+        currentTextParts = [verseMatch[2]];
+        continue;
+      }
+
+      if (currentVerse !== null) {
+        currentTextParts.push(line);
+      }
+    }
+
+    flush();
+    chapters.set(chapter, verses);
+  }
+
+  return chapters;
+}
+
+function parseChineseOfficialBook(pdfText) {
+  const chapters = new Map();
+  let currentChapter = null;
+  let currentVerse = null;
+  let currentTextParts = [];
+
+  const flush = () => {
+    if (currentChapter === null || currentVerse === null) {
+      return;
+    }
+
+    const text = cleanText(currentTextParts.join(' '));
+    if (!text) {
+      return;
+    }
+
+    if (!chapters.has(currentChapter)) {
+      chapters.set(currentChapter, []);
+    }
+
+    chapters.get(currentChapter).push({
+      verse: currentVerse,
+      text,
+    });
+  };
+
+  for (const rawLine of pdfText.split('\n')) {
+    const line = cleanText(rawLine.replace(/\f/g, ' '));
+    if (!line) {
+      continue;
+    }
+
+    const verseMatch = line.match(/^(\d+):(\d+)\s*(.*)$/);
+    if (verseMatch) {
+      flush();
+      currentChapter = Number(verseMatch[1]);
+      currentVerse = Number(verseMatch[2]);
+      currentTextParts = verseMatch[3] ? [verseMatch[3]] : [];
+      continue;
+    }
+
+    if (currentVerse !== null) {
+      currentTextParts.push(line);
+    }
+  }
+
+  flush();
+  return chapters;
+}
+
+async function loadOfficialScriptureVerses(language, bookId, chapter, officialBibleLookups, caches) {
+  const lookup = officialBibleLookups[language];
+  if (!lookup) {
+    return null;
+  }
+
+  const entry = lookup.get(`${bookId}:${chapter}`) ?? lookup.get(`${bookId}:*`) ?? null;
+  if (!entry) {
+    return null;
+  }
+
+  if (entry.kind === 'chapter-html') {
+    const cacheKey = `${language}:${entry.url}`;
+    if (!caches.chapter.has(cacheKey)) {
+      const html = await fetchHtml(entry.url);
+      let verses = [];
+      if (language === 'en') {
+        verses = parseEnglishOfficialChapter(html);
+      } else if (language === 'it') {
+        verses = parseItalianOfficialChapter(html);
+      } else if (language === 'es') {
+        verses = parseSpanishOfficialChapter(html);
+      }
+      caches.chapter.set(cacheKey, verses);
+    }
+
+    return {
+      title: entry.title,
+      url: entry.url,
+      verses: caches.chapter.get(cacheKey) ?? [],
+    };
+  }
+
+  if (entry.kind === 'book-html') {
+    const cacheKey = `${language}:${entry.bookUrl}`;
+    if (!caches.book.has(cacheKey)) {
+      const html = await fetchHtml(entry.bookUrl);
+      caches.book.set(cacheKey, parseLatinOfficialBook(html));
+    }
+
+    return {
+      title: entry.title,
+      url: entry.url,
+      verses: caches.book.get(cacheKey)?.get(chapter) ?? [],
+    };
+  }
+
+  if (entry.kind === 'book-pdf') {
+    const cacheKey = `${language}:${entry.bookUrl}`;
+    if (!caches.book.has(cacheKey)) {
+      const pdfPath = await fetchPdfToCache(entry.bookUrl);
+      const pdfText = extractPdfText(pdfPath);
+      caches.book.set(cacheKey, parseChineseOfficialBook(pdfText));
+    }
+
+    return {
+      title: entry.title,
+      url: entry.url,
+      verses: caches.book.get(cacheKey)?.get(chapter) ?? [],
+    };
+  }
+
+  return null;
+}
+
+function scriptureSourceUrlForQuery(query, officialBibleLookups, language = 'en') {
   const segments = splitScriptureQuery(query);
   if (segments.length === 0) {
+    return null;
+  }
+
+  const lookup = officialBibleLookups[language];
+  if (!lookup) {
     return null;
   }
 
@@ -4031,9 +4752,9 @@ function scriptureSourceUrlForQuery(query, vaticanBibleLookup) {
       })();
 
     for (const chapter of chapters) {
-      const url = vaticanBibleLookup.get(`${segment.bookId}:${chapter}`);
-      if (url) {
-        return url;
+      const entry = lookup.get(`${segment.bookId}:${chapter}`) ?? lookup.get(`${segment.bookId}:*`);
+      if (entry?.url) {
+        return entry.url;
       }
     }
   }
@@ -4041,7 +4762,7 @@ function scriptureSourceUrlForQuery(query, vaticanBibleLookup) {
   return null;
 }
 
-function renderScriptureSource(query, chapterCache, vaticanBibleLookup) {
+async function renderOfficialScriptureSource(query, language, officialBibleLookups, caches) {
   const segments = splitScriptureQuery(query)
     .map((segment) => parseScriptureSegment(segment))
     .filter(Boolean);
@@ -4051,22 +4772,34 @@ function renderScriptureSource(query, chapterCache, vaticanBibleLookup) {
 
   const parts = [];
   const textParts = [];
+  let sourceUrl = null;
 
   for (const segment of segments) {
     for (const selection of segment.selections) {
-      const verses = chapterCache.get(`${segment.bookId}:${selection.chapter}`) ?? [];
+      const chapterPayload = await loadOfficialScriptureVerses(
+        language,
+        segment.bookId,
+        selection.chapter,
+        officialBibleLookups,
+        caches,
+      );
+      const verses = chapterPayload?.verses ?? [];
       const selectedVerses = versesForSelection(verses, selection);
       if (selectedVerses.length === 0) {
         continue;
+      }
+
+      if (!sourceUrl && chapterPayload?.url) {
+        sourceUrl = chapterPayload.url;
       }
 
       const verseText = selectedVerses
         .map((verse) => `${verse.verse}. ${cleanText(verse.text)}`)
         .join(' ');
       parts.push(
-        `<p><strong>${escapeHtml(segment.bookName)} ${selection.chapter}</strong> ${escapeHtml(verseText)}</p>`,
+        `<p><strong>${escapeHtml(chapterPayload?.title ?? segment.bookName)} ${selection.chapter}</strong> ${escapeHtml(verseText)}</p>`,
       );
-      textParts.push(`${segment.bookName} ${selection.chapter}: ${verseText}`);
+      textParts.push(`${chapterPayload?.title ?? segment.bookName} ${selection.chapter}: ${verseText}`);
     }
   }
 
@@ -4074,16 +4807,14 @@ function renderScriptureSource(query, chapterCache, vaticanBibleLookup) {
     return null;
   }
 
-  const sourceUrl = scriptureSourceUrlForQuery(query, vaticanBibleLookup);
-
   return {
     citation: query,
     contentHtml: parts.join(''),
     contentText: textParts.join(' '),
     title: 'Sacred Scripture',
-    url: sourceUrl ?? `https://bible-api.com/${encodeURIComponent(query)}?translation=${bibleTranslation.id}`,
-    sourceLabel: sourceUrl ? 'Vatican.va Bible archive' : bibleTranslation.sourceLabel,
-    translationStatus: 'public-domain',
+    url: sourceUrl,
+    sourceLabel: 'Vatican.va Bible archive',
+    translationStatus: 'official',
   };
 }
 
@@ -4136,7 +4867,11 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
   const documentQueries = new Map();
   const aquinasQueries = new Map();
   const existingDocumentSourceByKey = new Map();
-  const vaticanBibleLookup = await buildVaticanBiblePageLookup();
+  const officialBibleLookups = await buildOfficialBibleLookups();
+  const officialScriptureCaches = {
+    chapter: new Map(),
+    book: new Map(),
+  };
 
   for (const source of Object.values(existingExternalSources)) {
     if (source?.kind !== 'document') {
@@ -4185,62 +4920,54 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
   }
 
   const externalSources = {};
-  const missingScriptureQueries = [];
-
-  for (const query of scriptureQueries) {
-    const sourceId = `scripture:${slugSegment(query)}`;
-    const existing = existingExternalSources[sourceId];
-    const sourceUrl = scriptureSourceUrlForQuery(query, vaticanBibleLookup);
-    if (existing?.kind === 'scripture') {
-      externalSources[sourceId] = {
-        ...existing,
-        id: sourceId,
-        citation: query,
-        url: sourceUrl ?? existing.url,
-        sourceLabel: sourceUrl ? 'Vatican.va Bible archive' : existing.sourceLabel,
-        contentByLanguage: ensureContentByLanguage(existing, existing.language ?? bibleTranslation.language),
-      };
-      continue;
-    }
-
-    missingScriptureQueries.push(query);
-  }
-
-  const shouldFetchMissingScripture =
-    missingScriptureQueries.length > 0 && Object.keys(existingExternalSources).length === 0;
-  debugLog(
-    'scripture queries',
-    scriptureQueries.size,
-    'missing',
-    missingScriptureQueries.length,
-    'fetching',
-    shouldFetchMissingScripture,
-  );
-  const chapterCache = shouldFetchMissingScripture
-    ? await buildBibleChapterCache(missingScriptureQueries)
-    : new Map();
-  debugLog('chapter cache built', chapterCache.size);
+  const missingScriptureQueries = [...scriptureQueries];
+  debugLog('scripture queries', scriptureQueries.size, 'rebuilding', missingScriptureQueries.length);
   debugLog('document queries', documentQueries.size, 'aquinas', aquinasQueries.size);
 
-  for (const query of shouldFetchMissingScripture ? missingScriptureQueries : []) {
-    const source = renderScriptureSource(query, chapterCache, vaticanBibleLookup);
-    if (!source) {
+  for (const query of missingScriptureQueries) {
+    const variants = {};
+    let defaultSource = null;
+
+    for (const language of officialScriptureLanguages) {
+      const source = await renderOfficialScriptureSource(
+        query,
+        language,
+        officialBibleLookups,
+        officialScriptureCaches,
+      );
+      if (!source) {
+        continue;
+      }
+
+      variants[language] = {
+        html: source.contentHtml,
+        text: source.contentText,
+      };
+
+      if (!defaultSource) {
+        defaultSource = source;
+      }
+    }
+
+    if (!defaultSource || Object.keys(variants).length === 0) {
       continue;
     }
 
     const sourceId = `scripture:${slugSegment(query)}`;
+    const preferredLanguage = variants.en ? 'en' : Object.keys(variants)[0];
+    const preferredContent = variants[preferredLanguage];
     externalSources[sourceId] = {
       id: sourceId,
       kind: 'scripture',
-      title: source.title,
-      citation: source.citation,
-      url: source.url,
-      language: bibleTranslation.language,
-      sourceLabel: source.sourceLabel,
-      translationStatus: source.translationStatus,
-      contentHtml: source.contentHtml,
-      contentText: source.contentText,
-      contentByLanguage: ensureContentByLanguage(source, bibleTranslation.language),
+      title: defaultSource.title,
+      citation: defaultSource.citation,
+      url: scriptureSourceUrlForQuery(query, officialBibleLookups, preferredLanguage) ?? defaultSource.url,
+      language: preferredLanguage,
+      sourceLabel: 'Vatican.va Bible archive',
+      translationStatus: 'official',
+      contentHtml: preferredContent.html,
+      contentText: preferredContent.text,
+      contentByLanguage: variants,
     };
   }
 
@@ -4395,7 +5122,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
       continue;
     }
 
-    const sourceUrl = scriptureSourceUrlForQuery(source.citation, vaticanBibleLookup);
+    const sourceUrl = scriptureSourceUrlForQuery(source.citation, officialBibleLookups, source.language ?? 'en');
     if (!sourceUrl) {
       continue;
     }
