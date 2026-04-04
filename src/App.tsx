@@ -49,7 +49,6 @@ const extraUi: Record<
     nextYearRange: string;
     chosenParagraph: string;
     showInConnections: string;
-    showInBrief: string;
     continueReading: string;
     inBriefTitle: string;
     inBriefLede: string;
@@ -77,7 +76,6 @@ const extraUi: Record<
     nextYearRange: 'Scheduled for April 3, 2026 through April 2, 2027.',
     chosenParagraph: 'Chosen paragraph',
     showInConnections: 'See in Connections',
-    showInBrief: 'See in In brief',
     continueReading: 'Continue in Read the CCC',
     inBriefTitle: 'In brief',
     inBriefLede: 'A high-level pass through the Catechism by parts and sections.',
@@ -104,7 +102,6 @@ const extraUi: Record<
     nextYearRange: 'Programme du 3 avril 2026 au 2 avril 2027.',
     chosenParagraph: 'Paragraphe choisi',
     showInConnections: 'Voir dans Connexions',
-    showInBrief: 'Voir dans En bref',
     continueReading: 'Continuer dans Lire le CEC',
     inBriefTitle: 'En bref',
     inBriefLede: 'Une vue d’ensemble du Catechisme par parties et sections.',
@@ -131,7 +128,6 @@ const extraUi: Record<
     nextYearRange: 'Geplant vom 3. April 2026 bis 2. April 2027.',
     chosenParagraph: 'Gewahlter Absatz',
     showInConnections: 'In Verbindungen ansehen',
-    showInBrief: 'In Kurzfassung ansehen',
     continueReading: 'Im Lesemodus fortsetzen',
     inBriefTitle: 'Kurzfassung',
     inBriefLede: 'Ein Uberblick uber den Katechismus nach Teilen und Abschnitten.',
@@ -158,7 +154,6 @@ const extraUi: Record<
     nextYearRange: 'Programma dal 3 aprile 2026 al 2 aprile 2027.',
     chosenParagraph: 'Paragrafo scelto',
     showInConnections: 'Vedi in Connessioni',
-    showInBrief: 'Vedi in In breve',
     continueReading: 'Continua in Leggi il CCC',
     inBriefTitle: 'In breve',
     inBriefLede: 'Una lettura ad alto livello del Catechismo per parti e sezioni.',
@@ -185,7 +180,6 @@ const extraUi: Record<
     nextYearRange: 'Dispositum a die 3 Aprilis 2026 usque ad diem 2 Aprilis 2027.',
     chosenParagraph: 'Paragraphus electus',
     showInConnections: 'Vide in Nexibus',
-    showInBrief: 'Vide Summatim',
     continueReading: 'Perge in Lege CCC',
     inBriefTitle: 'Summatim',
     inBriefLede: 'Conspectus altior Catechismi per partes et sectiones.',
@@ -212,7 +206,6 @@ const extraUi: Record<
     nextYearRange: 'Programado del 3 de abril de 2026 al 2 de abril de 2027.',
     chosenParagraph: 'Parrafo elegido',
     showInConnections: 'Ver en Conexiones',
-    showInBrief: 'Ver en En breve',
     continueReading: 'Continuar en Leer el CCC',
     inBriefTitle: 'En breve',
     inBriefLede: 'Una vista de alto nivel del Catecismo por partes y secciones.',
@@ -239,7 +232,6 @@ const extraUi: Record<
     nextYearRange: 'Agendado de 3 de abril de 2026 a 2 de abril de 2027.',
     chosenParagraph: 'Paragrafo escolhido',
     showInConnections: 'Ver em Conexoes',
-    showInBrief: 'Ver em Em resumo',
     continueReading: 'Continuar em Ler o CCC',
     inBriefTitle: 'Em resumo',
     inBriefLede: 'Uma leitura de alto nivel do Catecismo por partes e secoes.',
@@ -266,7 +258,6 @@ const extraUi: Record<
     nextYearRange: 'Voalahatra ny 3 Aprily 2026 hatramin’ny 2 Aprily 2027.',
     chosenParagraph: 'Andininy voafidy',
     showInConnections: 'Jereo ao amin’ny Rohy',
-    showInBrief: 'Jereo amin’ny Fohifohy',
     continueReading: 'Tohizo amin’ny Vakio ny CCC',
     inBriefTitle: 'Fohifohy',
     inBriefLede: 'Topimaso ambony momba ny Katesizy araka ny fizarana sy sokajy.',
@@ -293,7 +284,6 @@ const extraUi: Record<
     nextYearRange: '排程涵蓋 2026 年 4 月 3 日至 2027 年 4 月 2 日。',
     chosenParagraph: '選定段落',
     showInConnections: '在連結中查看',
-    showInBrief: '在提綱中查看',
     continueReading: '在閱讀 CCC 中繼續',
     inBriefTitle: '提綱',
     inBriefLede: '依照部分與節，快速閱讀《教理》的高層結構。',
@@ -320,7 +310,6 @@ const extraUi: Record<
     nextYearRange: 'الجدول من 3 أبريل 2026 الى 2 أبريل 2027.',
     chosenParagraph: 'الفقرة المختارة',
     showInConnections: 'اعرضها في الروابط',
-    showInBrief: 'اعرضها في باختصار',
     continueReading: 'تابع في اقرأ التعليم',
     inBriefTitle: 'باختصار',
     inBriefLede: 'قراءة عالية المستوى للتعليم المسيحي بحسب الاجزاء والاقسام.',
@@ -338,6 +327,7 @@ type QueryOptions = {
   read?: number | null;
   date?: string | null;
   dev?: boolean;
+  center?: boolean;
   hash?: string | null;
 };
 
@@ -554,20 +544,41 @@ function getNodeHierarchy(
   };
 }
 
-function getExternalSourceBadge(source: CatechismData['externalSources'][string] | undefined) {
+function getLocalizedSourceLabel(
+  source: CatechismData['externalSources'][string] | undefined,
+  language: AppLanguage,
+) {
   if (!source) {
     return null;
   }
 
-  if (source.translationStatus === 'ai') {
-    return 'Translated with AI';
-  }
-
-  if (source.translationStatus === 'official') {
-    return 'Official Vatican text';
+  const t = uiStrings[language];
+  if (source.sourceLabel === 'Vatican.va Bible archive') {
+    return t.vaticanBibleArchive;
   }
 
   return source.sourceLabel;
+}
+
+function getExternalSourceBadge(
+  source: CatechismData['externalSources'][string] | undefined,
+  language: AppLanguage,
+) {
+  if (!source) {
+    return null;
+  }
+
+  const t = uiStrings[language];
+
+  if (source.translationStatus === 'ai') {
+    return t.translatedWithAi;
+  }
+
+  if (source.translationStatus === 'official') {
+    return t.officialVaticanText;
+  }
+
+  return getLocalizedSourceLabel(source, language);
 }
 
 function isEditableTarget(target: EventTarget | null) {
@@ -591,6 +602,10 @@ function buildRouteUrl(path: string, language: AppLanguage, options: QueryOption
 
   if (options.dev) {
     searchParams.set('dev', 'true');
+  }
+
+  if (options.center) {
+    searchParams.set('center', 'true');
   }
 
   if (options.paragraph !== undefined && options.paragraph !== null) {
@@ -659,20 +674,6 @@ function slugifyAnchor(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-}
-
-function getSectionAnchor(node: CatechismNode) {
-  const sectionEntry = node.breadcrumbs.find((entry) => entry.startsWith('Section '));
-  if (sectionEntry) {
-    return `section-${slugifyAnchor(sectionEntry)}`;
-  }
-
-  const partEntry = node.breadcrumbs.find((entry) => entry.startsWith('Part '));
-  if (partEntry) {
-    return `part-${slugifyAnchor(partEntry)}`;
-  }
-
-  return `part-${slugifyAnchor(node.part)}`;
 }
 
 function buildOutlineParts(
@@ -931,13 +932,17 @@ function ParagraphCard({
       <div className="paragraph-text" dangerouslySetInnerHTML={{ __html: node.textHtml }} />
 
       {node.vaticanSource ? (
-        <section className="source-link-block">
-          <h3>{t.sourceMaterial}</h3>
-          <a className="source-link" href={node.vaticanSource.url} rel="noreferrer" target="_blank">
-            {t.openSource}
-            <span>{node.vaticanSource.file}</span>
+        <div className="source-link-block">
+          <a
+            className="source-link source-link-compact"
+            href={node.vaticanSource.url}
+            rel="noreferrer"
+            target="_blank"
+            title={t.openSource}
+          >
+            <span className="source-link-badge">{t.officialVaticanText}</span>
           </a>
-        </section>
+        </div>
       ) : null}
 
       {node.externalReferences.length > 0 ? (
@@ -946,6 +951,11 @@ function ParagraphCard({
           <div className="external-reference-list">
             {node.externalReferences.map((reference) => (
               <div className={`external-reference ${reference.kind}`} key={reference.id}>
+                {reference.compare ? (
+                  <div className="external-reference-compare" title={t.compareLabel}>
+                    <img alt="" aria-hidden="true" src="/compare-icon.svg" />
+                  </div>
+                ) : null}
                 <span className="reference-kind">
                   {reference.kind === 'scripture' ? t.scripture : t.document}
                 </span>
@@ -957,9 +967,9 @@ function ParagraphCard({
                   <div className="external-reference-source">
                     <div className="external-reference-source-header">
                       <strong>{data.externalSources[reference.sourceId].title}</strong>
-                      {getExternalSourceBadge(data.externalSources[reference.sourceId]) ? (
+                      {getExternalSourceBadge(data.externalSources[reference.sourceId], language) ? (
                         <span className="external-source-badge">
-                          {getExternalSourceBadge(data.externalSources[reference.sourceId])}
+                          {getExternalSourceBadge(data.externalSources[reference.sourceId], language)}
                         </span>
                       ) : null}
                     </div>
@@ -982,9 +992,10 @@ function ParagraphCard({
                       href={data.externalSources[reference.sourceId].url}
                       rel="noreferrer"
                       target="_blank"
+                      title={t.openSource}
                     >
                       {t.openSource}
-                      <span>{data.externalSources[reference.sourceId].sourceLabel}</span>
+                      <span>{getLocalizedSourceLabel(data.externalSources[reference.sourceId], language)}</span>
                     </a>
                   </div>
                 ) : null}
@@ -1067,14 +1078,12 @@ function SearchSidebar({
   data,
   language,
   activeNode,
-  openLabel,
   onOpenNode,
   onHoverNode,
 }: {
   data: CatechismData;
   language: AppLanguage;
   activeNode: CatechismNode | null;
-  openLabel: string;
   onOpenNode: (id: number) => void;
   onHoverNode?: (id: number | null) => void;
 }) {
@@ -1139,15 +1148,17 @@ function SearchSidebar({
             onMouseEnter={() => updateHover(node.id)}
             onMouseLeave={() => updateHover(null)}
           >
-            <button className="search-result-main" onClick={() => onOpenNode(node.id)} type="button">
+            <div className="search-result-header">
               <strong>
                 {t.paragraph} {node.id}
               </strong>
+              <button className="search-result-open" onClick={() => onOpenNode(node.id)} type="button">
+                {t.searchRead}
+              </button>
+            </div>
+            <button className="search-result-main" onClick={() => onOpenNode(node.id)} type="button">
               <span>{getNodeHeading(node, language, t.paragraph)}</span>
               <small>{node.preview}</small>
-            </button>
-            <button className="search-result-open" onClick={() => onOpenNode(node.id)} type="button">
-              {openLabel}
             </button>
           </div>
         ))}
@@ -1190,6 +1201,7 @@ function ConnectionsPage({
   const orderedNodes = useMemo(() => [...data.nodes].sort((a, b) => a.id - b.id), [data.nodes]);
   const selectedValue = searchParams.get('paragraph');
   const selectedId = selectedValue ? Number(selectedValue) : null;
+  const shouldCenterOnOpen = searchParams.get('center') === 'true';
   const hasSelected = selectedId !== null && Number.isFinite(selectedId) && nodeMap.has(selectedId);
   const [graphHoverId, setGraphHoverId] = useState<number | null>(null);
   const [sidebarHoverId, setSidebarHoverId] = useState<number | null>(null);
@@ -1199,6 +1211,9 @@ function ConnectionsPage({
   const previewNode = previewId !== null ? nodeMap.get(previewId) ?? null : null;
   const panelNode = previewNode ?? selectedNode ?? nodeMap.get(1) ?? orderedNodes[0] ?? null;
   const focusCardNode = selectedNode ?? nodeMap.get(1) ?? orderedNodes[0] ?? null;
+  const [initialFocusId] = useState<number | null>(() =>
+    shouldCenterOnOpen && selectedNode ? selectedNode.id : 1,
+  );
   const panelIndex = panelNode ? orderedNodes.findIndex((node) => node.id === panelNode.id) : -1;
   const previousPanelNode = panelIndex > 0 ? orderedNodes[panelIndex - 1] : null;
   const nextPanelNode = panelIndex >= 0 && panelIndex < orderedNodes.length - 1 ? orderedNodes[panelIndex + 1] : null;
@@ -1254,7 +1269,6 @@ function ConnectionsPage({
           language={language}
           onHoverNode={setSidebarHoverId}
           onOpenNode={(id) => selectNode(id)}
-          openLabel={t.searchOpen}
         />
       }
     >
@@ -1263,7 +1277,7 @@ function ConnectionsPage({
           caption={[t.graphZoom, t.graphPan, t.graphClickDetail]}
           clusterRootId={clusterRootId}
           edges={data.edges}
-          focusId={1}
+          focusId={initialFocusId}
           highlightId={selectedNode?.id ?? null}
           hierarchyTitles={data.hierarchyTitles}
           hoverDelayMs={0}
@@ -1338,8 +1352,7 @@ function HomePage({
   }
 
   const panelLinks = [
-    { label: x.showInConnections, to: buildHref('/connections', { paragraph: node.id }) },
-    { label: x.showInBrief, to: buildHref('/in-brief', { paragraph: node.id, hash: getSectionAnchor(node) }) },
+    { label: x.showInConnections, to: buildHref('/connections', { paragraph: node.id, center: true }) },
     { label: x.continueReading, to: buildHref('/read', { read: node.id }) },
   ];
 
@@ -1352,7 +1365,6 @@ function HomePage({
           language={language}
           onHoverNode={setSidebarHoverId}
           onOpenNode={(id) => navigate(buildHref('/read', { read: id }))}
-          openLabel={x.openInRead}
         />
       }
     >
@@ -1463,7 +1475,6 @@ function InBriefPage({
           language={language}
           onHoverNode={setSidebarHoverId}
           onOpenNode={(id) => navigate(buildHref('/read', { read: id }))}
-          openLabel={x.openInRead}
         />
       }
     >
@@ -1712,7 +1723,6 @@ function ReadPage({
           language={language}
           onHoverNode={setSidebarHoverId}
           onOpenNode={setReadNode}
-          openLabel={x.openInRead}
         />
       }
     >
@@ -1729,8 +1739,7 @@ function ReadPage({
               data={data}
               language={language}
               links={[
-                { label: x.showInConnections, to: buildHref('/connections', { paragraph: node.id }) },
-                { label: x.showInBrief, to: buildHref('/in-brief', { paragraph: node.id, hash: getSectionAnchor(node) }) },
+                { label: x.showInConnections, to: buildHref('/connections', { paragraph: node.id, center: true }) },
               ]}
               nextNode={nextNode}
               node={node}
@@ -1789,6 +1798,7 @@ function RoutedShell({
   const languageMeta = getLanguageMeta(language);
   const devMode = searchParams.get('dev') === 'true';
   const x = extraUi[language];
+  const t = uiStrings[language];
 
   const buildHref = useCallback(
     (path: string, options: QueryOptions = {}) =>
@@ -1841,7 +1851,7 @@ function RoutedShell({
             <span />
           </button>
 
-          <div className="language-switcher" aria-label="Language selector">
+          <div className="language-switcher language-switcher-desktop" aria-label={t.languageSelector}>
             {languages.map((entry) => (
               <button
                 className={entry.code === language ? 'is-active' : undefined}
@@ -1869,6 +1879,21 @@ function RoutedShell({
               </NavLink>
             ))}
           </nav>
+
+          <div className="language-switcher language-switcher-mobile" aria-label={t.languageSelector}>
+            {languages.map((entry) => (
+              <button
+                className={entry.code === language ? 'is-active' : undefined}
+                key={entry.code}
+                onClick={() => onLanguageChange(entry.code)}
+                title={entry.nativeLabel}
+                type="button"
+              >
+                <span>{entry.flag}</span>
+                <small>{entry.code.toUpperCase()}</small>
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
