@@ -372,6 +372,7 @@ const documentCatalog = {
     title: 'Dei verbum',
     url: 'https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19651118_dei-verbum_en.html',
     parser: 'legacy',
+    refresh: true,
   },
   SC: {
     id: 'SC',
@@ -2261,11 +2262,20 @@ function parseNumberedSectionsFromHtml(html, parser) {
   const root = container.length ? container : $.root();
   const sections = new Map();
   let current = null;
+  let reachedNotes = false;
 
   root.find('p').each((_, element) => {
     const entry = $(element);
     const text = cleanText(entry.text());
     if (!text) {
+      return;
+    }
+
+    if (parser === 'legacy' && /^notes$/i.test(text)) {
+      reachedNotes = true;
+    }
+
+    if (reachedNotes) {
       return;
     }
 
@@ -3731,9 +3741,10 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
     debugLog('building document source', documentIndex, documentQueries.size, parsed.documentId, parsed.citation);
     const sourceId = `document:${slugSegment(parsed.documentId)}:${slugSegment(parsed.citation)}`;
     const lookupKey = `${parsed.documentId}:${slugSegment(parsed.citation)}`;
-    const existing = existingExternalSources[sourceId] ?? existingDocumentSourceByKey.get(lookupKey);
+    const config = documentCatalog[parsed.documentId];
+    const existing =
+      config?.refresh === true ? null : existingExternalSources[sourceId] ?? existingDocumentSourceByKey.get(lookupKey);
     if (existing?.kind === 'document') {
-      const config = documentCatalog[parsed.documentId];
       const nonEnglishLabel =
         config?.language && config.language !== 'en'
           ? `Vatican.va (${languageLabel(config.language)} original)`
@@ -3761,7 +3772,6 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
       continue;
     }
 
-    const config = documentCatalog[parsed.documentId];
     if (!config) {
       continue;
     }
