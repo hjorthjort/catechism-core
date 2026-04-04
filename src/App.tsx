@@ -911,13 +911,11 @@ function ParagraphCard({
       <div className="paragraph-text" dangerouslySetInnerHTML={{ __html: node.textHtml }} />
 
       {node.vaticanSource ? (
-        <section className="source-link-block">
-          <h3>{t.sourceMaterial}</h3>
-          <a className="source-link" href={node.vaticanSource.url} rel="noreferrer" target="_blank">
-            {t.openSource}
-            <span>{node.vaticanSource.file}</span>
+        <div className="source-link-block">
+          <a className="source-link source-link-compact" href={node.vaticanSource.url} rel="noreferrer" target="_blank">
+            <span className="source-link-badge">Official Vatican text</span>
           </a>
-        </section>
+        </div>
       ) : null}
 
       {node.externalReferences.length > 0 ? (
@@ -1828,7 +1826,7 @@ function RoutedShell({
             <span />
           </button>
 
-          <div className="language-switcher" aria-label="Language selector">
+          <div className="language-switcher language-switcher-desktop" aria-label="Language selector">
             {languages.map((entry) => (
               <button
                 className={entry.code === language ? 'is-active' : undefined}
@@ -1856,6 +1854,21 @@ function RoutedShell({
               </NavLink>
             ))}
           </nav>
+
+          <div className="language-switcher language-switcher-mobile" aria-label="Language selector">
+            {languages.map((entry) => (
+              <button
+                className={entry.code === language ? 'is-active' : undefined}
+                key={entry.code}
+                onClick={() => onLanguageChange(entry.code)}
+                title={entry.nativeLabel}
+                type="button"
+              >
+                <span>{entry.flag}</span>
+                <small>{entry.code.toUpperCase()}</small>
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
