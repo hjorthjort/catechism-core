@@ -971,6 +971,18 @@ input {
   margin: 0;
 }
 
+.external-reference-headline {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.85rem;
+}
+
+.external-reference-headline p {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .external-reference-source {
   margin-top: 0.9rem;
   padding-top: 0.9rem;
@@ -980,20 +992,21 @@ input {
   min-width: 0;
 }
 
-.external-reference-source-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  align-items: start;
-}
-
 .external-source-badge {
+  display: inline-flex;
+  align-items: center;
   padding: 0.3rem 0.55rem;
   border-radius: 999px;
   background: rgba(24, 28, 35, 0.08);
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.external-source-badge-link {
+  flex: 0 0 auto;
+  border: 1px solid rgba(24, 28, 35, 0.06);
 }
 
 .external-reference-citation {
@@ -1222,7 +1235,6 @@ input {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .external-reference-source-header,
   .footnote-item {
     grid-template-columns: 1fr;
     flex-direction: column;
@@ -1443,8 +1455,7 @@ input {
   }
 
   .related-passage-header,
-  .selected-paragraph-header,
-  .external-reference-source-header {
+  .selected-paragraph-header {
     gap: 0.65rem;
   }
 

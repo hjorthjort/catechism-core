@@ -581,6 +581,17 @@ function getExternalSourceBadge(
   return getLocalizedSourceLabel(source, language);
 }
 
+function getExternalSourceLinkLabel(
+  source: CatechismData['externalSources'][string] | undefined,
+  language: AppLanguage,
+) {
+  if (!source) {
+    return null;
+  }
+
+  return getLocalizedSourceLabel(source, language) ?? getExternalSourceBadge(source, language);
+}
+
 function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
     return false;
@@ -962,20 +973,24 @@ function ParagraphCard({
                 <strong>
                   {t.footnote} {reference.footnoteNumber}
                 </strong>
-                <p>{reference.label}</p>
+                <div className="external-reference-headline">
+                  <p>{reference.label}</p>
+                  {reference.sourceId &&
+                  data.externalSources[reference.sourceId] &&
+                  getExternalSourceLinkLabel(data.externalSources[reference.sourceId], language) ? (
+                    <a
+                      className="external-source-badge external-source-badge-link"
+                      href={data.externalSources[reference.sourceId].url}
+                      rel="noreferrer"
+                      target="_blank"
+                      title={getExternalSourceLinkLabel(data.externalSources[reference.sourceId], language) ?? undefined}
+                    >
+                      {getExternalSourceLinkLabel(data.externalSources[reference.sourceId], language)}
+                    </a>
+                  ) : null}
+                </div>
                 {reference.sourceId && data.externalSources[reference.sourceId] ? (
                   <div className="external-reference-source">
-                    <div className="external-reference-source-header">
-                      <strong>{data.externalSources[reference.sourceId].title}</strong>
-                      {getExternalSourceBadge(data.externalSources[reference.sourceId], language) ? (
-                        <span className="external-source-badge">
-                          {getExternalSourceBadge(data.externalSources[reference.sourceId], language)}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="external-reference-citation">
-                      {data.externalSources[reference.sourceId].citation}
-                    </p>
                     {data.externalSources[reference.sourceId].translationNote ? (
                       <p className="external-reference-note">
                         {data.externalSources[reference.sourceId].translationNote}
@@ -987,16 +1002,6 @@ function ParagraphCard({
                         __html: data.externalSources[reference.sourceId].contentHtml,
                       }}
                     />
-                    <a
-                      className="source-link external-source-link"
-                      href={data.externalSources[reference.sourceId].url}
-                      rel="noreferrer"
-                      target="_blank"
-                      title={t.openSource}
-                    >
-                      {t.openSource}
-                      <span>{getLocalizedSourceLabel(data.externalSources[reference.sourceId], language)}</span>
-                    </a>
                   </div>
                 ) : null}
               </div>
