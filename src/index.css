@@ -1042,6 +1042,28 @@ input {
   font-style: italic;
 }
 
+.external-reference-language-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.external-reference-language-button {
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(24, 28, 35, 0.12);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.72rem;
+  line-height: 1;
+  color: var(--ink-soft);
+}
+
+.external-reference-language-button.is-active {
+  border-color: var(--accent);
+  color: var(--accent-dark);
+  background: rgba(44, 78, 161, 0.08);
+}
+
 .external-reference-content {
   display: grid;
   gap: 0.55rem;

@@ -574,6 +574,7 @@ function getExternalSourceLinkLabel(
 function getExternalSourceContent(
   source: CatechismData['externalSources'][string] | undefined,
   language: AppLanguage,
+  overrideLanguage?: AppLanguage | null,
 ) {
   if (!source) {
     return null;
@@ -581,19 +582,27 @@ function getExternalSourceContent(
 
   const variants = source.contentByLanguage;
   if (variants && Object.keys(variants).length > 1) {
-    const variant = variants[language];
+    const selectedLanguage = overrideLanguage && variants[overrideLanguage] ? overrideLanguage : language;
+    const variant = variants[selectedLanguage];
     if (!variant) {
-      return null;
+      return {
+        availableLanguages: Object.keys(variants) as AppLanguage[],
+        selectedLanguage: null,
+      };
     }
 
     return {
+      availableLanguages: Object.keys(variants) as AppLanguage[],
       html: variant.html,
+      selectedLanguage,
       translationNote: variant.translationNote,
     };
   }
 
   return {
+    availableLanguages: [],
     html: source.contentHtml,
+    selectedLanguage: language,
     translationNote: source.translationNote,
   };
 }
@@ -999,6 +1008,15 @@ function ParagraphCard({
     () => node.footnotes.filter((note) => !footnotesWithStructuredBubbles.has(note.id)),
     [footnotesWithStructuredBubbles, node.footnotes],
   );
+  const [referenceLanguageOverrides, setReferenceLanguageOverrides] = useState<{
+    nodeId: number;
+    values: Record<string, AppLanguage>;
+  }>({
+    nodeId: node.id,
+    values: {},
+  });
+  const activeReferenceLanguageOverrides =
+    referenceLanguageOverrides.nodeId === node.id ? referenceLanguageOverrides.values : {};
   const panelTone = nodeColors.get(node.id) ?? null;
   const panelStyle = panelTone
     ? ({
@@ -1093,7 +1111,6 @@ function ParagraphCard({
 
       {node.externalReferences.length > 0 || plainBubbleFootnotes.length > 0 ? (
         <section className="external-references-block">
-          <h3>{t.externalReferences}</h3>
           <div className="external-reference-list">
             {node.externalReferences.map((reference) => (
               (() => {
@@ -1101,7 +1118,17 @@ function ParagraphCard({
                   reference.sourceId && data.externalSources[reference.sourceId]
                     ? data.externalSources[reference.sourceId]
                     : undefined;
-                const sourceContent = getExternalSourceContent(source, language);
+                const sourceContent = getExternalSourceContent(
+                  source,
+                  language,
+                  activeReferenceLanguageOverrides[reference.id] ?? null,
+                );
+                const availableLanguages = sourceContent?.availableLanguages ?? [];
+                const activeSourceLanguage = sourceContent?.selectedLanguage ?? null;
+                const showLanguageSelector = Boolean(
+                  availableLanguages.length &&
+                    (!activeSourceLanguage || activeReferenceLanguageOverrides[reference.id]),
+                );
 
                 return (
               <div
@@ -1136,6 +1163,30 @@ function ParagraphCard({
                 </div>
                 {source ? (
                   <div className="external-reference-source">
+                    {showLanguageSelector ? (
+                      <div className="external-reference-language-selector">
+                        {availableLanguages.map((variantLanguage) => (
+                          <button
+                            className={`external-reference-language-button ${
+                              activeSourceLanguage === variantLanguage ? 'is-active' : ''
+                            }`}
+                            key={variantLanguage}
+                            onClick={() =>
+                              setReferenceLanguageOverrides((current) => ({
+                                nodeId: node.id,
+                                values: {
+                                  ...(current.nodeId === node.id ? current.values : {}),
+                                  [reference.id]: variantLanguage,
+                                },
+                              }))
+                            }
+                            type="button"
+                          >
+                            {getLanguageMeta(variantLanguage).flag} {variantLanguage.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                     {sourceContent?.translationNote ? (
                       <p className="external-reference-note">
                         {sourceContent.translationNote}

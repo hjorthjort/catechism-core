@@ -111,6 +111,7 @@ const languageConfigs = [
     pdfPattern: /\/archive\/catechism_ar\/[^/]+\.pdf$/i,
   },
 ];
+const supportedAppLanguageCodes = new Set(['en', ...languageConfigs.map((config) => config.code)]);
 
 const bibleTranslation = {
   id: 'web',
@@ -533,6 +534,23 @@ const documentCatalog = {
     parser: 'cceo',
     language: 'la',
   },
+};
+
+const vaticanDocumentLanguageCodeMap = {
+  ar: 'ar',
+  de: 'de',
+  ge: 'de',
+  en: 'en',
+  es: 'es',
+  sp: 'es',
+  fr: 'fr',
+  it: 'it',
+  la: 'la',
+  lt: 'la',
+  pt: 'pt',
+  po: 'pt',
+  zh: 'zh',
+  'zh-t': 'zh',
 };
 
 const documentAliasPatterns = {
@@ -1483,6 +1501,20 @@ function extractLinks(html, baseUrl) {
   return [...links];
 }
 
+function inferVaticanDocumentLanguage(url, labelText = '') {
+  let pathCode = null;
+  try {
+    const pathname = new URL(url).pathname;
+    const match = pathname.match(/_([a-z]{2}(?:-[a-z])?)\.(?:html?|pdf)$/i);
+    pathCode = match?.[1]?.toLowerCase() ?? null;
+  } catch {
+    pathCode = null;
+  }
+
+  const labelCode = cleanText(labelText).toLowerCase();
+  return vaticanDocumentLanguageCodeMap[pathCode ?? ''] ?? vaticanDocumentLanguageCodeMap[labelCode] ?? null;
+}
+
 function extractParagraphStart(text, options = {}) {
   const normalizedBase = stripBidiMarks(text);
   const normalized = options.allowLeadingNoise
@@ -2290,6 +2322,11 @@ function parseNumberedSectionsFromHtml(html, parser) {
 
     const match = text.match(/^(\d+)\.\s*(.*)$/);
     if (match) {
+      if (parser === 'legacy' && current && Number(match[1]) < current.number) {
+        reachedNotes = true;
+        return;
+      }
+
       if (current) {
         sections.set(current.number, current);
       }
@@ -2425,7 +2462,7 @@ function parseDeiFiliusSections(html) {
       return false;
     }
 
-    if (/^CANONES$/i.test(text)) {
+    if (/^CANON(?:ES|I)$/i.test(text)) {
       flushCanon();
       flushChapter();
       mode = 'canons';
@@ -2433,7 +2470,7 @@ function parseDeiFiliusSections(html) {
       return;
     }
 
-    const chapterMatch = text.match(/^CAPUT\s+([IVXLC]+)/i);
+    const chapterMatch = text.match(/^(?:CAPUT|CAPITOLO)\s+([IVXLC]+)/i);
     if (chapterMatch) {
       flushCanon();
       flushChapter();
@@ -2459,7 +2496,7 @@ function parseDeiFiliusSections(html) {
       return;
     }
 
-    const canonGroupMatch = text.match(/^([IVXLC]+)\.\s+(.+)$/i);
+    const canonGroupMatch = text.match(/^([IVXLC]+)\s*[.-]\s+(.+)$/i);
     if (canonGroupMatch) {
       flushCanon();
       currentCanonGroup = {
@@ -2629,29 +2666,107 @@ async function loadCceoSections() {
 }
 
 const documentSectionCache = new Map();
+const documentVariantCache = new Map();
 
-async function loadDocumentSections(documentId) {
-  const cached = documentSectionCache.get(documentId);
+function supportsOfficialDocumentVariants(config) {
+  return Boolean(config?.url && /\/archive\/hist_councils\//i.test(config.url));
+}
+
+async function loadDocumentVariantUrls(documentId) {
+  const cached = documentVariantCache.get(documentId);
   if (cached) {
     return cached;
   }
 
   const config = documentCatalog[documentId];
+  if (!config || !supportsOfficialDocumentVariants(config)) {
+    const fallback = new Map();
+    documentVariantCache.set(documentId, fallback);
+    return fallback;
+  }
+
+  let html;
+  try {
+    html = await fetchHtml(config.url);
+  } catch (error) {
+    if (String(error).includes('Offline cache miss')) {
+      const fallback = new Map();
+      documentVariantCache.set(documentId, fallback);
+      return fallback;
+    }
+    throw error;
+  }
+
+  const $ = cheerio.load(html);
+  const variants = new Map();
+  const baseUrl = new URL(config.url);
+  const baseMatch = baseUrl.pathname.match(/^(.*)_([a-z]{2}(?:-[a-z])?)\.(html?|pdf)$/i);
+  const baseStem = baseMatch?.[1] ?? null;
+  const baseLanguage = inferVaticanDocumentLanguage(config.url);
+  if (baseLanguage && /\.(?:html?)$/i.test(baseUrl.pathname)) {
+    variants.set(baseLanguage, config.url);
+  }
+
+  $('a[href]').each((_, element) => {
+    const href = $(element).attr('href');
+    if (!href) {
+      return;
+    }
+
+    let url;
+    try {
+      url = new URL(href, config.url);
+    } catch {
+      return;
+    }
+
+    const pathMatch = url.pathname.match(/^(.*)_([a-z]{2}(?:-[a-z])?)\.(html?|pdf)$/i);
+    if (!pathMatch || !baseStem || pathMatch[1] !== baseStem) {
+      return;
+    }
+
+    if (!/\.html?$/i.test(url.pathname)) {
+      return;
+    }
+
+    const language = inferVaticanDocumentLanguage(url.toString(), $(element).text());
+    if (!language || !supportedAppLanguageCodes.has(language)) {
+      return;
+    }
+
+    variants.set(language, url.toString());
+  });
+
+  documentVariantCache.set(documentId, variants);
+  return variants;
+}
+
+async function loadDocumentSections(documentId, override = null) {
+  const config = documentCatalog[documentId];
   if (!config) {
     return null;
   }
 
-  debugLog('loading document sections', documentId);
+  const cacheKey = `${documentId}:${override?.language ?? config.language ?? 'default'}`;
+  const cached = documentSectionCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const url = override?.url ?? config.url;
+  const parser = override?.parser ?? config.parser;
+
+  debugLog('loading document sections', documentId, override?.language ?? config.language ?? 'default');
 
   let sections;
-  if (config.parser === 'cic') {
+  if (parser === 'cic') {
     sections = await loadCicSections();
-  } else if (config.parser === 'cceo') {
+  } else if (parser === 'cceo') {
     sections = await loadCceoSections();
-  } else if (config.parser === 'dei-filius') {
+  } else if (parser === 'dei-filius') {
     let html;
     try {
-      html = await fetchHtml(config.url);
+      html = await fetchHtml(url);
     } catch (error) {
       if (String(error).includes('Offline cache miss')) {
         return null;
@@ -2660,26 +2775,26 @@ async function loadDocumentSections(documentId) {
     }
     const parsed = parseDeiFiliusSections(html);
     sections = new Map(
-      [...parsed.entries()].map(([key, payload]) => [key, { ...payload, url: config.url }]),
+      [...parsed.entries()].map(([key, payload]) => [key, { ...payload, url }]),
     );
   } else {
     let html;
     try {
-      html = await fetchHtml(config.url);
+      html = await fetchHtml(url);
     } catch (error) {
       if (String(error).includes('Offline cache miss')) {
         return null;
       }
       throw error;
     }
-    const parsed = parseNumberedSectionsFromHtml(html, config.parser);
+    const parsed = parseNumberedSectionsFromHtml(html, parser);
     sections = new Map(
-      [...parsed.entries()].map(([number, payload]) => [number, { ...payload, url: config.url }]),
+      [...parsed.entries()].map(([number, payload]) => [number, { ...payload, url }]),
     );
   }
 
-  documentSectionCache.set(documentId, sections);
-  debugLog('loaded document sections', documentId, sections.size);
+  documentSectionCache.set(cacheKey, sections);
+  debugLog('loaded document sections', documentId, override?.language ?? config.language ?? 'default', sections.size);
   return sections;
 }
 
@@ -3007,6 +3122,26 @@ function shouldRebuildAquinasSource(existing) {
   }
 
   return !existing.contentByLanguage;
+}
+
+function buildDocumentSourceParts(parsed, sections) {
+  return parsed.sections
+    .map((section) => {
+      const entry = sections.get(section);
+      if (!entry) {
+        return null;
+      }
+
+      const renderedEntry = renderDocumentSectionEntry(entry, parsed.pinpointMap?.get(section) ?? []);
+      const sectionLabel = String(parsed.sectionLabelMap?.get(section) ?? section);
+
+      return {
+        html: `<p><strong>${escapeHtml(parsed.title)} ${escapeHtml(sectionLabel)}</strong></p>${renderedEntry.html}`,
+        text: `${parsed.title} ${sectionLabel}. ${renderedEntry.text}`,
+        url: entry.url,
+      };
+    })
+    .filter(Boolean);
 }
 
 const aquinasSummaPartMap = {
@@ -4084,12 +4219,13 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
     const existing =
       config?.refresh === true ? null : existingExternalSources[sourceId] ?? existingDocumentSourceByKey.get(lookupKey);
     if (existing?.kind === 'document') {
+      const hasOfficialVariants = Object.keys(existing.contentByLanguage ?? {}).length > 1;
       const nonEnglishLabel =
-        config?.language && config.language !== 'en'
+        !hasOfficialVariants && config?.language && config.language !== 'en'
           ? `Vatican.va (${languageLabel(config.language)} original)`
           : existing.sourceLabel;
       const translationNote =
-        config?.language && config.language !== 'en' && existing.translationStatus === 'ai'
+        !hasOfficialVariants && config?.language && config.language !== 'en' && existing.translationStatus === 'ai'
           ? `Translated with AI from the official ${languageLabel(config.language)} Vatican text.`
           : existing.translationNote;
       externalSources[sourceId] = {
@@ -4116,34 +4252,49 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
       continue;
     }
 
-    const sourceParts = parsed.sections
-      .map((section) => {
-        const entry = sections.get(section);
-        if (!entry) {
-          return null;
-        }
-
-        const renderedEntry = renderDocumentSectionEntry(entry, parsed.pinpointMap?.get(section) ?? []);
-        const sectionLabel = String(parsed.sectionLabelMap?.get(section) ?? section);
-
-        return {
-          html: `<p><strong>${escapeHtml(parsed.title)} ${escapeHtml(sectionLabel)}</strong></p>${renderedEntry.html}`,
-          text: `${parsed.title} ${sectionLabel}. ${renderedEntry.text}`,
-          url: entry.url,
-        };
-      })
-      .filter(Boolean);
+    const sourceParts = buildDocumentSourceParts(parsed, sections);
 
     if (sourceParts.length === 0) {
       continue;
     }
 
+    const variantUrls = await loadDocumentVariantUrls(parsed.documentId);
+    const contentByLanguage = {};
+
+    if (supportsOfficialDocumentVariants(config)) {
+      for (const [variantLanguage, variantUrl] of variantUrls.entries()) {
+        const variantSections = await loadDocumentSections(parsed.documentId, {
+          language: variantLanguage,
+          parser: config.parser,
+          url: variantUrl,
+        });
+        if (!variantSections) {
+          continue;
+        }
+
+        const variantParts = buildDocumentSourceParts(parsed, variantSections);
+        if (variantParts.length === 0) {
+          continue;
+        }
+
+        contentByLanguage[variantLanguage] = {
+          html: variantParts.map((entry) => entry.html).join(''),
+          text: variantParts.map((entry) => entry.text).join(' '),
+        };
+      }
+    }
+
+    const hasOfficialVariants = Object.keys(contentByLanguage).length > 1;
     let contentHtml = sourceParts.map((entry) => entry.html).join('');
     let contentText = sourceParts.map((entry) => entry.text).join(' ');
     let translationStatus = 'official';
     let translationNote;
 
-    if (config.language && config.language !== 'en') {
+    if (hasOfficialVariants) {
+      const preferredLanguage = contentByLanguage.en ? 'en' : config.language ?? [...Object.keys(contentByLanguage)][0];
+      contentHtml = contentByLanguage[preferredLanguage]?.html ?? contentHtml;
+      contentText = contentByLanguage[preferredLanguage]?.text ?? contentText;
+    } else if (config.language && config.language !== 'en') {
       const translated = await translateHtmlParagraphs(contentHtml, config.language);
       if (!translated.contentHtml) {
         continue;
@@ -4163,13 +4314,14 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
       url: sourceParts[0].url,
       language: config.language ?? 'en',
       sourceLabel:
-        config.language && config.language !== 'en'
+        !hasOfficialVariants && config.language && config.language !== 'en'
           ? `Vatican.va (${languageLabel(config.language)} original)`
           : 'Vatican.va',
       translationStatus,
       translationNote,
       contentHtml,
       contentText,
+      contentByLanguage: Object.keys(contentByLanguage).length > 0 ? contentByLanguage : undefined,
     };
   }
 
