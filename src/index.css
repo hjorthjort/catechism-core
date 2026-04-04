@@ -739,11 +739,12 @@ input {
 
 .paragraph-hierarchy {
   display: grid;
-  gap: 0.24rem;
+  gap: 0.3rem;
   margin-bottom: 0.75rem;
-  font-size: 0.76rem;
-  line-height: 1.4;
-  color: var(--panel-accent-ink, rgba(24, 28, 35, 0.66));
+  font-size: 0.95rem;
+  line-height: 1.45;
+  font-weight: 600;
+  color: var(--panel-accent-ink, rgba(24, 28, 35, 0.9));
   letter-spacing: 0.01em;
 }
 
