@@ -581,6 +581,28 @@ function getExternalSourceBadge(
   return getLocalizedSourceLabel(source, language);
 }
 
+function getExternalSourceLinkLabel(
+  source: CatechismData['externalSources'][string] | undefined,
+  language: AppLanguage,
+) {
+  if (!source) {
+    return null;
+  }
+
+  return getLocalizedSourceLabel(source, language) ?? getExternalSourceBadge(source, language);
+}
+
+function footnoteJumpAnchorId(footnoteId: string) {
+  return `footnote-jump-${footnoteId}`;
+}
+
+function normalizeParagraphFootnoteLinks(html: string) {
+  return html.replace(
+    /href="#!\/search\/s1\/fn\/([^"]+)"/g,
+    (_match, footnoteId: string) => `href="#${footnoteJumpAnchorId(footnoteId)}" data-footnote-target="${footnoteId}"`,
+  );
+}
+
 function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
     return false;
@@ -877,6 +899,30 @@ function ParagraphCard({
 }) {
   const t = uiStrings[language];
   const panelHierarchy = getNodeHierarchy(node, language, data.hierarchyTitles);
+  const paragraphHtml = useMemo(() => normalizeParagraphFootnoteLinks(node.textHtml), [node.textHtml]);
+  const footnotesWithStructuredBubbles = useMemo(
+    () => new Set(node.externalReferences.map((reference) => reference.footnoteId)),
+    [node.externalReferences],
+  );
+  const firstExternalReferenceByFootnoteId = useMemo(() => {
+    const seen = new Set<string>();
+    const firstIds = new Set<string>();
+
+    for (const reference of node.externalReferences) {
+      if (seen.has(reference.footnoteId)) {
+        continue;
+      }
+
+      seen.add(reference.footnoteId);
+      firstIds.add(reference.id);
+    }
+
+    return firstIds;
+  }, [node.externalReferences]);
+  const plainBubbleFootnotes = useMemo(
+    () => node.footnotes.filter((note) => !footnotesWithStructuredBubbles.has(note.id)),
+    [footnotesWithStructuredBubbles, node.footnotes],
+  );
   const panelTone = nodeColors.get(node.id) ?? null;
   const panelStyle = panelTone
     ? ({
@@ -887,6 +933,30 @@ function ParagraphCard({
         '--panel-accent-ink': panelTone.ink,
       } as CSSProperties)
     : undefined;
+  const handleParagraphTextClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const anchor = target.closest('a[data-footnote-target]');
+    if (!(anchor instanceof HTMLAnchorElement)) {
+      return;
+    }
+
+    const footnoteId = anchor.dataset.footnoteTarget;
+    if (!footnoteId) {
+      return;
+    }
+
+    event.preventDefault();
+    const jumpTarget = document.getElementById(footnoteJumpAnchorId(footnoteId));
+    if (!jumpTarget) {
+      return;
+    }
+
+    jumpTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
 
   return (
     <article className="paragraph-body selected-paragraph" style={panelStyle}>
@@ -929,7 +999,7 @@ function ParagraphCard({
         </button>
       </div>
 
-      <div className="paragraph-text" dangerouslySetInnerHTML={{ __html: node.textHtml }} />
+      <div className="paragraph-text" dangerouslySetInnerHTML={{ __html: paragraphHtml }} onClick={handleParagraphTextClick} />
 
       {node.vaticanSource ? (
         <div className="source-link-block">
@@ -945,12 +1015,16 @@ function ParagraphCard({
         </div>
       ) : null}
 
-      {node.externalReferences.length > 0 ? (
+      {node.externalReferences.length > 0 || plainBubbleFootnotes.length > 0 ? (
         <section className="external-references-block">
           <h3>{t.externalReferences}</h3>
           <div className="external-reference-list">
             {node.externalReferences.map((reference) => (
-              <div className={`external-reference ${reference.kind}`} key={reference.id}>
+              <div
+                className={`external-reference ${reference.kind}`}
+                id={firstExternalReferenceByFootnoteId.has(reference.id) ? footnoteJumpAnchorId(reference.footnoteId) : undefined}
+                key={reference.id}
+              >
                 {reference.compare ? (
                   <div className="external-reference-compare" title={t.compareLabel}>
                     <img alt="" aria-hidden="true" src="/compare-icon.svg" />
@@ -962,20 +1036,24 @@ function ParagraphCard({
                 <strong>
                   {t.footnote} {reference.footnoteNumber}
                 </strong>
-                <p>{reference.label}</p>
+                <div className="external-reference-headline">
+                  <p>{reference.label}</p>
+                  {reference.sourceId &&
+                  data.externalSources[reference.sourceId] &&
+                  getExternalSourceLinkLabel(data.externalSources[reference.sourceId], language) ? (
+                    <a
+                      className="external-source-badge external-source-badge-link"
+                      href={data.externalSources[reference.sourceId].url}
+                      rel="noreferrer"
+                      target="_blank"
+                      title={getExternalSourceLinkLabel(data.externalSources[reference.sourceId], language) ?? undefined}
+                    >
+                      {getExternalSourceLinkLabel(data.externalSources[reference.sourceId], language)}
+                    </a>
+                  ) : null}
+                </div>
                 {reference.sourceId && data.externalSources[reference.sourceId] ? (
                   <div className="external-reference-source">
-                    <div className="external-reference-source-header">
-                      <strong>{data.externalSources[reference.sourceId].title}</strong>
-                      {getExternalSourceBadge(data.externalSources[reference.sourceId], language) ? (
-                        <span className="external-source-badge">
-                          {getExternalSourceBadge(data.externalSources[reference.sourceId], language)}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="external-reference-citation">
-                      {data.externalSources[reference.sourceId].citation}
-                    </p>
                     {data.externalSources[reference.sourceId].translationNote ? (
                       <p className="external-reference-note">
                         {data.externalSources[reference.sourceId].translationNote}
@@ -987,32 +1065,19 @@ function ParagraphCard({
                         __html: data.externalSources[reference.sourceId].contentHtml,
                       }}
                     />
-                    <a
-                      className="source-link external-source-link"
-                      href={data.externalSources[reference.sourceId].url}
-                      rel="noreferrer"
-                      target="_blank"
-                      title={t.openSource}
-                    >
-                      {t.openSource}
-                      <span>{getLocalizedSourceLabel(data.externalSources[reference.sourceId], language)}</span>
-                    </a>
                   </div>
                 ) : null}
               </div>
             ))}
-          </div>
-        </section>
-      ) : null}
-
-      {node.footnotes.length > 0 ? (
-        <section className="footnotes-block">
-          <h3>{t.footnotes}</h3>
-          <div className="footnotes-list">
-            {node.footnotes.map((note) => (
-              <div className="footnote-item" key={note.id}>
-                <strong>{note.number}.</strong>
-                <span dangerouslySetInnerHTML={{ __html: note.html }} />
+            {plainBubbleFootnotes.map((note) => (
+              <div className="external-reference footnote-reference" id={footnoteJumpAnchorId(note.id)} key={note.id}>
+                <span className="reference-kind">{t.footnote}</span>
+                <strong>
+                  {t.footnote} {note.number}
+                </strong>
+                <div className="external-reference-source">
+                  <div className="external-reference-content" dangerouslySetInnerHTML={{ __html: note.html }} />
+                </div>
               </div>
             ))}
           </div>
@@ -1371,58 +1436,18 @@ function HomePage({
       <section className="selection-panel">
         <div className="selection-stack">
           <ParagraphCard data={data} language={language} links={panelLinks} node={node} nodeColors={nodeColors} />
-          <section className="home-day-card">
-            <div className="day-meta-grid">
-              <div>
-                <span>{x.liturgicalDate}</span>
-                <strong>{entry.date}</strong>
-              </div>
-              <div>
-                <span>{x.liturgicalTheme}</span>
-                <strong>{entry.themeLabel}</strong>
-              </div>
-              <div>
-                <span>{x.liturgicalCelebration}</span>
-                <strong>{entry.celebration.name}</strong>
-              </div>
-              <div>
-                <span>{x.liturgicalSeason}</span>
-                <strong>{entry.season}</strong>
-              </div>
-            </div>
-
-            <p className="lede">{x.nextYearRange}</p>
-
-            {entry.readings ? (
-              <div className="liturgical-readings">
-                <strong>{x.liturgicalReadings}</strong>
-                <ul>
-                  {entry.readings.firstReading ? <li>{entry.readings.firstReading}</li> : null}
-                  {entry.readings.psalm ? <li>{entry.readings.psalm}</li> : null}
-                  {entry.readings.secondReading ? <li>{entry.readings.secondReading}</li> : null}
-                  {entry.readings.gospel ? <li>{entry.readings.gospel}</li> : null}
-                </ul>
-                {entry.readings.usccbLink ? (
-                  <a className="button button-ghost" href={entry.readings.usccbLink} rel="noreferrer" target="_blank">
-                    {x.liturgicalReadings}
-                  </a>
-                ) : null}
-              </div>
-            ) : null}
-
-            {devMode ? (
-              <label className="search-field dev-date-field">
-                <span>{x.developerDate}</span>
-                <input
-                  max={schedule.source.rangeEnd}
-                  min={schedule.source.rangeStart}
-                  onChange={(event) => navigate(buildHref('/', { date: event.target.value || null }))}
-                  type="date"
-                  value={selectedDate ?? ''}
-                />
-              </label>
-            ) : null}
-          </section>
+          {devMode ? (
+            <label className="search-field dev-date-field">
+              <span>{x.developerDate}</span>
+              <input
+                max={schedule.source.rangeEnd}
+                min={schedule.source.rangeStart}
+                onChange={(event) => navigate(buildHref('/', { date: event.target.value || null }))}
+                type="date"
+                value={selectedDate ?? ''}
+              />
+            </label>
+          ) : null}
           <RelatedPassages language={language} node={node} nodeMap={nodeMap} onSelect={(id) => navigate(buildHref('/read', { read: id }))} />
         </div>
       </section>

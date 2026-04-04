@@ -37,6 +37,15 @@ body,
 
 body {
   min-height: 100vh;
+  background: #f8f5ef;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background:
     radial-gradient(circle at top left, rgba(208, 107, 51, 0.16), transparent 28%),
     radial-gradient(circle at right 20%, rgba(27, 127, 121, 0.14), transparent 22%),
@@ -55,10 +64,6 @@ input {
 
 .app-shell {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(208, 107, 51, 0.16), transparent 28%),
-    radial-gradient(circle at right 20%, rgba(27, 127, 121, 0.14), transparent 22%),
-    linear-gradient(180deg, #f4ecdd 0%, #f8f5ef 46%, #efe4d1 100%);
 }
 
 .build-label {
@@ -371,9 +376,7 @@ input {
 .focus-card h2,
 .selected-paragraph h3,
 .related-passages h2,
-.related-passage-card h3,
-.footnotes-block h2,
-.footnotes-block h3 {
+.related-passage-card h3 {
   margin: 0 0 0.5rem;
   font-family: 'Iowan Old Style', serif;
   font-size: 1.5rem;
@@ -385,7 +388,6 @@ input {
 .search-result small,
 .focus-card p,
 .paragraph-text,
-.footnote-item,
 .external-reference p,
 .graph-tooltip p {
   color: var(--ink-soft);
@@ -846,8 +848,7 @@ input {
 }
 
 .source-link-block,
-.external-references-block,
-.footnotes-block {
+.external-references-block {
   margin-top: 2rem;
 }
 
@@ -899,6 +900,7 @@ input {
 
 .external-reference {
   position: relative;
+  scroll-margin-top: 6.25rem;
   padding: 0.95rem 1rem;
   border-radius: 18px;
   border: 1px solid rgba(24, 28, 35, 0.08);
@@ -936,6 +938,11 @@ input {
   border-color: rgba(208, 107, 51, 0.2);
 }
 
+.external-reference.footnote-reference {
+  background: rgba(24, 28, 35, 0.04);
+  border-color: rgba(24, 28, 35, 0.1);
+}
+
 .reference-kind {
   display: inline-block;
   margin-bottom: 0.45rem;
@@ -957,6 +964,11 @@ input {
   color: #9e4a1d;
 }
 
+.external-reference.footnote-reference .reference-kind {
+  background: rgba(24, 28, 35, 0.08);
+  color: #3f4652;
+}
+
 .external-reference strong {
   display: block;
   margin-bottom: 0.35rem;
@@ -964,6 +976,18 @@ input {
 
 .external-reference p {
   margin: 0;
+}
+
+.external-reference-headline {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.85rem;
+}
+
+.external-reference-headline p {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .external-reference-source {
@@ -975,20 +999,21 @@ input {
   min-width: 0;
 }
 
-.external-reference-source-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  align-items: start;
-}
-
 .external-source-badge {
+  display: inline-flex;
+  align-items: center;
   padding: 0.3rem 0.55rem;
   border-radius: 999px;
   background: rgba(24, 28, 35, 0.08);
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.external-source-badge-link {
+  flex: 0 0 auto;
+  border: 1px solid rgba(24, 28, 35, 0.06);
 }
 
 .external-reference-citation {
@@ -1016,19 +1041,6 @@ input {
 
 .external-source-link {
   width: fit-content;
-}
-
-.footnotes-list {
-  display: grid;
-  gap: 0.85rem;
-}
-
-.footnote-item {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.75rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid rgba(24, 28, 35, 0.09);
 }
 
 .related-passages {
@@ -1190,18 +1202,18 @@ input {
 
   .explore-sidebar {
     order: 1;
+    position: static;
+    top: auto;
+    max-height: none;
   }
 
   .workspace-main {
     order: 2;
   }
 
+  .search-field,
   .search-field-mobile {
     display: grid;
-  }
-
-  .explore-sidebar > .search-field {
-    display: none;
   }
 
   .related-passage-header {
@@ -1215,12 +1227,6 @@ input {
 
   .focus-card dl {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .external-reference-source-header,
-  .footnote-item {
-    grid-template-columns: 1fr;
-    flex-direction: column;
   }
 
   .explore-canvas,
@@ -1438,8 +1444,7 @@ input {
   }
 
   .related-passage-header,
-  .selected-paragraph-header,
-  .external-reference-source-header {
+  .selected-paragraph-header {
     gap: 0.65rem;
   }
 
