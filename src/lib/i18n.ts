@@ -48,6 +48,7 @@ type UiStrings = {
   searchLabel: string;
   searchPlaceholder: string;
   searchOpen: string;
+  searchRead: string;
   focusedNode: string;
   readParagraph: string;
   paragraphNotFound: string;
@@ -187,6 +188,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     searchLabel: 'Search',
     searchPlaceholder: 'Try 2558, Eucharist, prayer...',
     searchOpen: 'Open',
+    searchRead: 'Read',
     focusedNode: 'See also',
     readParagraph: 'Read paragraph',
     paragraphNotFound: 'Paragraph not found',
@@ -251,6 +253,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     searchLabel: 'Recherche',
     searchPlaceholder: 'Essayez 2558, Eucharistie, priere...',
     searchOpen: 'Ouvrir',
+    searchRead: 'Lire',
     focusedNode: 'Voir aussi',
     readParagraph: 'Lire le paragraphe',
     paragraphNotFound: 'Paragraphe introuvable',
@@ -315,6 +318,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     searchLabel: 'Suche',
     searchPlaceholder: 'Versuchen Sie 2558, Eucharistie, Gebet...',
     searchOpen: 'Offnen',
+    searchRead: 'Lesen',
     focusedNode: 'Siehe auch',
     readParagraph: 'Absatz lesen',
     paragraphNotFound: 'Absatz nicht gefunden',
@@ -379,6 +383,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     searchLabel: 'Ricerca',
     searchPlaceholder: 'Prova 2558, Eucaristia, preghiera...',
     searchOpen: 'Apri',
+    searchRead: 'Leggi',
     focusedNode: 'Vedi anche',
     readParagraph: 'Leggi il paragrafo',
     paragraphNotFound: 'Paragrafo non trovato',
@@ -443,6 +448,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     searchLabel: 'Quaere',
     searchPlaceholder: 'Exempli gratia 2558, Eucharistia, oratio...',
     searchOpen: 'Aperi',
+    searchRead: 'Lege',
     focusedNode: 'Vide etiam',
     readParagraph: 'Lege paragraphum',
     paragraphNotFound: 'Paragraphus non inventus',
@@ -507,6 +513,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     searchLabel: 'Buscar',
     searchPlaceholder: 'Prueba 2558, Eucaristia, oracion...',
     searchOpen: 'Abrir',
+    searchRead: 'Leer',
     focusedNode: 'Vease tambien',
     readParagraph: 'Leer el parrafo',
     paragraphNotFound: 'Parrafo no encontrado',
@@ -571,6 +578,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     searchLabel: 'Pesquisa',
     searchPlaceholder: 'Tente 2558, Eucaristia, oracao...',
     searchOpen: 'Abrir',
+    searchRead: 'Ler',
     focusedNode: 'Ver tambem',
     readParagraph: 'Ler o paragrafo',
     paragraphNotFound: 'Paragrafo nao encontrado',
@@ -635,6 +643,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     searchLabel: 'Fikarohana',
     searchPlaceholder: 'Andramo 2558, Eokaristia, vavaka...',
     searchOpen: 'Sokafy',
+    searchRead: 'Vakio',
     focusedNode: 'Jereo koa',
     readParagraph: 'Vakio ny andininy',
     paragraphNotFound: 'Tsy hita ny andininy',
@@ -696,6 +705,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     searchLabel: '搜尋',
     searchPlaceholder: '試試 2558、聖體、祈禱……',
     searchOpen: '打開',
+    searchRead: '閱讀',
     focusedNode: '另請參見',
     readParagraph: '閱讀段落',
     paragraphNotFound: '找不到段落',
@@ -757,6 +767,7 @@ export const uiStrings: Record<AppLanguage, UiStrings> = {
     searchLabel: 'بحث',
     searchPlaceholder: 'جرّب 2558، االفخارستيا، الصالة...',
     searchOpen: 'افتح',
+    searchRead: 'اقرأ',
     focusedNode: 'انظر ايضا',
     readParagraph: 'اقرأ الفقرة',
     paragraphNotFound: 'لم يتم العثور على الفقرة',

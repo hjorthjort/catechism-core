@@ -1078,14 +1078,12 @@ function SearchSidebar({
   data,
   language,
   activeNode,
-  openLabel,
   onOpenNode,
   onHoverNode,
 }: {
   data: CatechismData;
   language: AppLanguage;
   activeNode: CatechismNode | null;
-  openLabel: string;
   onOpenNode: (id: number) => void;
   onHoverNode?: (id: number | null) => void;
 }) {
@@ -1150,15 +1148,17 @@ function SearchSidebar({
             onMouseEnter={() => updateHover(node.id)}
             onMouseLeave={() => updateHover(null)}
           >
-            <button className="search-result-main" onClick={() => onOpenNode(node.id)} type="button">
+            <div className="search-result-header">
               <strong>
                 {t.paragraph} {node.id}
               </strong>
+              <button className="search-result-open" onClick={() => onOpenNode(node.id)} type="button">
+                {t.searchRead}
+              </button>
+            </div>
+            <button className="search-result-main" onClick={() => onOpenNode(node.id)} type="button">
               <span>{getNodeHeading(node, language, t.paragraph)}</span>
               <small>{node.preview}</small>
-            </button>
-            <button className="search-result-open" onClick={() => onOpenNode(node.id)} type="button">
-              {openLabel}
             </button>
           </div>
         ))}
@@ -1269,7 +1269,6 @@ function ConnectionsPage({
           language={language}
           onHoverNode={setSidebarHoverId}
           onOpenNode={(id) => selectNode(id)}
-          openLabel={t.searchOpen}
         />
       }
     >
@@ -1366,7 +1365,6 @@ function HomePage({
           language={language}
           onHoverNode={setSidebarHoverId}
           onOpenNode={(id) => navigate(buildHref('/read', { read: id }))}
-          openLabel={x.openInRead}
         />
       }
     >
@@ -1477,7 +1475,6 @@ function InBriefPage({
           language={language}
           onHoverNode={setSidebarHoverId}
           onOpenNode={(id) => navigate(buildHref('/read', { read: id }))}
-          openLabel={x.openInRead}
         />
       }
     >
@@ -1726,7 +1723,6 @@ function ReadPage({
           language={language}
           onHoverNode={setSidebarHoverId}
           onOpenNode={setReadNode}
-          openLabel={x.openInRead}
         />
       }
     >
