@@ -3124,6 +3124,28 @@ function shouldRebuildAquinasSource(existing) {
   return !existing.contentByLanguage;
 }
 
+function ensureContentByLanguage(source, fallbackLanguage, fallbackTranslationNote = source?.translationNote) {
+  if (!source) {
+    return undefined;
+  }
+
+  if (source.contentByLanguage && Object.keys(source.contentByLanguage).length > 0) {
+    return source.contentByLanguage;
+  }
+
+  if (!fallbackLanguage || !source.contentHtml) {
+    return undefined;
+  }
+
+  return {
+    [fallbackLanguage]: {
+      html: source.contentHtml,
+      text: source.contentText,
+      translationNote: fallbackTranslationNote,
+    },
+  };
+}
+
 function buildDocumentSourceParts(parsed, sections) {
   return parsed.sections
     .map((section) => {
@@ -3739,6 +3761,12 @@ async function buildAquinasScgSource(parsed) {
     translationNote: 'Open-source English translation.',
     contentHtml: `<p><strong>English</strong></p>${englishParts.join('')}`,
     contentText: cleanText(cheerio.load(`<div>${englishParts.join('')}</div>`)('div').text()),
+    contentByLanguage: {
+      en: {
+        html: englishParts.join(''),
+        text: cleanText(cheerio.load(`<div>${englishParts.join('')}</div>`)('div').text()),
+      },
+    },
   };
 }
 
@@ -3770,6 +3798,12 @@ async function buildAquinasHebrewsSource(parsed) {
     translationNote: 'Open-source English translation.',
     contentHtml: `<p><strong>English</strong></p>${englishParts.join('')}`,
     contentText: cleanText(cheerio.load(`<div>${englishParts.join('')}</div>`)('div').text()),
+    contentByLanguage: {
+      en: {
+        html: englishParts.join(''),
+        text: cleanText(cheerio.load(`<div>${englishParts.join('')}</div>`)('div').text()),
+      },
+    },
   };
 }
 
@@ -4164,6 +4198,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
         citation: query,
         url: sourceUrl ?? existing.url,
         sourceLabel: sourceUrl ? 'Vatican.va Bible archive' : existing.sourceLabel,
+        contentByLanguage: ensureContentByLanguage(existing, existing.language ?? bibleTranslation.language),
       };
       continue;
     }
@@ -4205,7 +4240,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
       translationStatus: source.translationStatus,
       contentHtml: source.contentHtml,
       contentText: source.contentText,
-      contentByLanguage: source.contentByLanguage,
+      contentByLanguage: ensureContentByLanguage(source, bibleTranslation.language),
     };
   }
 
@@ -4234,7 +4269,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
         citation: parsed.citation,
         sourceLabel: nonEnglishLabel,
         translationNote,
-        contentByLanguage: existing.contentByLanguage,
+        contentByLanguage: ensureContentByLanguage(existing, existing.language ?? config?.language ?? 'en', translationNote),
       };
       continue;
     }
@@ -4321,7 +4356,14 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
       translationNote,
       contentHtml,
       contentText,
-      contentByLanguage: Object.keys(contentByLanguage).length > 0 ? contentByLanguage : undefined,
+      contentByLanguage:
+        Object.keys(contentByLanguage).length > 0
+          ? contentByLanguage
+          : ensureContentByLanguage(
+              { contentHtml, contentText, contentByLanguage: undefined, translationNote },
+              config.language ?? 'en',
+              translationNote,
+            ),
     };
   }
 
@@ -4335,6 +4377,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
         ...existing,
         id: parsed.sourceId,
         citation: parsed.citation,
+        contentByLanguage: ensureContentByLanguage(existing, existing.language ?? 'en'),
       };
       continue;
     }

@@ -581,7 +581,7 @@ function getExternalSourceContent(
   }
 
   const variants = source.contentByLanguage;
-  if (variants && Object.keys(variants).length > 1) {
+  if (variants && Object.keys(variants).length > 0) {
     const selectedLanguage = overrideLanguage && variants[overrideLanguage] ? overrideLanguage : language;
     const variant = variants[selectedLanguage];
     if (!variant) {
