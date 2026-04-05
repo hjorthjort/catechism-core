@@ -404,8 +404,35 @@ function getNodeHeading(node: CatechismNode, language: AppLanguage, paragraphLab
   return language === 'en' ? node.title : `${paragraphLabel} ${node.id}`;
 }
 
+function normalizeSubtitleText(value: string | undefined) {
+  return (value ?? '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/[.,;:!?'"“”‘’«»()[\]{}-]/g, '')
+    .trim()
+    .toLocaleLowerCase();
+}
+
 function getParagraphSubtitle(node: CatechismNode, language: AppLanguage) {
-  return language === 'en' ? node.title : node.preview;
+  if (language === 'en') {
+    return node.title;
+  }
+
+  const subtitle = node.preview.trim();
+  if (!subtitle) {
+    return null;
+  }
+
+  const normalizedSubtitle = normalizeSubtitleText(subtitle);
+  if (!normalizedSubtitle) {
+    return null;
+  }
+
+  if (normalizedSubtitle === normalizeSubtitleText(node.text) || normalizedSubtitle === normalizeSubtitleText(node.title)) {
+    return null;
+  }
+
+  return subtitle;
 }
 
 function getPartLabel(node: CatechismNode, language: AppLanguage) {
@@ -984,6 +1011,7 @@ function ParagraphCard({
 }) {
   const t = uiStrings[language];
   const panelHierarchy = getNodeHierarchy(node, language, data.hierarchyTitles);
+  const subtitle = getParagraphSubtitle(node, language);
   const paragraphHtml = useMemo(() => normalizeParagraphFootnoteLinks(node.textHtml), [node.textHtml]);
   const footnotesWithStructuredBubbles = useMemo(
     () => new Set(node.externalReferences.map((reference) => reference.footnoteId)),
@@ -1079,7 +1107,7 @@ function ParagraphCard({
             <h2>
               {t.paragraph} {node.id}
             </h2>
-            <p className="lede">{getParagraphSubtitle(node, language)}</p>
+            {subtitle ? <p className="lede">{subtitle}</p> : null}
           </div>
         </div>
 
@@ -1246,32 +1274,36 @@ function RelatedPassages({
       </div>
 
       <div className="related-passage-list">
-        {relations.map((relation) => (
-          <article className="related-passage-card" key={relation.node.id}>
-            <div className="related-passage-header">
-              <div>
-                <p className="eyebrow">{getPartLabel(relation.node, language)}</p>
-                <h3>
-                  {t.paragraph} {relation.node.id}
-                </h3>
+        {relations.map((relation) => {
+          const subtitle = getParagraphSubtitle(relation.node, language);
+
+          return (
+            <article className="related-passage-card" key={relation.node.id}>
+              <div className="related-passage-header">
+                <div>
+                  <p className="eyebrow">{getPartLabel(relation.node, language)}</p>
+                  <h3>
+                    {t.paragraph} {relation.node.id}
+                  </h3>
+                </div>
+
+                <div className="relation-badges">
+                  {relation.outgoing ? <span>{t.linksOut}</span> : null}
+                  {relation.incoming ? <span>{t.linksIn}</span> : null}
+                </div>
               </div>
 
-              <div className="relation-badges">
-                {relation.outgoing ? <span>{t.linksOut}</span> : null}
-                {relation.incoming ? <span>{t.linksIn}</span> : null}
-              </div>
-            </div>
-
-            <p className="related-passage-preview">{getParagraphSubtitle(relation.node, language)}</p>
-            <div
-              className="paragraph-text related-passage-text"
-              dangerouslySetInnerHTML={{ __html: relation.node.textHtml }}
-            />
-            <button className="button button-ghost" onClick={() => onSelect(relation.node.id)} type="button">
-              {t.readParagraph}
-            </button>
-          </article>
-        ))}
+              {subtitle ? <p className="related-passage-preview">{subtitle}</p> : null}
+              <div
+                className="paragraph-text related-passage-text"
+                dangerouslySetInnerHTML={{ __html: relation.node.textHtml }}
+              />
+              <button className="button button-ghost" onClick={() => onSelect(relation.node.id)} type="button">
+                {t.readParagraph}
+              </button>
+            </article>
+          );
+        })}
       </div>
     </section>
   );
