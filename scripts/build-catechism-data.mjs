@@ -114,7 +114,6 @@ const languageConfigs = [
 const supportedAppLanguageCodes = new Set(['en', ...languageConfigs.map((config) => config.code)]);
 
 const officialScriptureLanguages = ['en', 'it', 'es', 'la', 'zh'];
-
 const canonicalBibleBookOrder = [
   'GEN',
   'EXO',
@@ -162,6 +161,85 @@ const canonicalBibleBookOrder = [
   'HAG',
   'ZEC',
   'MAL',
+  'MAT',
+  'MRK',
+  'LUK',
+  'JHN',
+  'ACT',
+  'ROM',
+  '1CO',
+  '2CO',
+  'GAL',
+  'EPH',
+  'PHP',
+  'COL',
+  '1TH',
+  '2TH',
+  '1TI',
+  '2TI',
+  'TIT',
+  'PHM',
+  'HEB',
+  'JAS',
+  '1PE',
+  '2PE',
+  '1JN',
+  '2JN',
+  '3JN',
+  'JUD',
+  'REV',
+];
+
+const latinBibleOldTestamentOrder = [
+  'GEN',
+  'EXO',
+  'LEV',
+  'NUM',
+  'DEU',
+  'JOS',
+  'JDG',
+  'RUT',
+  '1SA',
+  '2SA',
+  '1KI',
+  '2KI',
+  '1CH',
+  '2CH',
+  'EZR',
+  'NEH',
+  'TOB',
+  'JDT',
+  'EST',
+  'JOB',
+  'PSA',
+  'PRO',
+  'ECC',
+  'SNG',
+  'WIS',
+  'SIR',
+  'ISA',
+  'JER',
+  'LAM',
+  'BAR',
+  'EZK',
+  'DAN',
+  'HOS',
+  'JOL',
+  'AMO',
+  'OBA',
+  'JON',
+  'MIC',
+  'NAM',
+  'HAB',
+  'ZEP',
+  'HAG',
+  'ZEC',
+  'MAL',
+  '1MA',
+  '2MA',
+];
+
+const latinBibleNewTestamentOrder = [
   'MAT',
   'MRK',
   'LUK',
@@ -4299,11 +4377,19 @@ async function buildOrderedIntraTextLookup(indexUrl, baseUrl, bookOrder, languag
 
 async function buildLatinBiblePageLookup() {
   const chapterLookup = new Map();
-  const urls = [latinBibleOldTestamentUrl, latinBibleNewTestamentUrl];
-  let bookIndex = 0;
+  const urlGroups = [
+    {
+      indexUrl: latinBibleOldTestamentUrl,
+      order: latinBibleOldTestamentOrder,
+    },
+    {
+      indexUrl: latinBibleNewTestamentUrl,
+      order: latinBibleNewTestamentOrder,
+    },
+  ];
 
-  for (const url of urls) {
-    const html = await fetchHtml(url);
+  for (const { indexUrl, order } of urlGroups) {
+    const html = await fetchHtml(indexUrl);
     const $ = cheerio.load(html);
     const entries = $('a[href]')
       .toArray()
@@ -4313,8 +4399,9 @@ async function buildLatinBiblePageLookup() {
       }))
       .filter((entry) => entry.href && /nova-vulgata_(?:vt|nt)_/.test(entry.href));
 
-    for (const entry of entries) {
-      const bookId = canonicalBibleBookOrder[bookIndex];
+    for (let index = 0; index < entries.length; index += 1) {
+      const entry = entries[index];
+      const bookId = order[index];
       if (!bookId) {
         continue;
       }
@@ -4336,8 +4423,6 @@ async function buildLatinBiblePageLookup() {
           language: 'la',
         });
       }
-
-      bookIndex += 1;
     }
   }
 
@@ -4554,19 +4639,41 @@ function parseSpanishOfficialChapter(html) {
 
 function parseLatinOfficialBook(html) {
   const chapters = new Map();
-  const chapterMatches = [
-    ...html.matchAll(
-      /<a name="(\d+)">[\s\S]*?<\/a><\/b><\/font>([\s\S]*?)(?=<\/p>\s*<p><font color="#663300" size="4"><b><a name="\d+">|<!--FINE TESTO-->|<\/td>)/gi,
-    ),
-  ];
+  const $ = cheerio.load(html);
+  const paragraphs = $('p').toArray();
 
-  for (const match of chapterMatches) {
-    const chapter = Number(match[1]);
+  for (let index = 0; index < paragraphs.length; index += 1) {
+    const paragraph = paragraphs[index];
+    const anchor = $(paragraph)
+      .find('a[name]')
+      .toArray()
+      .map((element) => cleanText($(element).attr('name') ?? ''))
+      .find((name) => /^\d+$/.test(name));
+    if (!anchor) {
+      continue;
+    }
+
+    const chapter = Number(anchor);
     if (!Number.isFinite(chapter)) {
       continue;
     }
 
-    const chunk = match[2]
+    const chapterParts = [$.html(paragraph) ?? ''];
+    for (let cursor = index + 1; cursor < paragraphs.length; cursor += 1) {
+      const nextParagraph = paragraphs[cursor];
+      const nextAnchor = $(nextParagraph)
+        .find('a[name]')
+        .toArray()
+        .map((element) => cleanText($(element).attr('name') ?? ''))
+        .find((name) => /^\d+$/.test(name));
+      if (nextAnchor) {
+        break;
+      }
+      chapterParts.push($.html(nextParagraph) ?? '');
+    }
+
+    const chunk = chapterParts
+      .join('\n')
       .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<[^>]+>/g, ' ')
       .replace(/&#x201c;/gi, '"')
@@ -4818,22 +4925,22 @@ async function renderOfficialScriptureSource(query, language, officialBibleLooku
   };
 }
 
-async function translateText(value, sourceLanguage) {
+async function translateText(value, sourceLanguage, targetLanguage = 'en') {
   const text = cleanText(value);
   if (!text) {
     return '';
   }
 
-  debugLog('translating text chunk', sourceLanguage, text.slice(0, 80));
+  debugLog('translating text chunk', sourceLanguage, targetLanguage, text.slice(0, 80));
   const requestUrl =
     `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(sourceLanguage)}` +
-    `&tl=en&dt=t&q=${encodeURIComponent(text)}`;
+    `&tl=${encodeURIComponent(targetLanguage)}&dt=t&q=${encodeURIComponent(text)}`;
   const buffer = await getCachedBuffer(requestUrl);
   const payload = JSON.parse(buffer.toString('utf8'));
   return cleanText((payload?.[0] ?? []).map((entry) => entry?.[0] ?? '').join(' '));
 }
 
-async function translateHtmlParagraphs(html, sourceLanguage) {
+async function translateHtmlParagraphs(html, sourceLanguage, targetLanguage = 'en') {
   const $ = cheerio.load(`<div>${html}</div>`);
   const paragraphs = $('div > p').toArray();
   const translatedParagraphs = [];
@@ -4845,7 +4952,7 @@ async function translateHtmlParagraphs(html, sourceLanguage) {
       continue;
     }
 
-    const translatedText = await translateText(originalText, sourceLanguage);
+    const translatedText = await translateText(originalText, sourceLanguage, targetLanguage);
     if (!translatedText) {
       continue;
     }
