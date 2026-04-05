@@ -1613,6 +1613,7 @@ function extractExternalReferences(footnotes) {
     const segments = splitFootnoteIntoReferenceSegments(note.html);
     let scriptureCounter = 1;
     const documentSegments = [];
+    let currentScriptureBook = null;
 
     for (const segment of segments) {
       const $ = cheerio.load(`<div>${segment.html}</div>`);
@@ -1653,6 +1654,22 @@ function extractExternalReferences(footnotes) {
       }
 
       if (classifyReference(segmentLabel) === 'scripture') {
+        const queryText =
+          currentScriptureBook && /^\d+\s*:/.test(segmentLabel) ? `${currentScriptureBook} ${segmentLabel}` : segmentLabel;
+        const queries = splitScriptureQuery(queryText);
+        for (const query of queries) {
+          references.push({
+            id: `${note.id}:scripture:${scriptureCounter}`,
+            footnoteId: note.id,
+            footnoteNumber: note.number,
+            label: query.query,
+            canonicalLabel: query.query,
+            kind: 'scripture',
+            compare: segment.compare,
+          });
+          scriptureCounter += 1;
+        }
+        currentScriptureBook = queries.at(-1)?.bookName ?? currentScriptureBook;
         continue;
       }
 
@@ -1702,6 +1719,35 @@ function extractExternalReferences(footnotes) {
   }
 
   return references;
+}
+
+function extractInlineReferenceFootnotes(text, noteIdPrefix) {
+  const footnotes = [];
+  const parentheticalMatches = text.matchAll(/\(([^()]{1,260})\)/g);
+  let counter = 0;
+
+  for (const match of parentheticalMatches) {
+    const content = cleanText(match[1] ?? '');
+    if (!content || !/\d/.test(content)) {
+      continue;
+    }
+
+    const note = {
+      id: `${noteIdPrefix}:${counter + 1}`,
+      number: counter + 1,
+      html: escapeHtml(content),
+      text: content,
+    };
+
+    if (extractExternalReferences([note]).length === 0) {
+      continue;
+    }
+
+    footnotes.push(note);
+    counter += 1;
+  }
+
+  return footnotes;
 }
 
 function buildPreview(text) {
@@ -2265,6 +2311,7 @@ function normalizeParagraphHierarchy(nodes, vaticanLookup) {
     article: null,
     paragraph: null,
   };
+  let inBriefMode = false;
 
   return nodes.map((node) => {
     const sourceHierarchy = vaticanLookup.get(node.id)?.hierarchy ?? [];
@@ -2302,10 +2349,26 @@ function normalizeParagraphHierarchy(nodes, vaticanLookup) {
 
     context = nextContext;
 
+    if (node.headings.length > 0) {
+      inBriefMode = node.headings.some((heading) => cleanText(heading.text).toUpperCase() === 'IN BRIEF');
+    }
+
+    const isInBrief = inBriefMode;
+    const inlineFootnotes =
+      isInBrief && node.footnotes.length === 0
+        ? extractInlineReferenceFootnotes(node.text, `inline:${node.id}`)
+        : [];
+    const footnotes = inlineFootnotes.length > 0 ? inlineFootnotes : node.footnotes;
+    const externalReferences =
+      inlineFootnotes.length > 0 ? extractExternalReferences(inlineFootnotes) : node.externalReferences;
+
     return {
       ...node,
       part: inferPart(normalizedBreadcrumbs),
       breadcrumbs: [...normalizedBreadcrumbs, ...extras],
+      title: isInBrief ? 'IN BRIEF' : node.title,
+      footnotes,
+      externalReferences,
     };
   });
 }

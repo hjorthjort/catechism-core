@@ -418,6 +418,10 @@ function getParagraphSubtitle(node: CatechismNode, language: AppLanguage) {
     return node.title;
   }
 
+  if (node.title.replace(/\s+/g, ' ').trim().toUpperCase() === 'IN BRIEF') {
+    return extraUi[language].inBriefTitle;
+  }
+
   const subtitle = node.preview.trim();
   if (!subtitle) {
     return null;
