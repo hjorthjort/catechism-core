@@ -2261,6 +2261,40 @@ function parseTotalResults(html) {
   return match ? Number(match[1]) : 0;
 }
 
+function expandParagraphReferenceLabel(label) {
+  const normalized = cleanText(label).trim();
+  if (!normalized || /^\(all\)$/i.test(normalized)) {
+    return [];
+  }
+
+  const references = [];
+  for (const match of normalized.matchAll(/(\d+\s*-\s*\d+|\d+)/g)) {
+    const token = match[1]?.replace(/\s+/g, '') ?? '';
+    if (!token) {
+      continue;
+    }
+
+    const rangeMatch = token.match(/^(\d+)-(\d+)$/);
+    if (rangeMatch) {
+      const start = Number(rangeMatch[1]);
+      const end = Number(rangeMatch[2]);
+      if (Number.isFinite(start) && Number.isFinite(end) && end >= start && end - start <= 100) {
+        for (let value = start; value <= end; value += 1) {
+          references.push(value);
+        }
+      }
+      continue;
+    }
+
+    const single = Number(token);
+    if (Number.isFinite(single)) {
+      references.push(single);
+    }
+  }
+
+  return references;
+}
+
 function inferPart(breadcrumbs) {
   const first = breadcrumbs[0] ?? 'Prologue';
 
@@ -2418,7 +2452,7 @@ function parseParagraphHtml(html, vaticanLookup) {
           .find('.xrefs a')
           .toArray()
           .map((link) => cleanText($(link).text()))
-          .map((value) => Number(value))
+          .flatMap((value) => expandParagraphReferenceLabel(value))
           .filter((value) => Number.isFinite(value)),
       ),
     );
