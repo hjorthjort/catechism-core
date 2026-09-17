@@ -16,12 +16,19 @@ const packPromises = new Map<AppLanguage, Promise<LanguagePack | null>>();
 
 function loadGraph() {
   if (!graphPromise) {
-    graphPromise = fetch('/data/catechism-graph.json').then(async (response) => {
-      if (!response.ok) {
-        throw new Error(`Failed to load graph data (${response.status})`);
+    graphPromise = Promise.all([
+      fetch('/data/catechism-graph.json'),
+      fetch('/data/external-sources-1.json'),
+      fetch('/data/external-sources-2.json'),
+      fetch('/data/external-sources-3.json'),
+      fetch('/data/external-sources-4.json'),
+    ]).then(async ([graphResponse, ...sourceResponses]) => {
+      if (!graphResponse.ok || sourceResponses.some((response) => !response.ok)) {
+        throw new Error('Failed to load catechism data');
       }
-
-      return response.json() as Promise<CatechismData>;
+      const graph = await graphResponse.json() as CatechismData;
+      const sourceChunks = await Promise.all(sourceResponses.map((response) => response.json() as Promise<CatechismData['externalSources']>));
+      return { ...graph, externalSources: Object.assign({}, ...sourceChunks) };
     });
   }
 

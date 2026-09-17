@@ -93,6 +93,13 @@ const languageConfigs = [
     pagePattern: /\/[^/]+_mg\.html$/i,
   },
   {
+    code: 'sv',
+    label: 'Svenska',
+    type: 'swedish-html',
+    corpus: 'https://www.katekesen.se/',
+    indexUrl: 'https://www.katekesen.se/index2.htm',
+  },
+  {
     code: 'zh',
     label: 'Traditional Chinese',
     type: 'pdf',
@@ -980,7 +987,8 @@ function decodeHtmlEntities(value) {
 }
 
 function normalizeLocalizedHierarchyTitle(value, code) {
-  const text = cleanText(decodeHtmlEntities(value));
+  const decoded = cleanText(decodeHtmlEntities(value));
+  const text = code === 'sv' ? normalizeSwedishLegacyText(decoded) : decoded;
   const quotedMatch = text.match(/^["„«]\s*(.*?)\s*["»]$/u);
   if (!quotedMatch) {
     return text;
@@ -1078,6 +1086,12 @@ const localizedHierarchyPatterns = {
     { kind: 'chapter', regex: /^CAP[ÍI]TULO\s+(?:PRIMEIRO|SEGUNDO|TERCEIRO|QUARTO|QUINTO|SEXTO|S[EÉ]TIMO|OITAVO|NONO|D[EÉ]CIMO|[0-9IVXLC]+)(?:\s*(.+))?$/i },
     { kind: 'article', regex: /^ARTIGO\s+\d+(?:\s*(.+))?$/i },
   ],
+  sv: [
+    { kind: 'part', regex: /^(?:FÖRSTA|ANDRA|TREDJE|FJÄRDE)\s+DELEN(?:\s*(.+))?$/i },
+    { kind: 'section', regex: /^(?:FÖRSTA|ANDRA|TREDJE|FJÄRDE)\s+AVDELNINGEN(?:\s*(.+))?$/i },
+    { kind: 'chapter', regex: /^(?:FÖRSTA|ANDRA|TREDJE|FJÄRDE|FEMTE|SJÄTTE|SJUNDE|ÅTTONDE|NIONDE|TIONDE)\s+KAPITLET(?:\s*(.+))?$/i },
+    { kind: 'article', regex: /^ARTIKEL\s+\d+(?:\s*(.+))?$/i },
+  ],
 };
 
 function parseLocalizedHierarchyLine(line, code) {
@@ -1126,6 +1140,16 @@ function hierarchyEntriesFromState(state) {
   return ['part', 'section', 'chapter', 'article']
     .map((kind) => (state[kind] ? { kind, title: state[kind] } : null))
     .filter(Boolean);
+}
+
+function isSwedishHierarchyContinuation(line) {
+  const letters = line.replace(/[^A-ZÀ-ÖØ-ÞÅÄÖ]/gi, '');
+  return (
+    letters.length > 0 &&
+    line === line.toUpperCase() &&
+    !/^[IVXLCDM]+[.)]\s/.test(line) &&
+    !/^SAMMANFATTNING$/i.test(line)
+  );
 }
 
 function extractLocalizedHierarchyEntriesFromHtml(html, code) {
@@ -1187,6 +1211,7 @@ function collectLocalizedHierarchyTitlesFromHtml(target, html, code, graphNodesB
   };
   const metaContent = $('meta[name="part"]').attr('content');
   let pendingKind = null;
+  let continuationKind = null;
 
   if (metaContent) {
     for (const entry of dedupeLocalizedHierarchyEntries(
@@ -1208,6 +1233,7 @@ function collectLocalizedHierarchyTitlesFromHtml(target, html, code, graphNodesB
     const start = extractParagraphStart(line);
     if (start) {
       collectLocalizedHierarchyTitles(target, hierarchyEntriesFromState(state), graphNodesById.get(start.id), code);
+      continuationKind = null;
       continue;
     }
 
@@ -1216,16 +1242,27 @@ function collectLocalizedHierarchyTitlesFromHtml(target, html, code, graphNodesB
       if (parsed.title) {
         state[parsed.kind] = parsed.title;
         pendingKind = null;
+        continuationKind = parsed.kind;
       } else {
         pendingKind = parsed.kind;
+        continuationKind = null;
       }
       continue;
     }
 
     if (pendingKind) {
       state[pendingKind] = line;
+      continuationKind = pendingKind;
       pendingKind = null;
+      continue;
     }
+
+    if (code === 'sv' && continuationKind && isSwedishHierarchyContinuation(line)) {
+      state[continuationKind] = `${state[continuationKind]} ${line}`;
+      continue;
+    }
+
+    continuationKind = null;
   }
 }
 
@@ -1772,6 +1809,10 @@ function decodeHtmlBuffer(buffer) {
     return Buffer.from(buffer).toString('utf8');
   }
 
+  if (charset === 'iso-8859-1' || charset === 'windows-1252') {
+    return new TextDecoder('windows-1252').decode(buffer);
+  }
+
   return latin1;
 }
 
@@ -1978,6 +2019,232 @@ function parseLocalizedParagraphsFromHtml(html, sourceUrl) {
 
   finalizeLocalizedParagraph(current, paragraphs, sourceUrl);
   return paragraphs;
+}
+
+function absoluteSwedishHref(href, sourceUrl) {
+  if (!href) {
+    return href;
+  }
+
+  try {
+    return new URL(href.replaceAll('\\', '/'), sourceUrl).toString();
+  } catch {
+    return href;
+  }
+}
+
+function normalizeSwedishLegacyText(value) {
+  const replacements = new Map([
+    ['\u0082', '‚'],
+    ['\u0084', '„'],
+    ['\u0085', '…'],
+    ['\u0091', '‘'],
+    ['\u0092', '’'],
+    ['\u0093', '“'],
+    ['\u0094', '”'],
+    ['\u0095', '•'],
+    ['\u0096', '–'],
+    ['\u0097', '—'],
+  ]);
+
+  return value.replace(/[\u0080-\u009f]/g, (character) => replacements.get(character) ?? '');
+}
+
+function parseSwedishParagraphsFromHtml(html, sourceUrl) {
+  const $ = cheerio.load(html);
+  const paragraphs = new Map();
+
+  $('a[name]').each((_, element) => {
+    const marker = $(element);
+    const id = Number(marker.attr('name'));
+    if (!Number.isFinite(id) || id < 1 || id > 2865 || paragraphs.has(id)) {
+      return;
+    }
+
+    const row = marker.closest('tr');
+    const sourceContainer = row.length > 0 ? row.children('td').eq(1) : marker.closest('p');
+    if (!sourceContainer.length) {
+      return;
+    }
+
+    const content = $('<div></div>');
+    if (row.length > 0) {
+      content.append(sourceContainer.html() ?? '');
+    } else {
+      content.append(sourceContainer.clone());
+      if (id === 83 && sourceContainer.parent().is('small')) {
+        sourceContainer.nextAll('p').each((__, continuation) => {
+          content.append($(continuation).clone());
+        });
+      }
+    }
+
+    if (row.length === 0) {
+      const clonedMarker = content.find(`a[name="${id}"]`).first();
+      clonedMarker.next('a').remove();
+      clonedMarker.remove();
+    }
+
+    content.find('script, style').remove();
+    const footnoteSources = [];
+    content.find('a[href]').each((__, link) => {
+      const anchor = $(link);
+      const href = absoluteSwedishHref(anchor.attr('href'), sourceUrl);
+      const footnoteNumber = Number(cleanText(anchor.text()).match(/\d+/)?.[0]);
+      if (/\/noter\//i.test(href) && Number.isFinite(footnoteNumber)) {
+        footnoteSources.push({ number: footnoteNumber, url: href });
+        anchor.attr('href', `#!/search/s1/fn/${id}:${footnoteNumber}`);
+      } else {
+        anchor.attr('href', href);
+      }
+      anchor.attr('target', '_blank');
+      anchor.attr('rel', 'noreferrer');
+    });
+
+    const text = normalizeSwedishLegacyText(cleanText(content.text()));
+    if (!text) {
+      return;
+    }
+
+    const textHtml = normalizeSwedishLegacyText((content.html() ?? '').trim());
+
+    const sourceWithAnchor = `${sourceUrl}#${id}`;
+    paragraphs.set(id, {
+      id,
+      text,
+      textHtml,
+      preview: buildPreview(text),
+      footnotes: [],
+      externalReferences: [],
+      swedishFootnoteSources: footnoteSources,
+      vaticanSource: {
+        file: path.basename(new URL(sourceUrl).pathname),
+        localPath: '',
+        url: sourceWithAnchor,
+      },
+    });
+  });
+
+  return paragraphs;
+}
+
+function parseSwedishFootnoteHtml(html, sourceUrl, paragraphId, number) {
+  const $ = cheerio.load(html);
+  const content = $('body').clone();
+  content.find('script, style').remove();
+  content.find('p').each((_, paragraph) => {
+    const element = $(paragraph);
+    if (!cleanText(element.text()) && element.find('img').length === 0) {
+      element.remove();
+    }
+  });
+  content.find('a[href]').each((_, link) => {
+    const anchor = $(link);
+    anchor.attr('href', absoluteSwedishHref(anchor.attr('href'), sourceUrl));
+    anchor.attr('target', '_blank');
+    anchor.attr('rel', 'noreferrer');
+  });
+
+  const footnoteHtml = normalizeSwedishLegacyText(content.html() ?? '')
+    .replace(/^\s*\[\d+\]\s*(?:(?:&nbsp;)|\u00a0|\s)*/i, '')
+    .trim();
+  const text = cleanText(cheerio.load(`<div>${footnoteHtml}</div>`)('div').text());
+
+  return {
+    id: `${paragraphId}:${number}`,
+    number,
+    html: footnoteHtml,
+    text,
+    compare: /^(?:jfr|jmfr)\b/i.test(text),
+  };
+}
+
+async function mapWithConcurrency(items, concurrency, mapper) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
+  return results;
+}
+
+function discoverSwedishPageUrls(indexHtml, indexUrl) {
+  const startsMatch = indexHtml.match(/sidor\s*=\s*new\s+Array\(([^)]+)\)/i);
+  if (!startsMatch) {
+    throw new Error('Could not find Swedish Catechism page boundaries');
+  }
+
+  return startsMatch[1]
+    .split(',')
+    .map((value) => Number(value.trim()))
+    .filter((value) => Number.isFinite(value) && value >= 1 && value <= 2865)
+    .map((value) => new URL(`kkk${value}-.htm`, indexUrl).toString());
+}
+
+async function buildSwedishLanguagePack(config, nodeIds, graphNodesById) {
+  const indexHtml = await fetchHtml(config.indexUrl);
+  const pageUrls = discoverSwedishPageUrls(indexHtml, config.indexUrl);
+  const localized = new Map();
+  const hierarchyTitles = new Map();
+
+  for (const pageUrl of pageUrls) {
+    const html = await fetchHtml(pageUrl);
+    const pageParagraphs = parseSwedishParagraphsFromHtml(html, pageUrl);
+    collectLocalizedHierarchyTitlesFromHtml(hierarchyTitles, html, config.code, graphNodesById);
+
+    for (const [id, payload] of pageParagraphs) {
+      if (nodeIds.has(id) && !localized.has(id)) {
+        localized.set(id, payload);
+      }
+    }
+  }
+
+  const footnoteJobs = [...localized.values()].flatMap((node) =>
+    node.swedishFootnoteSources.map((source) => ({
+      node,
+      ...source,
+    })),
+  );
+  await mapWithConcurrency(footnoteJobs, 12, async ({ node, number, url }) => {
+    const html = await fetchHtml(url);
+    node.footnotes.push(parseSwedishFootnoteHtml(html, url, node.id, number));
+  });
+  for (const node of localized.values()) {
+    node.footnotes.sort((left, right) => left.number - right.number);
+    delete node.swedishFootnoteSources;
+  }
+
+  const finalPrayerTitles = {
+    'Chapter 1: "The Summary of the Whole Gospel"': '”SAMMANFATTNING AV HELA EVANGELIET”',
+    'Chapter 2: "Our Father Who Art in Heaven"': '”FADER VÅR SOM ÄR I HIMMELEN”',
+    'Chapter 3: The Seven Petitions': 'DE SJU BÖNERNA',
+    'Chapter 4: The Final Doxology': 'AVSLUTANDE LOVPRISNING',
+    'Article 3: The Prayer of the Hour of Jesus': 'JESU ÖVERSTEPRÄSTERLIGA BÖN',
+    'Article 4: The Final Doxology': 'AVSLUTANDE LOVPRISNING',
+  };
+  for (const [canonicalTitle, localizedTitle] of Object.entries(finalPrayerTitles)) {
+    hierarchyTitles.set(canonicalTitle, localizedTitle);
+  }
+
+  return {
+    language: config.code,
+    label: config.label,
+    source: {
+      corpus: config.corpus,
+    },
+    stats: {
+      paragraphs: localized.size,
+    },
+    hierarchyTitles: Object.fromEntries([...hierarchyTitles.entries()].sort(([left], [right]) => left.localeCompare(right))),
+    nodes: [...localized.values()].sort((a, b) => a.id - b.id),
+  };
 }
 
 function parsePdfParagraphRange(sourceUrl) {
@@ -2203,7 +2470,9 @@ async function buildLanguagePacks(nodeIds, graphNodesById, languageFilter = null
     const pack =
       config.type === 'pdf'
         ? await buildPdfLanguagePack(config, nodeIds, graphNodesById)
-        : await buildHtmlLanguagePack(config, nodeIds, graphNodesById);
+        : config.type === 'swedish-html'
+          ? await buildSwedishLanguagePack(config, nodeIds, graphNodesById)
+          : await buildHtmlLanguagePack(config, nodeIds, graphNodesById);
 
     packs.push(pack);
     console.log(`Built ${config.code} pack with ${pack.stats.paragraphs} paragraphs`);

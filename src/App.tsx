@@ -1,2163 +1,489 @@
-import {
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from 'react';
-import {
-  BrowserRouter,
-  Link,
-  Navigate,
-  NavLink,
-  Route,
-  Routes,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent as ReactMouseEvent } from 'react';
 
-import { GraphCanvas } from './components/GraphCanvas';
 import { useCatechismData } from './lib/data';
-import { getInitialLanguage, getLanguageMeta, hierarchyWords, languages, uiStrings } from './lib/i18n';
 import type { AppLanguage } from './lib/i18n';
-import { buildNodeColorMap } from './lib/nodePalette';
-import type { CatechismData, CatechismNode, DailyScheduleData } from './types';
+import type { CatechismData, CatechismNode, ExternalReference, Footnote } from './types';
 
-const brandKicker = 'CCC';
-const brandTitle = 'CCC Explorer';
-const buildHash = import.meta.env.VITE_GIT_COMMIT_HASH ?? 'unknown';
-const readCookieName = 'ccc-read-paragraph';
-const readHistoryCookieName = 'ccc-read-history';
+type Citation = {
+  key: string;
+  eyebrow: string;
+  title: string;
+  html: string;
+  target?: number;
+  sourceId?: string | null;
+  name?: string;
+  swedishBibleRef?: string;
+};
 
-const extraUi: Record<
-  AppLanguage,
-  {
-    homeTab: string;
-    connectionsTab: string;
-    inBriefTab: string;
-    readTab: string;
-    menuLabel: string;
-    paragraphOfDay: string;
-    liturgicalTheme: string;
-    liturgicalCelebration: string;
-    liturgicalSeason: string;
-    liturgicalReadings: string;
-    liturgicalDate: string;
-    developerDate: string;
-    nextYearRange: string;
-    chosenParagraph: string;
-    showInConnections: string;
-    inBriefTitle: string;
-    inBriefLede: string;
-    partIntro: string;
-    readTitle: string;
-    noParagraph: string;
-    openInRead: string;
-    noSearchResults: string;
+type SwedishBible = {
+  books: Array<{
+    nr: number;
+    name: string;
+    chapters: Array<{ chapter: number; verses: Array<{ verse: number; text: string }> }>;
+  }>;
+};
+
+let swedishBiblePromise: Promise<SwedishBible> | null = null;
+
+const swedishBookNumbers: Record<string, number> = {
+  '1 mos': 1, '2 mos': 2, '3 mos': 3, '4 mos': 4, '5 mos': 5, jos: 6, dom: 7, rut: 8,
+  '1 sam': 9, '2 sam': 10, '1 kung': 11, '2 kung': 12, '1 krön': 13, '2 krön': 14,
+  esr: 15, neh: 16, est: 17, job: 18, ps: 19, ords: 20, pred: 21, höga: 22, jes: 23,
+  jer: 24, klag: 25, hes: 26, dan: 27, hos: 28, joel: 29, am: 30, ob: 31, jona: 32,
+  mik: 33, nah: 34, hab: 35, sef: 36, hagg: 37, sak: 38, mal: 39, matt: 40, mark: 41,
+  luk: 42, joh: 43, apg: 44, rom: 45, '1 kor': 46, '2 kor': 47, gal: 48, ef: 49,
+  fil: 50, kol: 51, '1 thess': 52, '2 thess': 53, '1 tim': 54, '2 tim': 55, tit: 56,
+  filem: 57, heb: 58, jak: 59, '1 pet': 60, '2 pet': 61, '1 joh': 62, '2 joh': 63,
+  '3 joh': 64, jud: 65, upp: 66, tob: 69, judit: 70, vis: 73, syr: 74, bar: 75,
+  '1 mack': 80, '2 mack': 81, vish: 73, 'h�ga v': 22,
+};
+
+function bibleReferenceFromHref(href: string) {
+  try {
+    const url = new URL(href, location.href);
+    if (!url.hostname.includes('bibeln.se')) return null;
+    const query = new URLSearchParams(url.hash.replace(/^#/, '')).get('q');
+    return query?.replace(/\+/g, ' ').replace(/\s+/g, ' ').trim() ?? null;
+  } catch {
+    return null;
   }
-> = {
-  en: {
-    homeTab: 'Home',
-    connectionsTab: 'Connections',
-    inBriefTab: 'In brief',
-    readTab: 'Read the CCC',
-    menuLabel: 'Menu',
-    paragraphOfDay: 'Paragraph of the day',
-    liturgicalTheme: 'Theme',
-    liturgicalCelebration: 'Celebration',
-    liturgicalSeason: 'Season',
-    liturgicalReadings: 'Readings',
-    liturgicalDate: 'Date',
-    developerDate: 'Developer date',
-    nextYearRange: 'Scheduled for April 3, 2026 through April 2, 2027.',
-    chosenParagraph: 'Chosen paragraph',
-    showInConnections: 'See in Connections',
-    inBriefTitle: 'In brief',
-    inBriefLede: 'A high-level pass through the Catechism by parts and sections.',
-    partIntro: 'Part opening',
-    readTitle: 'Read the CCC',
-    noParagraph: 'No paragraph selected',
-    openInRead: 'Open in Read the CCC',
-    noSearchResults: 'No results',
-  },
-  fr: {
-    homeTab: 'Accueil',
-    connectionsTab: 'Connexions',
-    inBriefTab: 'En bref',
-    readTab: 'Lire le CEC',
-    menuLabel: 'Menu',
-    paragraphOfDay: 'Paragraphe du jour',
-    liturgicalTheme: 'Theme',
-    liturgicalCelebration: 'Celebration',
-    liturgicalSeason: 'Temps',
-    liturgicalReadings: 'Lectures',
-    liturgicalDate: 'Date',
-    developerDate: 'Date dev',
-    nextYearRange: 'Programme du 3 avril 2026 au 2 avril 2027.',
-    chosenParagraph: 'Paragraphe choisi',
-    showInConnections: 'Voir dans Connexions',
-    inBriefTitle: 'En bref',
-    inBriefLede: 'Une vue d’ensemble du Catechisme par parties et sections.',
-    partIntro: 'Ouverture de la partie',
-    readTitle: 'Lire le CEC',
-    noParagraph: 'Aucun paragraphe selectionne',
-    openInRead: 'Ouvrir dans Lire le CEC',
-    noSearchResults: 'Aucun resultat',
-  },
-  de: {
-    homeTab: 'Start',
-    connectionsTab: 'Verbindungen',
-    inBriefTab: 'Kurzfassung',
-    readTab: 'Den KKK lesen',
-    menuLabel: 'Menü',
-    paragraphOfDay: 'Absatz des Tages',
-    liturgicalTheme: 'Thema',
-    liturgicalCelebration: 'Feier',
-    liturgicalSeason: 'Zeit',
-    liturgicalReadings: 'Lesungen',
-    liturgicalDate: 'Datum',
-    developerDate: 'Entwicklerdatum',
-    nextYearRange: 'Geplant vom 3. April 2026 bis 2. April 2027.',
-    chosenParagraph: 'Gewahlter Absatz',
-    showInConnections: 'In Verbindungen ansehen',
-    inBriefTitle: 'Kurzfassung',
-    inBriefLede: 'Ein Uberblick uber den Katechismus nach Teilen und Abschnitten.',
-    partIntro: 'Teilauftakt',
-    readTitle: 'Den KKK lesen',
-    noParagraph: 'Kein Absatz ausgewahlt',
-    openInRead: 'Im Lesemodus offnen',
-    noSearchResults: 'Keine Ergebnisse',
-  },
-  it: {
-    homeTab: 'Home',
-    connectionsTab: 'Connessioni',
-    inBriefTab: 'In breve',
-    readTab: 'Leggi il CCC',
-    menuLabel: 'Menu',
-    paragraphOfDay: 'Paragrafo del giorno',
-    liturgicalTheme: 'Tema',
-    liturgicalCelebration: 'Celebrazione',
-    liturgicalSeason: 'Tempo',
-    liturgicalReadings: 'Letture',
-    liturgicalDate: 'Data',
-    developerDate: 'Data dev',
-    nextYearRange: 'Programma dal 3 aprile 2026 al 2 aprile 2027.',
-    chosenParagraph: 'Paragrafo scelto',
-    showInConnections: 'Vedi in Connessioni',
-    inBriefTitle: 'In breve',
-    inBriefLede: 'Una lettura ad alto livello del Catechismo per parti e sezioni.',
-    partIntro: 'Apertura della parte',
-    readTitle: 'Leggi il CCC',
-    noParagraph: 'Nessun paragrafo selezionato',
-    openInRead: 'Apri in Leggi il CCC',
-    noSearchResults: 'Nessun risultato',
-  },
-  la: {
-    homeTab: 'Domus',
-    connectionsTab: 'Nexus',
-    inBriefTab: 'Summatim',
-    readTab: 'Lege CCC',
-    menuLabel: 'Menu',
-    paragraphOfDay: 'Paragraphus diei',
-    liturgicalTheme: 'Argumentum',
-    liturgicalCelebration: 'Celebratio',
-    liturgicalSeason: 'Tempus',
-    liturgicalReadings: 'Lectiones',
-    liturgicalDate: 'Dies',
-    developerDate: 'Dies dev',
-    nextYearRange: 'Dispositum a die 3 Aprilis 2026 usque ad diem 2 Aprilis 2027.',
-    chosenParagraph: 'Paragraphus electus',
-    showInConnections: 'Vide in Nexibus',
-    inBriefTitle: 'Summatim',
-    inBriefLede: 'Conspectus altior Catechismi per partes et sectiones.',
-    partIntro: 'Initium partis',
-    readTitle: 'Lege CCC',
-    noParagraph: 'Nullus paragraphus electus',
-    openInRead: 'Aperi in Lege CCC',
-    noSearchResults: 'Nulla inventa',
-  },
-  es: {
-    homeTab: 'Inicio',
-    connectionsTab: 'Conexiones',
-    inBriefTab: 'En breve',
-    readTab: 'Leer el CCC',
-    menuLabel: 'Menu',
-    paragraphOfDay: 'Parrafo del dia',
-    liturgicalTheme: 'Tema',
-    liturgicalCelebration: 'Celebracion',
-    liturgicalSeason: 'Tiempo',
-    liturgicalReadings: 'Lecturas',
-    liturgicalDate: 'Fecha',
-    developerDate: 'Fecha dev',
-    nextYearRange: 'Programado del 3 de abril de 2026 al 2 de abril de 2027.',
-    chosenParagraph: 'Parrafo elegido',
-    showInConnections: 'Ver en Conexiones',
-    inBriefTitle: 'En breve',
-    inBriefLede: 'Una vista de alto nivel del Catecismo por partes y secciones.',
-    partIntro: 'Apertura de la parte',
-    readTitle: 'Leer el CCC',
-    noParagraph: 'Ningun parrafo seleccionado',
-    openInRead: 'Abrir en Leer el CCC',
-    noSearchResults: 'Sin resultados',
-  },
-  pt: {
-    homeTab: 'Inicio',
-    connectionsTab: 'Conexoes',
-    inBriefTab: 'Em resumo',
-    readTab: 'Ler o CCC',
-    menuLabel: 'Menu',
-    paragraphOfDay: 'Paragrafo do dia',
-    liturgicalTheme: 'Tema',
-    liturgicalCelebration: 'Celebracao',
-    liturgicalSeason: 'Tempo',
-    liturgicalReadings: 'Leituras',
-    liturgicalDate: 'Data',
-    developerDate: 'Data dev',
-    nextYearRange: 'Agendado de 3 de abril de 2026 a 2 de abril de 2027.',
-    chosenParagraph: 'Paragrafo escolhido',
-    showInConnections: 'Ver em Conexoes',
-    inBriefTitle: 'Em resumo',
-    inBriefLede: 'Uma leitura de alto nivel do Catecismo por partes e secoes.',
-    partIntro: 'Abertura da parte',
-    readTitle: 'Ler o CCC',
-    noParagraph: 'Nenhum paragrafo selecionado',
-    openInRead: 'Abrir em Ler o CCC',
-    noSearchResults: 'Sem resultados',
-  },
-  mg: {
-    homeTab: 'Fandraisana',
-    connectionsTab: 'Rohy',
-    inBriefTab: 'Fohifohy',
-    readTab: 'Vakio ny CCC',
-    menuLabel: 'Menu',
-    paragraphOfDay: 'Andininy androany',
-    liturgicalTheme: 'Lohahevitra',
-    liturgicalCelebration: 'Fety',
-    liturgicalSeason: 'Fotoana',
-    liturgicalReadings: 'Vakiteny',
-    liturgicalDate: 'Daty',
-    developerDate: 'Daty dev',
-    nextYearRange: 'Voalahatra ny 3 Aprily 2026 hatramin’ny 2 Aprily 2027.',
-    chosenParagraph: 'Andininy voafidy',
-    showInConnections: 'Jereo ao amin’ny Rohy',
-    inBriefTitle: 'Fohifohy',
-    inBriefLede: 'Topimaso ambony momba ny Katesizy araka ny fizarana sy sokajy.',
-    partIntro: 'Fiandohan’ny fizarana',
-    readTitle: 'Vakio ny CCC',
-    noParagraph: 'Tsy misy andininy voafidy',
-    openInRead: 'Sokafy amin’ny Vakio ny CCC',
-    noSearchResults: 'Tsy misy valiny',
-  },
-  zh: {
-    homeTab: '首頁',
-    connectionsTab: '連結',
-    inBriefTab: '提綱',
-    readTab: '閱讀 CCC',
-    menuLabel: '選單',
-    paragraphOfDay: '每日段落',
-    liturgicalTheme: '主題',
-    liturgicalCelebration: '慶日',
-    liturgicalSeason: '禮儀期',
-    liturgicalReadings: '讀經',
-    liturgicalDate: '日期',
-    developerDate: '開發日期',
-    nextYearRange: '排程涵蓋 2026 年 4 月 3 日至 2027 年 4 月 2 日。',
-    chosenParagraph: '選定段落',
-    showInConnections: '在連結中查看',
-    inBriefTitle: '提綱',
-    inBriefLede: '依照部分與節，快速閱讀《教理》的高層結構。',
-    partIntro: '部分開頭',
-    readTitle: '閱讀 CCC',
-    noParagraph: '尚未選取段落',
-    openInRead: '在閱讀 CCC 中打開',
-    noSearchResults: '沒有結果',
-  },
-  ar: {
-    homeTab: 'الرئيسية',
-    connectionsTab: 'الروابط',
-    inBriefTab: 'باختصار',
-    readTab: 'اقرأ التعليم',
-    menuLabel: 'القائمة',
-    paragraphOfDay: 'فقرة اليوم',
-    liturgicalTheme: 'الموضوع',
-    liturgicalCelebration: 'الاحتفال',
-    liturgicalSeason: 'الزمن',
-    liturgicalReadings: 'القراءات',
-    liturgicalDate: 'التاريخ',
-    developerDate: 'تاريخ المطور',
-    nextYearRange: 'الجدول من 3 أبريل 2026 الى 2 أبريل 2027.',
-    chosenParagraph: 'الفقرة المختارة',
-    showInConnections: 'اعرضها في الروابط',
-    inBriefTitle: 'باختصار',
-    inBriefLede: 'قراءة عالية المستوى للتعليم المسيحي بحسب الاجزاء والاقسام.',
-    partIntro: 'افتتاح الجزء',
-    readTitle: 'اقرأ التعليم',
-    noParagraph: 'لا توجد فقرة محددة',
-    openInRead: 'افتح في اقرأ التعليم',
-    noSearchResults: 'لا نتائج',
-  },
-};
+}
 
-type QueryOptions = {
-  paragraph?: number | null;
-  read?: number | null;
-  date?: string | null;
-  dev?: boolean;
-  center?: boolean;
-  hash?: string | null;
-};
+function normalizeBibleReference(reference: string) {
+  return reference.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+}
 
-type PanelLink = {
+type TocBranch = {
   label: string;
-  to: string;
+  start: number;
+  children: TocBranch[];
 };
 
-type OutlineBlock = {
-  key: string;
-  anchor: string;
-  kind: 'part-intro' | 'section';
-  title: string;
-  nodeIds: number[];
-};
-
-type OutlineSection = {
-  key: string;
-  anchor: string;
-  title: string;
-  introBlock: OutlineBlock | null;
-  chapters: OutlineBlock[];
-};
-
-type OutlinePart = {
-  key: string;
-  anchor: string;
-  title: string;
-  introBlock: OutlineBlock | null;
-  sections: OutlineSection[];
-};
-
-function fmtScore(score: number) {
-  return score.toFixed(score === 0 || score === 100 ? 0 : 1);
-}
-
-function countExternalKinds(node: CatechismNode) {
-  return node.externalReferences.reduce(
-    (counts, reference) => {
-      counts[reference.kind] += 1;
-      return counts;
-    },
-    { scripture: 0, document: 0 },
-  );
-}
-
-function collectDirectConnections(nodeMap: Map<number, CatechismNode>, centerNode: CatechismNode) {
-  const relations = new Map<
-    number,
-    {
-      node: CatechismNode;
-      incoming: boolean;
-      outgoing: boolean;
-    }
-  >();
-
-  for (const targetId of centerNode.xrefs) {
-    if (targetId === centerNode.id) {
-      continue;
-    }
-
-    const targetNode = nodeMap.get(targetId);
-    if (!targetNode) {
-      continue;
-    }
-
-    relations.set(targetId, {
-      node: targetNode,
-      incoming: relations.get(targetId)?.incoming ?? false,
-      outgoing: true,
-    });
-  }
-
-  for (const sourceId of centerNode.incoming) {
-    if (sourceId === centerNode.id) {
-      continue;
-    }
-
-    const sourceNode = nodeMap.get(sourceId);
-    if (!sourceNode) {
-      continue;
-    }
-
-    relations.set(sourceId, {
-      node: sourceNode,
-      incoming: true,
-      outgoing: relations.get(sourceId)?.outgoing ?? false,
-    });
-  }
-
-  return [...relations.values()].sort((a, b) => a.node.id - b.node.id);
-}
-
-function getNodeHeading(node: CatechismNode, language: AppLanguage, paragraphLabel: string) {
-  return language === 'en' ? node.title : `${paragraphLabel} ${node.id}`;
-}
-
-function normalizeSubtitleText(value: string | undefined) {
-  return (value ?? '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .replace(/[.,;:!?'"“”‘’«»()[\]{}-]/g, '')
-    .trim()
-    .toLocaleLowerCase();
-}
-
-function getParagraphSubtitle(node: CatechismNode, language: AppLanguage) {
-  if (language === 'en') {
-    return node.title;
-  }
-
-  if (node.title.replace(/\s+/g, ' ').trim().toUpperCase() === 'IN BRIEF') {
-    return extraUi[language].inBriefTitle;
-  }
-
-  const subtitle = node.preview.trim();
-  if (!subtitle) {
-    return null;
-  }
-
-  const normalizedSubtitle = normalizeSubtitleText(subtitle);
-  if (!normalizedSubtitle) {
-    return null;
-  }
-
-  if (normalizedSubtitle === normalizeSubtitleText(node.text) || normalizedSubtitle === normalizeSubtitleText(node.title)) {
-    return null;
-  }
-
-  return subtitle;
-}
-
-function getPartLabel(node: CatechismNode, language: AppLanguage) {
-  const t = uiStrings[language];
-  const key = node.part as keyof typeof t.parts;
-  return t.parts[key] ?? node.part;
-}
-
-function getHierarchyWord(language: AppLanguage, kind: keyof typeof hierarchyWords.en) {
-  return hierarchyWords[language]?.[kind] ?? hierarchyWords.en[kind];
-}
-
-function splitHierarchyEntry(entry: string | undefined) {
-  if (!entry) {
-    return null;
-  }
-
-  const match = entry.match(/^(Part|Section|Chapter|Article)\s+([^:]+):\s*(.+)$/i);
-  if (match) {
-    return {
-      kind: match[1],
-      number: match[2].trim(),
-      title: match[3].trim(),
-    };
-  }
-
-  const fallbackMatch = entry.match(/^(Chapter|Article)\s+(.+)$/i);
-  if (fallbackMatch) {
-    return {
-      kind: fallbackMatch[1],
-      number: null,
-      title: fallbackMatch[2].trim(),
-    };
-  }
-
-  return null;
-}
-
-function getHierarchyEntryTitle(
-  node: CatechismNode,
-  rawEntry: string | undefined,
-  entry: ReturnType<typeof splitHierarchyEntry>,
-  language: AppLanguage,
-  hierarchyTitles: Record<string, string> | undefined,
-) {
-  if (!entry) {
-    return null;
-  }
-
-  const kind = entry.kind.toLowerCase() as 'part' | 'section' | 'chapter' | 'article';
-  const fallbackTitle = kind === 'part' ? getPartLabel(node, language) : entry.title;
-
-  return (rawEntry ? hierarchyTitles?.[rawEntry] : null) ?? fallbackTitle;
-}
-
-function getLocalizedBreadcrumb(
-  node: CatechismNode,
-  entry: string,
-  language: AppLanguage,
-  hierarchyTitles: Record<string, string> | undefined,
-) {
-  const parsed = splitHierarchyEntry(entry);
-  if (!parsed) {
-    return entry;
-  }
-
-  const title = getHierarchyEntryTitle(node, entry, parsed, language, hierarchyTitles);
-  const kind = parsed.kind.toLowerCase() as 'part' | 'section' | 'chapter' | 'article';
-  const word = getHierarchyWord(language, kind);
-
-  return parsed.number ? `${word} ${parsed.number}: ${title}` : `${word}: ${title}`;
-}
-
-function getNodeHierarchy(
-  node: CatechismNode,
-  language: AppLanguage,
-  hierarchyTitles: Record<string, string> | undefined,
-) {
-  const partEntry = node.breadcrumbs.find((entry) => entry.startsWith('Part '));
-  const sectionEntry = node.breadcrumbs.find((entry) => entry.startsWith('Section '));
-  const chapterEntry = node.breadcrumbs.find((entry) => entry.startsWith('Chapter '));
-  const articleEntry = node.breadcrumbs.find((entry) => entry.startsWith('Article '));
-  const part = splitHierarchyEntry(partEntry);
-  const section = splitHierarchyEntry(sectionEntry);
-  const chapter = splitHierarchyEntry(chapterEntry);
-  const article = splitHierarchyEntry(articleEntry);
-  const partWord = getHierarchyWord(language, 'part');
-  const sectionWord = getHierarchyWord(language, 'section');
-  const chapterWord = getHierarchyWord(language, 'chapter');
-  const articleWord = getHierarchyWord(language, 'article');
-
+function displayHierarchy(value: string, language: 'en' | 'sv', titles?: Record<string, string>) {
+  const translated = language === 'sv' ? titles?.[value] : undefined;
+  const prefix = value.split(':')[0];
+  const kind = hierarchyKind(value);
+  const SwedishKinds: Record<string, string> = { part: 'Del', section: 'Avdelning', chapter: 'Kapitel', article: 'Artikel' };
   return {
-    part: part
-      ? {
-          label: `${partWord} ${part.number}: ${getHierarchyEntryTitle(node, partEntry, part, language, hierarchyTitles)}`,
-        }
-      : {
-          label: `${partWord}: ${getPartLabel(node, language)}`,
-        },
-    section: section
-      ? {
-          label: `${sectionWord} ${section.number}: ${getHierarchyEntryTitle(node, sectionEntry, section, language, hierarchyTitles)}`,
-        }
-      : null,
-    chapter: chapter
-      ? {
-          label: `${chapterWord}: ${getHierarchyEntryTitle(node, chapterEntry, chapter, language, hierarchyTitles)}`,
-        }
-      : null,
-    article: article
-      ? {
-          label: `${articleWord}: ${getHierarchyEntryTitle(node, articleEntry, article, language, hierarchyTitles)}`,
-        }
-      : null,
+    kind: language === 'sv' ? prefix.replace(/^(Part|Section|Chapter|Article)/, SwedishKinds[kind] ?? prefix) : prefix,
+    title: translated ?? cleanHierarchyLabel(value),
   };
 }
 
-function getLocalizedSourceLabel(
-  source: CatechismData['externalSources'][string] | undefined,
-  language: AppLanguage,
-) {
-  if (!source) {
-    return null;
-  }
+const copy = {
+  en: {
+    title: 'Catechism of the Catholic Church',
+    contents: 'Contents',
+    hideContents: 'Hide contents',
+    showContents: 'Show contents',
+    paragraph: 'Paragraph',
+    invalidParagraph: 'Enter a paragraph number from 1 to 2865.',
+    jump: 'Go',
+    search: 'Search the text',
+    noResults: 'No passages found.',
+    results: 'Search results',
+    close: 'Close',
+    open: 'Read paragraph',
+    reference: 'Paragraph reference',
+    footnote: 'Footnote',
+    citationUnavailable: 'The full citation is not available in this edition.',
+    englishFallback: 'English source shown because this citation is unavailable in Swedish.',
+  },
+  sv: {
+    title: 'Katolska kyrkans katekes',
+    contents: 'Innehåll',
+    hideContents: 'Dölj innehåll',
+    showContents: 'Visa innehåll',
+    paragraph: 'Paragraf',
+    invalidParagraph: 'Ange ett paragrafnummer från 1 till 2865.',
+    jump: 'Gå',
+    search: 'Sök i texten',
+    noResults: 'Inga textställen hittades.',
+    results: 'Sökresultat',
+    close: 'Stäng',
+    open: 'Läs paragraf',
+    reference: 'Paragrafhänvisning',
+    footnote: 'Fotnot',
+    citationUnavailable: 'Den fullständiga hänvisningen saknas i denna utgåva.',
+    englishFallback: 'Engelsk källa visas eftersom hänvisningen saknas på svenska.',
+  },
+};
 
-  const t = uiStrings[language];
-  if (source.sourceLabel === 'Vatican.va Bible archive') {
-    return t.vaticanBibleArchive;
-  }
-
-  return source.sourceLabel;
+function cleanHierarchyLabel(value: string) {
+  return value.replace(/^(Part|Section|Chapter|Article)\s+(\w+):\s*/i, '').replace(/^"|"$/g, '');
 }
 
-function getExternalSourceBadge(
-  source: CatechismData['externalSources'][string] | undefined,
-  language: AppLanguage,
-) {
-  if (!source) {
-    return null;
-  }
-
-  const t = uiStrings[language];
-
-  if (source.translationStatus === 'ai') {
-    return t.translatedWithAi;
-  }
-
-  if (source.translationStatus === 'official') {
-    return t.officialVaticanText;
-  }
-
-  return getLocalizedSourceLabel(source, language);
+function hierarchyKind(value: string) {
+  return value.match(/^(Part|Section|Chapter|Article)/i)?.[1]?.toLowerCase() ?? '';
 }
 
-function getExternalSourceLinkLabel(
-  source: CatechismData['externalSources'][string] | undefined,
-  language: AppLanguage,
-) {
-  if (!source) {
-    return null;
-  }
+function buildToc(nodes: CatechismNode[]) {
+  const roots: TocBranch[] = [];
+  const rootMap = new Map<string, TocBranch>();
 
-  return getLocalizedSourceLabel(source, language) ?? getExternalSourceBadge(source, language);
-}
-
-function getExternalSourceContent(
-  source: CatechismData['externalSources'][string] | undefined,
-  language: AppLanguage,
-  overrideLanguage?: AppLanguage | null,
-) {
-  if (!source) {
-    return null;
-  }
-
-  const variants = source.contentByLanguage;
-  if (variants && Object.keys(variants).length > 0) {
-    const selectedLanguage = overrideLanguage && variants[overrideLanguage] ? overrideLanguage : language;
-    const variant = variants[selectedLanguage];
-    if (!variant) {
-      return {
-        availableLanguages: Object.keys(variants) as AppLanguage[],
-        selectedLanguage: null,
-      };
-    }
-
-    return {
-      availableLanguages: Object.keys(variants) as AppLanguage[],
-      html: variant.html,
-      selectedLanguage,
-      translationNote: variant.translationNote,
-    };
-  }
-
-  return {
-    availableLanguages: [],
-    html: source.contentHtml,
-    selectedLanguage: language,
-    translationNote: source.translationNote,
-  };
-}
-
-function footnoteJumpAnchorId(footnoteId: string) {
-  return `footnote-jump-${footnoteId}`;
-}
-
-function normalizeParagraphFootnoteLinks(html: string) {
-  return html.replace(
-    /href="#!\/search\/s1\/fn\/([^"]+)"/g,
-    (_match, footnoteId: string) => `href="#${footnoteJumpAnchorId(footnoteId)}" data-footnote-target="${footnoteId}"`,
-  );
-}
-
-function isEditableTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-
-  if (target.isContentEditable) {
-    return true;
-  }
-
-  return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
-}
-
-function buildRouteUrl(path: string, language: AppLanguage, options: QueryOptions = {}) {
-  const searchParams = new URLSearchParams();
-
-  if (language !== 'en') {
-    searchParams.set('lang', language);
-  }
-
-  if (options.dev) {
-    searchParams.set('dev', 'true');
-  }
-
-  if (options.center) {
-    searchParams.set('center', 'true');
-  }
-
-  if (options.paragraph !== undefined && options.paragraph !== null) {
-    searchParams.set('paragraph', String(options.paragraph));
-  }
-
-  if (options.read !== undefined && options.read !== null) {
-    searchParams.set('read', String(options.read));
-  }
-
-  if (options.date) {
-    searchParams.set('date', options.date);
-  }
-
-  const query = searchParams.toString();
-  const hash = options.hash ? `#${options.hash}` : '';
-  return `${path}${query ? `?${query}` : ''}${hash}`;
-}
-
-function getLocalTodayIso() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function clampDateToSchedule(dateIso: string | null, schedule: DailyScheduleData) {
-  if (!dateIso) {
-    return schedule.entries[0]?.date ?? null;
-  }
-
-  if (dateIso < schedule.source.rangeStart) {
-    return schedule.source.rangeStart;
-  }
-
-  if (dateIso > schedule.source.rangeEnd) {
-    return schedule.source.rangeEnd;
-  }
-
-  return schedule.entries.find((entry) => entry.date === dateIso)?.date ?? schedule.entries[0]?.date ?? null;
-}
-
-function readCookieNumber(name: string) {
-  const cookie = document.cookie
-    .split('; ')
-    .find((entry) => entry.startsWith(`${name}=`))
-    ?.split('=')
-    .slice(1)
-    .join('=');
-
-  if (!cookie) {
-    return null;
-  }
-
-  const value = Number(cookie);
-  return Number.isFinite(value) ? value : null;
-}
-
-function writeCookieNumber(name: string, value: number) {
-  document.cookie = `${name}=${value}; path=/; max-age=${60 * 60 * 24 * 365}`;
-}
-
-function readCookieNumbers(name: string) {
-  const cookie = document.cookie
-    .split('; ')
-    .find((entry) => entry.startsWith(`${name}=`))
-    ?.split('=')
-    .slice(1)
-    .join('=');
-
-  if (!cookie) {
-    return [];
-  }
-
-  return cookie
-    .split(',')
-    .map((value) => Number(value))
-    .filter((value, index, array) => Number.isFinite(value) && array.indexOf(value) === index);
-}
-
-function writeCookieNumbers(name: string, values: number[]) {
-  document.cookie = `${name}=${values.join(',')}; path=/; max-age=${60 * 60 * 24 * 365}`;
-}
-
-function pushRecentParagraph(history: number[], id: number, limit = 10) {
-  const next = history.filter((value) => value !== id);
-  next.push(id);
-  return next.slice(-limit);
-}
-
-function slugifyAnchor(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-function buildOutlineParts(
-  nodes: CatechismNode[],
-  language: AppLanguage,
-  hierarchyTitles: Record<string, string> | undefined,
-) {
-  const orderedNodes = [...nodes].sort((a, b) => a.id - b.id);
-  const parts: OutlinePart[] = [];
-  const partIndex = new Map<string, OutlinePart>();
-
-  for (const node of orderedNodes) {
-    const partEntry = node.breadcrumbs.find((entry) => entry.startsWith('Part '));
-    const sectionEntry = node.breadcrumbs.find((entry) => entry.startsWith('Section '));
-    const chapterEntry = node.breadcrumbs.find((entry) => entry.startsWith('Chapter '));
-    const articleEntry = node.breadcrumbs.find((entry) => entry.startsWith('Article '));
-    const partKey = partEntry ?? `part:${node.part}`;
-    let part = partIndex.get(partKey);
-
-    if (!part) {
-      const partTitle = partEntry
-        ? getLocalizedBreadcrumb(node, partEntry, language, hierarchyTitles)
-        : getPartLabel(node, language);
-
-      part = {
-        key: partKey,
-        anchor: `part-${slugifyAnchor(partEntry ?? node.part)}`,
-        title: partTitle,
-        introBlock: null,
-        sections: [],
-      };
-      partIndex.set(partKey, part);
-      parts.push(part);
-    }
-
-    if (sectionEntry && !chapterEntry) {
-      let section = part.sections.find((entry) => entry.key === sectionEntry);
-      if (!section) {
-        section = {
-          key: sectionEntry,
-          anchor: `section-${slugifyAnchor(sectionEntry)}`,
-          title: getLocalizedBreadcrumb(node, sectionEntry, language, hierarchyTitles),
-          introBlock: {
-            key: `${sectionEntry}:intro`,
-            anchor: `section-${slugifyAnchor(sectionEntry)}-opening`,
-            kind: 'section',
-            title: getLocalizedBreadcrumb(node, sectionEntry, language, hierarchyTitles),
-            nodeIds: [],
-          },
-          chapters: [],
-        };
-        part.sections.push(section);
+  for (const node of nodes) {
+    let siblings = roots;
+    let branchMap = rootMap;
+    for (const label of node.breadcrumbs) {
+      let branch = branchMap.get(label);
+      if (!branch) {
+        branch = { label, start: node.id, children: [] };
+        branchMap.set(label, branch);
+        siblings.push(branch);
       }
-
-      if (!section.introBlock) {
-        section.introBlock = {
-          key: `${sectionEntry}:intro`,
-          anchor: `section-${slugifyAnchor(sectionEntry)}-opening`,
-          kind: 'section',
-          title: getLocalizedBreadcrumb(node, sectionEntry, language, hierarchyTitles),
-          nodeIds: [],
-        };
-      }
-
-      section.introBlock.nodeIds.push(node.id);
-      continue;
-    }
-
-    if (sectionEntry && chapterEntry && !articleEntry) {
-      let section = part.sections.find((entry) => entry.key === sectionEntry);
-      if (!section) {
-        section = {
-          key: sectionEntry,
-          anchor: `section-${slugifyAnchor(sectionEntry)}`,
-          title: getLocalizedBreadcrumb(node, sectionEntry, language, hierarchyTitles),
-          introBlock: null,
-          chapters: [],
-        };
-        part.sections.push(section);
-      }
-
-      let chapter = section.chapters.find((entry) => entry.key === chapterEntry);
-      if (!chapter) {
-        chapter = {
-          key: chapterEntry,
-          anchor: `chapter-${slugifyAnchor(chapterEntry)}`,
-          kind: 'section',
-          title: getLocalizedBreadcrumb(node, chapterEntry, language, hierarchyTitles),
-          nodeIds: [],
-        };
-        section.chapters.push(chapter);
-      }
-
-      chapter.nodeIds.push(node.id);
-      continue;
-    }
-
-    if (!sectionEntry && !chapterEntry) {
-      if (!part.introBlock) {
-        part.introBlock = {
-          key: `${part.key}:intro`,
-          anchor: `${part.anchor}-opening`,
-          kind: 'part-intro',
-          title: part.title,
-          nodeIds: [],
-        };
-      }
-
-      part.introBlock.nodeIds.push(node.id);
+      const childMap = new Map(branch.children.map((child) => [child.label, child]));
+      siblings = branch.children;
+      branchMap = childMap;
     }
   }
-
-  return parts;
+  return roots;
 }
 
-function ParagraphLinks({ links }: { links: PanelLink[] }) {
-  if (links.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="paragraph-panel-links">
-      {links.map((link) => (
-        <Link className="button button-ghost" key={link.to} to={link.to}>
-          {link.label}
-        </Link>
-      ))}
-    </div>
-  );
-}
-
-function RecentReadTrail({
-  nodeIds,
-  nodeMap,
-  buildHref,
-  paragraphLabel,
-}: {
-  nodeIds: number[];
-  nodeMap: Map<number, CatechismNode>;
-  buildHref: (path: string, options?: QueryOptions) => string;
-  paragraphLabel: string;
+function TocItem({ branch, activePath, onJump, titles, language, depth = 0 }: {
+  branch: TocBranch;
+  activePath: string[];
+  onJump: (id: number) => void;
+  titles?: Record<string, string>;
+  language: 'en' | 'sv';
+  depth?: number;
 }) {
-  const items = nodeIds
-    .map((id) => nodeMap.get(id))
-    .filter((node): node is CatechismNode => Boolean(node));
+  const active = activePath.includes(branch.label);
+  const hasChildren = branch.children.length > 0;
+  const display = displayHierarchy(branch.label, language, titles);
+  return (
+    <li className={`toc-item toc-depth-${depth} ${active ? 'is-active' : ''}`}>
+      {hasChildren ? (
+        <details open={active || depth === 0}>
+          <summary>
+            <button onClick={() => onJump(branch.start)} type="button">
+              <span>{display.kind}</span>
+              {display.title}
+            </button>
+          </summary>
+          <ul>{branch.children.map((child) => <TocItem activePath={activePath} branch={child} depth={depth + 1} key={child.label} language={language} onJump={onJump} titles={titles} />)}</ul>
+        </details>
+      ) : (
+        <button onClick={() => onJump(branch.start)} type="button">
+          <span>{display.kind}</span>
+          {display.title}
+        </button>
+      )}
+    </li>
+  );
+}
 
-  if (items.length === 0) {
-    return null;
-  }
+function HierarchyBreak({ node, previous, language, titles }: { node: CatechismNode; previous?: CatechismNode; language: 'en' | 'sv'; titles?: Record<string, string> }) {
+  const changed = node.breadcrumbs.filter((entry, index) => previous?.breadcrumbs[index] !== entry);
+  if (!changed.length && !node.headings.length) return null;
 
   return (
-    <nav aria-label="Recent paragraphs" className="breadcrumb-trail recent-reading-trail">
-      {items.map((item, index) => {
-        const label = `${paragraphLabel} ${item.id}`;
-        const isCurrent = index === items.length - 1;
-        if (isCurrent) {
-          return (
-            <span aria-current="page" key={item.id}>
-              {label}
-            </span>
-          );
-        }
-
-        return (
-          <Link key={item.id} to={buildHref('/read', { read: item.id })}>
-            {label}
-          </Link>
-        );
+    <header className="hierarchy-break">
+      {changed.map((entry) => {
+        const display = displayHierarchy(entry, language, titles);
+        return <div className={`hierarchy-title hierarchy-${hierarchyKind(entry)}`} key={entry}>
+          <span>{display.kind}</span>
+          <h2>{display.title}</h2>
+        </div>;
       })}
-    </nav>
+      {node.headings.map((heading) => (
+        <h3 className={`text-heading heading-${heading.kind}`} key={`${node.id}-${heading.text}`}>{language === 'sv' && heading.text === 'IN BRIEF' ? 'SAMMANFATTNING' : heading.text}</h3>
+      ))}
+    </header>
   );
 }
 
-function FocusCard({
-  node,
-  language,
-  onOpenNode,
-  openLabel,
-}: {
-  node: CatechismNode;
-  language: AppLanguage;
-  onOpenNode: (id: number) => void;
-  openLabel: string;
-}) {
-  const t = uiStrings[language];
-  const panelExternalCounts = countExternalKinds(node);
-
-  return (
-    <div className="focus-card focus-card-overlay">
-      <p className="eyebrow">{t.focusedNode}</p>
-      <h2>
-        {t.paragraph} {node.id}
-      </h2>
-      <dl>
-        <div>
-          <dt>{t.outgoing}</dt>
-          <dd>{node.xrefs.length}</dd>
-        </div>
-        <div>
-          <dt>{t.incoming}</dt>
-          <dd>{node.incoming.length}</dd>
-        </div>
-        <div>
-          <dt>{t.rank}</dt>
-          <dd>{fmtScore(node.relativePagerank)}</dd>
-        </div>
-        <div>
-          <dt>{t.scripture}</dt>
-          <dd>{panelExternalCounts.scripture}</dd>
-        </div>
-        <div>
-          <dt>{t.document}</dt>
-          <dd>{panelExternalCounts.document}</dd>
-        </div>
-      </dl>
-      <button className="button" onClick={() => onOpenNode(node.id)} type="button">
-        {openLabel}
-      </button>
-    </div>
-  );
+function isInBrief(node?: CatechismNode) {
+  return Boolean(node && (node.title.toUpperCase() === 'IN BRIEF' || node.title.toLocaleUpperCase('sv') === 'SAMMANFATTNING'));
 }
 
-function ParagraphCard({
-  node,
-  data,
-  language,
-  nodeColors,
-  previousNode,
-  nextNode,
-  onPrevious,
-  onNext,
-  links = [],
-}: {
+function stripSwedishParagraphLinks(html: string) {
+  return html.replace(/<i>\s*\[(?:(?!<\/i>)[\s\S])*?katekesen\.se(?:(?!<\/i>)[\s\S])*?<\/i>/gi, '');
+}
+
+function ReaderParagraph({ node, previous, next, active, selectedKey, onActivate, onCitation, language, titles }: {
   node: CatechismNode;
-  data: CatechismData;
-  language: AppLanguage;
-  nodeColors: ReturnType<typeof buildNodeColorMap>;
-  previousNode?: CatechismNode | null;
-  nextNode?: CatechismNode | null;
-  onPrevious?: (() => void) | null;
-  onNext?: (() => void) | null;
-  links?: PanelLink[];
+  previous?: CatechismNode;
+  next?: CatechismNode;
+  active: boolean;
+  selectedKey?: string;
+  onActivate: (id: number) => void;
+  onCitation: (citation: Citation) => void;
+  language: 'en' | 'sv';
+  titles?: Record<string, string>;
 }) {
-  const t = uiStrings[language];
-  const panelHierarchy = getNodeHierarchy(node, language, data.hierarchyTitles);
-  const subtitle = getParagraphSubtitle(node, language);
-  const paragraphHtml = useMemo(() => normalizeParagraphFootnoteLinks(node.textHtml), [node.textHtml]);
-  const footnotesWithStructuredBubbles = useMemo(
-    () => new Set(node.externalReferences.map((reference) => reference.footnoteId)),
-    [node.externalReferences],
-  );
-  const firstExternalReferenceByFootnoteId = useMemo(() => {
-    const seen = new Set<string>();
-    const firstIds = new Set<string>();
+  const inBrief = isInBrief(node);
+  const sameHierarchyAsPrevious = previous?.breadcrumbs.join('|') === node.breadcrumbs.join('|');
+  const sameHierarchyAsNext = next?.breadcrumbs.join('|') === node.breadcrumbs.join('|');
+  const inBriefStart = inBrief && (!isInBrief(previous) || !sameHierarchyAsPrevious);
+  const inBriefEnd = inBrief && (!isInBrief(next) || !sameHierarchyAsNext);
+  const selectedFootnoteId = selectedKey?.startsWith(`fn-${node.id}-`) ? selectedKey.slice(`fn-${node.id}-`.length) : undefined;
+  const selectedFootnote = selectedFootnoteId ? node.footnotes.find((item) => item.id === selectedFootnoteId) : undefined;
+  let paragraphHtml = language === 'sv' ? stripSwedishParagraphLinks(node.textHtml) : node.textHtml;
+  if (selectedFootnote) {
+    const number = String(selectedFootnote.number).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    paragraphHtml = paragraphHtml.replace(new RegExp(`<sup>([\\s\\S]*?${number}[\\s\\S]*?)<\\/sup>`), '<sup class="is-selected">$1</sup>');
+  }
 
-    for (const reference of node.externalReferences) {
-      if (seen.has(reference.footnoteId)) {
-        continue;
-      }
-
-      seen.add(reference.footnoteId);
-      firstIds.add(reference.id);
-    }
-
-    return firstIds;
-  }, [node.externalReferences]);
-  const plainBubbleFootnotes = useMemo(
-    () => node.footnotes.filter((note) => !footnotesWithStructuredBubbles.has(note.id)),
-    [footnotesWithStructuredBubbles, node.footnotes],
-  );
-  const [referenceLanguageOverrides, setReferenceLanguageOverrides] = useState<{
-    scope: string;
-    values: Record<string, AppLanguage>;
-  }>({
-    scope: `${node.id}:${language}`,
-    values: {},
-  });
-  const referenceLanguageScope = `${node.id}:${language}`;
-  const activeReferenceLanguageOverrides =
-    referenceLanguageOverrides.scope === referenceLanguageScope ? referenceLanguageOverrides.values : {};
-  const panelTone = nodeColors.get(node.id) ?? null;
-  const panelStyle = panelTone
-    ? ({
-        '--panel-accent': panelTone.solid,
-        '--panel-accent-soft': panelTone.soft,
-        '--panel-accent-wash': panelTone.wash,
-        '--panel-accent-border': panelTone.border,
-        '--panel-accent-ink': panelTone.ink,
-      } as CSSProperties)
-    : undefined;
-  const handleParagraphTextClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
+  function showFootnote(event: ReactMouseEvent<HTMLElement>) {
+    const target = (event.target as HTMLElement).closest('a');
+    const bibleReference = target ? bibleReferenceFromHref(target.getAttribute('href') ?? '') : null;
+    if (language === 'sv' && bibleReference) {
+      event.preventDefault();
+      event.stopPropagation();
+      const name = normalizeBibleReference(bibleReference);
+      onCitation({ key: `bible-${node.id}-${name}`, eyebrow: 'Bibelreferens', title: 'Bibel', name, html: '', swedishBibleRef: name });
       return;
     }
-
-    const anchor = target.closest('a[data-footnote-target]');
-    if (!(anchor instanceof HTMLAnchorElement)) {
-      return;
-    }
-
-    const footnoteId = anchor.dataset.footnoteTarget;
-    if (!footnoteId) {
-      return;
-    }
-
+    const sup = target?.querySelector('sup') ?? (event.target as HTMLElement).closest('sup');
+    if (!sup) return;
     event.preventDefault();
-    const jumpTarget = document.getElementById(footnoteJumpAnchorId(footnoteId));
-    if (!jumpTarget) {
-      return;
-    }
-
-    jumpTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, []);
+    const token = sup.textContent?.replace(/[^0-9]/g, '');
+    const footnote = node.footnotes.find((item) => String(item.number) === token);
+    if (footnote) onCitation(footnoteCitation(node, footnote, language));
+  }
 
   return (
-    <article className="paragraph-body selected-paragraph" style={panelStyle}>
-      <ParagraphLinks links={links} />
-
-      <div className="selected-paragraph-header">
-        <button
-          aria-label={`Previous ${t.paragraph.toLowerCase()}`}
-          className="paragraph-nav-button"
-          disabled={!previousNode || !onPrevious}
-          onClick={() => onPrevious?.()}
-          type="button"
-        >
-          ‹
-        </button>
-
-        <div className="selected-paragraph-summary">
-          <div>
-            <div className="paragraph-hierarchy">
-              <div>{panelHierarchy.part.label}</div>
-              {panelHierarchy.section ? <div>{panelHierarchy.section.label}</div> : null}
-              {panelHierarchy.chapter ? <div>{panelHierarchy.chapter.label}</div> : null}
-              {panelHierarchy.article ? <div>{panelHierarchy.article.label}</div> : null}
-            </div>
-            <h2>
-              {t.paragraph} {node.id}
-            </h2>
-            {subtitle ? <p className="lede">{subtitle}</p> : null}
-          </div>
-        </div>
-
-        <button
-          aria-label={`Next ${t.paragraph.toLowerCase()}`}
-          className="paragraph-nav-button"
-          disabled={!nextNode || !onNext}
-          onClick={() => onNext?.()}
-          type="button"
-        >
-          ›
-        </button>
+    <article className={`reader-paragraph ${active ? 'is-current' : ''} ${inBrief ? 'in-brief' : ''} ${inBriefStart ? 'in-brief-start' : ''} ${inBriefEnd ? 'in-brief-end' : ''}`} data-paragraph={node.id} id={`paragraph-${node.id}`} onClick={() => onActivate(node.id)}>
+      <HierarchyBreak language={language} node={node} previous={previous} titles={titles} />
+      <div className="paragraph-row">
+        <aside className="margin-references" aria-label="Paragraph references">
+          {node.xrefs.map((id) => (
+            <button className={selectedKey === `xref-${node.id}-${id}` ? 'is-selected' : ''} key={id} onClick={(event) => { event.stopPropagation(); onCitation({ key: `xref-${node.id}-${id}`, eyebrow: copy[language].reference, title: `§ ${id}`, html: '', target: id }); }} type="button">{id}</button>
+          ))}
+        </aside>
+        <div className="paragraph-number">{node.number}</div>
+        <div className="paragraph-copy" dangerouslySetInnerHTML={{ __html: paragraphHtml }} onClick={showFootnote} />
       </div>
-
-      <div className="paragraph-text" dangerouslySetInnerHTML={{ __html: paragraphHtml }} onClick={handleParagraphTextClick} />
-
-      {node.vaticanSource ? (
-        <div className="source-link-block">
-          <a
-            className="source-link source-link-compact"
-            href={node.vaticanSource.url}
-            rel="noreferrer"
-            target="_blank"
-            title={t.openSource}
-          >
-            <span className="source-link-badge">{t.officialVaticanText}</span>
-          </a>
-        </div>
-      ) : null}
-
-      {node.externalReferences.length > 0 || plainBubbleFootnotes.length > 0 ? (
-        <section className="external-references-block">
-          <div className="external-reference-list">
-            {node.externalReferences.map((reference) => (
-              (() => {
-                const source =
-                  reference.sourceId && data.externalSources[reference.sourceId]
-                    ? data.externalSources[reference.sourceId]
-                    : undefined;
-                const sourceContent = getExternalSourceContent(
-                  source,
-                  language,
-                  activeReferenceLanguageOverrides[reference.id] ?? null,
-                );
-                const availableLanguages = sourceContent?.availableLanguages ?? [];
-                const activeSourceLanguage = sourceContent?.selectedLanguage ?? null;
-                const showLanguageSelector = Boolean(
-                  availableLanguages.length &&
-                    (!activeSourceLanguage || activeReferenceLanguageOverrides[reference.id]),
-                );
-
-                return (
-              <div
-                className={`external-reference ${reference.kind}`}
-                id={firstExternalReferenceByFootnoteId.has(reference.id) ? footnoteJumpAnchorId(reference.footnoteId) : undefined}
-                key={reference.id}
-              >
-                {reference.compare ? (
-                  <div className="external-reference-compare" title={t.compareLabel}>
-                    <img alt="" aria-hidden="true" src="/compare-icon.svg" />
-                  </div>
-                ) : null}
-                <span className="reference-kind">
-                  {reference.kind === 'scripture' ? t.scripture : t.document}
-                </span>
-                <strong>
-                  {t.footnote} {reference.footnoteNumber}
-                </strong>
-                <div className="external-reference-headline">
-                  <p>{reference.label}</p>
-                  {source && getExternalSourceLinkLabel(source, language) ? (
-                    <a
-                      className="external-source-badge external-source-badge-link"
-                      href={source.url}
-                      rel="noreferrer"
-                      target="_blank"
-                      title={getExternalSourceLinkLabel(source, language) ?? undefined}
-                    >
-                      {getExternalSourceLinkLabel(source, language)}
-                    </a>
-                  ) : null}
-                </div>
-                {source ? (
-                  <div className="external-reference-source">
-                    {showLanguageSelector ? (
-                      <div className="external-reference-language-selector">
-                        {availableLanguages.map((variantLanguage) => (
-                          <button
-                            className={`external-reference-language-button ${
-                              activeSourceLanguage === variantLanguage ? 'is-active' : ''
-                            }`}
-                            key={variantLanguage}
-                            onClick={() =>
-                              setReferenceLanguageOverrides((current) => ({
-                                scope: referenceLanguageScope,
-                                values: {
-                                  ...(current.scope === referenceLanguageScope ? current.values : {}),
-                                  [reference.id]: variantLanguage,
-                                },
-                              }))
-                            }
-                            type="button"
-                          >
-                            {getLanguageMeta(variantLanguage).flag} {variantLanguage.toUpperCase()}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                    {sourceContent?.translationNote ? (
-                      <p className="external-reference-note">
-                        {sourceContent.translationNote}
-                      </p>
-                    ) : null}
-                    {sourceContent?.html ? (
-                      <div
-                        className="external-reference-content"
-                        dangerouslySetInnerHTML={{
-                          __html: sourceContent.html,
-                        }}
-                      />
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-                );
-              })()
-            ))}
-            {plainBubbleFootnotes.map((note) => (
-              <div className="external-reference footnote-reference" id={footnoteJumpAnchorId(note.id)} key={note.id}>
-                <span className="reference-kind">{t.footnote}</span>
-                <strong>
-                  {t.footnote} {note.number}
-                </strong>
-                <div className="external-reference-source">
-                  <div className="external-reference-content" dangerouslySetInnerHTML={{ __html: note.html }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
     </article>
   );
 }
 
-function RelatedPassages({
-  node,
-  nodeMap,
-  language,
-  onSelect,
-}: {
-  node: CatechismNode;
-  nodeMap: Map<number, CatechismNode>;
-  language: AppLanguage;
-  onSelect: (id: number) => void;
-}) {
-  const t = uiStrings[language];
-  const relations = useMemo(() => collectDirectConnections(nodeMap, node), [nodeMap, node]);
-
-  return (
-    <section className="related-passages">
-      <div className="section-heading">
-        <p className="eyebrow">{t.focusedNode}</p>
-      </div>
-
-      <div className="related-passage-list">
-        {relations.map((relation) => {
-          const subtitle = getParagraphSubtitle(relation.node, language);
-
-          return (
-            <article className="related-passage-card" key={relation.node.id}>
-              <div className="related-passage-header">
-                <div>
-                  <p className="eyebrow">{getPartLabel(relation.node, language)}</p>
-                  <h3>
-                    {t.paragraph} {relation.node.id}
-                  </h3>
-                </div>
-
-                <div className="relation-badges">
-                  {relation.outgoing ? <span>{t.linksOut}</span> : null}
-                  {relation.incoming ? <span>{t.linksIn}</span> : null}
-                </div>
-              </div>
-
-              {subtitle ? <p className="related-passage-preview">{subtitle}</p> : null}
-              <div
-                className="paragraph-text related-passage-text"
-                dangerouslySetInnerHTML={{ __html: relation.node.textHtml }}
-              />
-              <button className="button button-ghost" onClick={() => onSelect(relation.node.id)} type="button">
-                {t.readParagraph}
-              </button>
-            </article>
-          );
-        })}
-      </div>
-    </section>
-  );
+function footnoteCitation(node: CatechismNode, footnote: Footnote, language: 'en' | 'sv'): Citation {
+  const reference = node.externalReferences.find((item) => item.footnoteId === footnote.id);
+  return { key: `fn-${node.id}-${footnote.id}`, eyebrow: copy[language].footnote, title: String(footnote.number), name: reference?.label ?? footnote.text, html: footnote.html || footnote.text, target: paragraphTarget(reference), sourceId: reference?.sourceId };
 }
 
-function SearchSidebar({
-  data,
-  language,
-  activeNode,
-  onOpenNode,
-  onHoverNode,
-}: {
-  data: CatechismData;
-  language: AppLanguage;
-  activeNode: CatechismNode | null;
-  onOpenNode: (id: number) => void;
-  onHoverNode?: (id: number | null) => void;
-}) {
-  const t = uiStrings[language];
-  const [query, setQuery] = useState('');
-  const deferredQuery = useDeferredValue(query);
-  const nodeMap = useMemo(() => new Map(data.nodes.map((node) => [node.id, node])), [data.nodes]);
-
-  const results = useMemo(() => {
-    const search = deferredQuery.trim().toLowerCase();
-    if (!search) {
-      return [];
-    }
-
-    const numericMatch = search.match(/\d+/);
-    const numericId = numericMatch ? Number(numericMatch[0]) : null;
-    const exactNumericNode =
-      numericId !== null && Number.isFinite(numericId) && nodeMap.has(numericId) ? nodeMap.get(numericId) ?? null : null;
-
-    const textResults = data.nodes.filter((node) => {
-      const haystack = `${node.id} ${node.title} ${node.text} ${node.part}`.toLowerCase();
-      return haystack.includes(search);
-    });
-
-    const deduped = exactNumericNode
-      ? [exactNumericNode, ...textResults.filter((node) => node.id !== exactNumericNode.id)]
-      : textResults;
-
-    return deduped.slice(0, 14);
-  }, [data.nodes, deferredQuery, nodeMap]);
+function SwedishBiblePassage({ reference }: { reference: string }) {
+  const [passage, setPassage] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    return () => onHoverNode?.(null);
-  }, [onHoverNode]);
+    const match = normalizeBibleReference(reference).match(/^(.+?)\s+(\d+):(\d+)(?:-(\d+))?(f{1,2})?/i);
+    if (!match) { setFailed(true); return; }
+    const bookKey = match[1].toLocaleLowerCase('sv').replace(/\.$/, '');
+    const bookNumber = swedishBookNumbers[bookKey];
+    const chapterNumber = Number(match[2]);
+    const firstVerse = Number(match[3]);
+    const lastVerse = match[4] ? Number(match[4]) : firstVerse + (match[5]?.length ?? 0);
+    if (!bookNumber) { setFailed(true); return; }
+    swedishBiblePromise ??= fetch('https://api.getbible.net/v2/swedish.json').then((response) => {
+      if (!response.ok) throw new Error('Bible source unavailable');
+      return response.json() as Promise<SwedishBible>;
+    });
+    let cancelled = false;
+    swedishBiblePromise.then((bible) => {
+      const chapter = bible.books.find((book) => book.nr === bookNumber)?.chapters.find((entry) => entry.chapter === chapterNumber);
+      const text = chapter?.verses.filter((verse) => verse.verse >= firstVerse && verse.verse <= lastVerse).map((verse) => `<span class="verse-number">${verse.verse}</span> ${verse.text.trim()}`).join(' ');
+      if (!cancelled) {
+        if (text) setPassage(text); else setFailed(true);
+      }
+    }).catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, [reference]);
 
-  function updateHover(id: number | null) {
-    onHoverNode?.(id);
-  }
+  if (failed) return <p>Den svenska bibeltexten kunde inte hämtas.</p>;
+  if (!passage) return <p>Hämtar bibeltext…</p>;
+  return <><div className="citation-text" dangerouslySetInnerHTML={{ __html: passage }} /><p className="source-note">Svenska 1917 (public domain)</p></>;
+}
+
+function paragraphTarget(reference?: ExternalReference) {
+  const match = reference?.label.match(/(?:CCC|CC|KKK|§)\s*(\d+)/i);
+  return match ? Number(match[1]) : undefined;
+}
+
+function CitationPanel({ citation, data, language, onClose, onJump }: {
+  citation: Citation;
+  data: CatechismData;
+  language: 'en' | 'sv';
+  onClose: () => void;
+  onJump: (id: number) => void;
+}) {
+  const t = copy[language];
+  const targetNode = citation.target ? data.nodes.find((node) => node.id === citation.target) : undefined;
+  const source = citation.sourceId ? data.externalSources[citation.sourceId] : Object.values(data.externalSources).find((item) => item.citation === citation.title || item.title === citation.title);
+  const sourceContent = source?.contentByLanguage?.[language]?.html ?? source?.contentHtml;
+  const isFallback = language === 'sv' && source && !source.contentByLanguage?.sv;
+  const translations = Object.entries(source?.contentByLanguage ?? {});
+  const currentTranslation = source?.contentByLanguage?.[language];
+  const languageNames: Record<string, string> = { en: 'English', sv: 'Svenska', la: 'Latina', it: 'Italiano', es: 'Español', zh: '中文' };
 
   return (
-    <aside className="explore-sidebar">
-      <div className="section-heading">
-        <p className="eyebrow">{t.explorerEyebrow}</p>
-        <h2>{t.explorerTitle}</h2>
-      </div>
-
-      <label className="search-field">
-        <span>{t.searchLabel}</span>
-        <input
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={t.searchPlaceholder}
-          type="search"
-          value={query}
-        />
-      </label>
-
-      <div className="search-results">
-        {results.map((node) => (
-          <div
-            className={`search-result ${activeNode?.id === node.id ? 'is-active' : ''}`}
-            key={node.id}
-            onMouseEnter={() => updateHover(node.id)}
-            onMouseLeave={() => updateHover(null)}
-          >
-            <div className="search-result-header">
-              <strong>
-                {t.paragraph} {node.id}
-              </strong>
-              <button className="search-result-open" onClick={() => onOpenNode(node.id)} type="button">
-                {t.searchRead}
-              </button>
-            </div>
-            <button className="search-result-main" onClick={() => onOpenNode(node.id)} type="button">
-              <span>{getNodeHeading(node, language, t.paragraph)}</span>
-              <small>{node.preview}</small>
-            </button>
-          </div>
-        ))}
-
-        {deferredQuery.trim().length > 0 && results.length === 0 ? (
-          <div className="search-empty">{extraUi[language].noSearchResults}</div>
-        ) : null}
-      </div>
+    <aside className="citation-panel" aria-live="polite">
+      <button aria-label={t.close} className="citation-close" onClick={onClose} type="button">×</button>
+      <p className="citation-eyebrow">{citation.eyebrow}</p>
+      <h2><span>{citation.title}</span>{citation.name ? <strong>{citation.name}</strong> : null}</h2>
+      {citation.swedishBibleRef ? <SwedishBiblePassage reference={citation.swedishBibleRef} /> : targetNode ? <div className="citation-text">{targetNode.text}</div> : currentTranslation ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: currentTranslation.html }} /> : translations.length > 1 ? <div className="citation-translations">{translations.map(([code, translation]) => <details key={code}><summary>{languageNames[code] ?? code.toUpperCase()}</summary><div className="citation-text" dangerouslySetInnerHTML={{ __html: translation.html }} /></details>)}</div> : sourceContent ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: sourceContent }} /> : citation.html ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: citation.html }} /> : <p>{t.citationUnavailable}</p>}
+      {isFallback ? <p className="fallback-note">{t.englishFallback}</p> : null}
+      {citation.target ? <button className="jump-citation" onClick={() => onJump(citation.target!)} title={t.open} type="button"><span>↗</span>{t.open}</button> : null}
     </aside>
   );
 }
 
-function PageLayout({ sidebar, children }: { sidebar: ReactNode; children: ReactNode }) {
-  return (
-    <main className="page page-workspace">
-      <section className="workspace-section">
-        <div className="explore-page">
-          {sidebar}
-          <div className="workspace-main">{children}</div>
-        </div>
-      </section>
-    </main>
-  );
-}
+function App() {
+  const [language, setLanguage] = useState<'en' | 'sv'>(() => new URLSearchParams(location.search).get('lang') === 'sv' ? 'sv' : 'en');
+  const { data, error, loading } = useCatechismData(language as AppLanguage);
+  const [tocOpen, setTocOpen] = useState(true);
+  const [activeId, setActiveId] = useState(1);
+  const [jumpValue, setJumpValue] = useState('');
+  const [jumpInvalid, setJumpInvalid] = useState(false);
+  const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [citation, setCitation] = useState<Citation | null>(null);
+  const [toolbarHidden, setToolbarHidden] = useState(false);
+  const [citationWidth, setCitationWidth] = useState(340);
+  const observer = useRef<IntersectionObserver | null>(null);
+  const t = copy[language];
 
-function ConnectionsPage({
-  data,
-  language,
-  buildHref,
-}: {
-  data: CatechismData;
-  language: AppLanguage;
-  buildHref: (path: string, options?: QueryOptions) => string;
-}) {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const t = uiStrings[language];
-  const x = extraUi[language];
-  const nodeMap = useMemo(() => new Map(data.nodes.map((node) => [node.id, node])), [data.nodes]);
-  const nodeColors = useMemo(() => buildNodeColorMap(data.nodes), [data.nodes]);
-  const orderedNodes = useMemo(() => [...data.nodes].sort((a, b) => a.id - b.id), [data.nodes]);
-  const selectedValue = searchParams.get('paragraph');
-  const selectedId = selectedValue ? Number(selectedValue) : null;
-  const shouldCenterOnOpen = searchParams.get('center') === 'true';
-  const hasSelected = selectedId !== null && Number.isFinite(selectedId) && nodeMap.has(selectedId);
-  const [graphHoverId, setGraphHoverId] = useState<number | null>(null);
-  const [sidebarHoverId, setSidebarHoverId] = useState<number | null>(null);
-  const [clusterRootId, setClusterRootId] = useState<number | null>(null);
-  const selectedNode = hasSelected && selectedId !== null ? nodeMap.get(selectedId) ?? null : null;
-  const selectedNodeId = selectedNode?.id ?? null;
-  const previewId = graphHoverId ?? sidebarHoverId;
-  const previewNode = previewId !== null ? nodeMap.get(previewId) ?? null : null;
-  const panelNode = previewNode ?? selectedNode ?? nodeMap.get(1) ?? orderedNodes[0] ?? null;
-  const focusCardNode = selectedNode ?? nodeMap.get(1) ?? orderedNodes[0] ?? null;
-  const [initialFocusId] = useState<number | null>(() =>
-    shouldCenterOnOpen && selectedNode ? selectedNode.id : 1,
-  );
-  const panelIndex = panelNode ? orderedNodes.findIndex((node) => node.id === panelNode.id) : -1;
-  const previousPanelNode = panelIndex > 0 ? orderedNodes[panelIndex - 1] : null;
-  const nextPanelNode = panelIndex >= 0 && panelIndex < orderedNodes.length - 1 ? orderedNodes[panelIndex + 1] : null;
+  const nodes = useMemo(() => data ? [...data.nodes].sort((a, b) => a.id - b.id) : [], [data]);
+  const toc = useMemo(() => buildToc(nodes), [nodes]);
+  const activeNode = nodes.find((node) => node.id === activeId) ?? nodes[0];
+  const results = useMemo(() => {
+    const needle = search.trim().toLocaleLowerCase(language);
+    if (needle.length < 2) return [];
+    return nodes.filter((node) => `${node.number} ${node.title} ${node.text}`.toLocaleLowerCase(language).includes(needle)).slice(0, 40);
+  }, [language, nodes, search]);
 
-  function selectNode(id: number, keepCluster = false) {
-    if (selectedNodeId === id) {
-      setClusterRootId(null);
-      navigate(buildHref('/connections'));
+  const jumpTo = useCallback((id: number) => {
+    const element = document.getElementById(`paragraph-${id}`);
+    if (!element) return;
+    element.scrollIntoView({ behavior: 'auto', block: 'start' });
+    setActiveId(id);
+    setSearchOpen(false);
+    const url = new URL(location.href);
+    url.searchParams.set('p', String(id));
+    history.replaceState({}, '', url);
+  }, []);
+
+  useEffect(() => {
+    const url = new URL(location.href);
+    if (language === 'sv') url.searchParams.set('lang', 'sv'); else url.searchParams.delete('lang');
+    history.replaceState({}, '', url);
+    localStorage.setItem('catholic-core-language', language);
+  }, [language]);
+
+  useEffect(() => {
+    if (!nodes.length) return;
+    observer.current?.disconnect();
+    observer.current = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => Math.abs(a.boundingClientRect.top - innerHeight * .34) - Math.abs(b.boundingClientRect.top - innerHeight * .34))[0];
+      if (visible) setActiveId(Number((visible.target as HTMLElement).dataset.paragraph));
+    }, { rootMargin: '-22% 0px -58% 0px', threshold: 0 });
+    document.querySelectorAll('[data-paragraph]').forEach((element) => observer.current?.observe(element));
+    const requested = Number(new URLSearchParams(location.search).get('p'));
+    if (requested) requestAnimationFrame(() => jumpTo(requested));
+    return () => observer.current?.disconnect();
+  }, [jumpTo, nodes.length]);
+
+  useEffect(() => {
+    let lastY = window.scrollY;
+    function onScroll() {
+      const currentY = window.scrollY;
+      if (Math.abs(currentY - lastY) > 8) setToolbarHidden(currentY > lastY && currentY > 120);
+      lastY = currentY;
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target?.tagName ?? '')) return;
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+      const index = nodes.findIndex((node) => node.id === activeId);
+      const destination = event.key === 'ArrowDown' ? nodes[index + 1] : nodes[index - 1];
+      if (destination) {
+        event.preventDefault();
+        jumpTo(destination.id);
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeId, jumpTo, nodes]);
+
+  function beginCitationResize(event: ReactMouseEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = citationWidth;
+    function onMove(moveEvent: globalThis.MouseEvent) {
+      setCitationWidth(Math.min(620, Math.max(280, startWidth + startX - moveEvent.clientX)));
+    }
+    function onUp() {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+
+  function submitJump(event: FormEvent) {
+    event.preventDefault();
+    const id = Number(jumpValue);
+    if (Number.isInteger(id) && nodes.some((node) => node.id === id)) {
+      setJumpInvalid(false);
+      jumpTo(id);
       return;
     }
-
-    if (!keepCluster) {
-      setClusterRootId(null);
-    }
-
-    navigate(buildHref('/connections', { paragraph: id }));
+    setJumpInvalid(true);
   }
 
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || isEditableTarget(event.target)) {
-        return;
-      }
-
-      if (event.key === 'ArrowLeft' && previousPanelNode) {
-        event.preventDefault();
-        selectNode(previousPanelNode.id);
-      }
-
-      if (event.key === 'ArrowRight' && nextPanelNode) {
-        event.preventDefault();
-        selectNode(nextPanelNode.id);
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nextPanelNode, previousPanelNode, selectNode]);
-
-  if (!panelNode) {
-    return null;
-  }
+  if (loading) return <main className="loading">{language === 'sv' ? 'Öppnar katekesen…' : 'Opening the Catechism…'}</main>;
+  if (error || !data) return <main className="loading">{error ?? 'Unable to load the Catechism.'}</main>;
 
   return (
-    <PageLayout
-      sidebar={
-        <SearchSidebar
-          activeNode={previewNode ?? selectedNode}
-          data={data}
-          language={language}
-          onHoverNode={setSidebarHoverId}
-          onOpenNode={(id) => selectNode(id)}
-        />
-      }
-    >
-      <section className="explore-canvas">
-        <GraphCanvas
-          caption={[t.graphZoom, t.graphPan, t.graphClickDetail]}
-          clusterRootId={clusterRootId}
-          edges={data.edges}
-          focusId={initialFocusId}
-          highlightId={selectedNode?.id ?? null}
-          hierarchyTitles={data.hierarchyTitles}
-          hoverDelayMs={0}
-          language={language}
-          nodes={data.nodes}
-          onBackgroundClick={() => {
-            setClusterRootId(null);
-            navigate(buildHref('/connections'));
-          }}
-          onNodeClick={(id) => selectNode(id)}
-          onNodeHover={setGraphHoverId}
-          onNodeLongPress={(id) => {
-            setClusterRootId(id);
-            selectNode(id, true);
-          }}
-          selectedId={selectedNode?.id ?? null}
-        />
-        {focusCardNode ? (
-          <FocusCard language={language} node={focusCardNode} onOpenNode={(id) => selectNode(id)} openLabel={t.searchOpen} />
-        ) : null}
-      </section>
-
-      <section className="selection-panel">
-        <div className="selection-stack">
-          <ParagraphCard
-            data={data}
-            language={language}
-            links={[{ label: x.openInRead, to: buildHref('/read', { read: panelNode.id }) }]}
-            nextNode={nextPanelNode}
-            node={panelNode}
-            nodeColors={nodeColors}
-            onNext={nextPanelNode ? () => selectNode(nextPanelNode.id) : null}
-            onPrevious={previousPanelNode ? () => selectNode(previousPanelNode.id) : null}
-            previousNode={previousPanelNode}
-          />
-          <RelatedPassages language={language} node={panelNode} nodeMap={nodeMap} onSelect={selectNode} />
-        </div>
-      </section>
-    </PageLayout>
-  );
-}
-
-function HomePage({
-  data,
-  schedule,
-  language,
-  buildHref,
-  devMode,
-}: {
-  data: CatechismData;
-  schedule: DailyScheduleData;
-  language: AppLanguage;
-  buildHref: (path: string, options?: QueryOptions) => string;
-  devMode: boolean;
-}) {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const x = extraUi[language];
-  const nodeMap = useMemo(() => new Map(data.nodes.map((node) => [node.id, node])), [data.nodes]);
-  const nodeColors = useMemo(() => buildNodeColorMap(data.nodes), [data.nodes]);
-  const [sidebarHoverId, setSidebarHoverId] = useState<number | null>(null);
-  const defaultDate = clampDateToSchedule(getLocalTodayIso(), schedule);
-  const selectedDate = clampDateToSchedule(searchParams.get('date') ?? defaultDate, schedule);
-  const entry = useMemo(
-    () => schedule.entries.find((item) => item.date === selectedDate) ?? schedule.entries[0] ?? null,
-    [schedule.entries, selectedDate],
-  );
-  const node = entry ? nodeMap.get(entry.paragraphId) ?? null : null;
-  const sidebarNode = sidebarHoverId !== null ? nodeMap.get(sidebarHoverId) ?? node : node;
-
-  if (!entry || !node) {
-    return null;
-  }
-
-  const panelLinks = [
-    { label: x.showInConnections, to: buildHref('/connections', { paragraph: node.id, center: true }) },
-    { label: x.openInRead, to: buildHref('/read', { read: node.id }) },
-  ];
-
-  return (
-    <PageLayout
-      sidebar={
-        <SearchSidebar
-          activeNode={sidebarNode}
-          data={data}
-          language={language}
-          onHoverNode={setSidebarHoverId}
-          onOpenNode={(id) => navigate(buildHref('/read', { read: id }))}
-        />
-      }
-    >
-      <section className="selection-panel">
-        <div className="selection-stack">
-          <ParagraphCard data={data} language={language} links={panelLinks} node={node} nodeColors={nodeColors} />
-          {devMode ? (
-            <label className="search-field dev-date-field">
-              <span>{x.developerDate}</span>
-              <input
-                max={schedule.source.rangeEnd}
-                min={schedule.source.rangeStart}
-                onChange={(event) => navigate(buildHref('/', { date: event.target.value || null }))}
-                type="date"
-                value={selectedDate ?? ''}
-              />
-            </label>
-          ) : null}
-          <RelatedPassages language={language} node={node} nodeMap={nodeMap} onSelect={(id) => navigate(buildHref('/read', { read: id }))} />
-        </div>
-      </section>
-    </PageLayout>
-  );
-}
-
-function InBriefPage({
-  data,
-  language,
-  buildHref,
-}: {
-  data: CatechismData;
-  language: AppLanguage;
-  buildHref: (path: string, options?: QueryOptions) => string;
-}) {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const x = extraUi[language];
-  const nodeMap = useMemo(() => new Map(data.nodes.map((node) => [node.id, node])), [data.nodes]);
-  const nodeColors = useMemo(() => buildNodeColorMap(data.nodes), [data.nodes]);
-  const outline = useMemo(() => buildOutlineParts(data.nodes, language, data.hierarchyTitles), [data.hierarchyTitles, data.nodes, language]);
-  const targetIdValue = searchParams.get('paragraph');
-  const targetId = targetIdValue ? Number(targetIdValue) : null;
-  const [sectionSelection, setSectionSelection] = useState<Record<string, number>>({});
-  const [sidebarHoverId, setSidebarHoverId] = useState<number | null>(null);
-
-  const sidebarNode =
-    sidebarHoverId !== null ? nodeMap.get(sidebarHoverId) ?? null : targetId !== null ? nodeMap.get(targetId) ?? null : null;
-
-  function getBlockCurrentId(block: OutlineBlock) {
-    const stateId = sectionSelection[block.key];
-    if (stateId !== undefined && block.nodeIds.includes(stateId)) {
-      return stateId;
-    }
-
-    if (targetId !== null && Number.isFinite(targetId) && block.nodeIds.includes(targetId)) {
-      return targetId;
-    }
-
-    return block.nodeIds[0];
-  }
-
-  return (
-    <PageLayout
-      sidebar={
-        <SearchSidebar
-          activeNode={sidebarNode}
-          data={data}
-          language={language}
-          onHoverNode={setSidebarHoverId}
-          onOpenNode={(id) => navigate(buildHref('/read', { read: id }))}
-        />
-      }
-    >
-      <section className="section-heading workspace-heading">
-        <p className="eyebrow">{x.inBriefTitle}</p>
-        <h1>{x.inBriefTitle}</h1>
-        <p className="lede">{x.inBriefLede}</p>
-      </section>
-
-      <div className="brief-outline">
-        {outline.map((part) => (
-          <section className="brief-part" id={part.anchor} key={part.key}>
-            <div className="brief-part-heading">
-              <p className="eyebrow">{brandKicker}</p>
-              <h2>{part.title}</h2>
-            </div>
-
-            {part.introBlock && part.introBlock.nodeIds.length > 0 ? (
-              <div className="brief-block" id={part.introBlock.anchor}>
-                <div className="brief-block-heading">
-                  <p className="eyebrow">{x.partIntro}</p>
-                  <h3>{part.title}</h3>
-                </div>
-                {(() => {
-                  const currentId = getBlockCurrentId(part.introBlock);
-                  const currentIndex = part.introBlock.nodeIds.indexOf(currentId);
-                  const previousId = currentIndex > 0 ? part.introBlock.nodeIds[currentIndex - 1] : null;
-                  const nextId =
-                    currentIndex >= 0 && currentIndex < part.introBlock.nodeIds.length - 1
-                      ? part.introBlock.nodeIds[currentIndex + 1]
-                      : null;
-                  const currentNode = nodeMap.get(currentId);
-
-                  if (!currentNode) {
-                    return null;
-                  }
-
-                  return (
-                    <ParagraphCard
-                      data={data}
-                      language={language}
-                      links={[
-                        { label: x.showInConnections, to: buildHref('/connections', { paragraph: currentNode.id }) },
-                        { label: x.openInRead, to: buildHref('/read', { read: currentNode.id }) },
-                      ]}
-                      nextNode={nextId ? nodeMap.get(nextId) ?? null : null}
-                      node={currentNode}
-                      nodeColors={nodeColors}
-                      onNext={
-                        nextId
-                          ? () => setSectionSelection((current) => ({ ...current, [part.introBlock!.key]: nextId }))
-                          : null
-                      }
-                      onPrevious={
-                        previousId
-                          ? () => setSectionSelection((current) => ({ ...current, [part.introBlock!.key]: previousId }))
-                          : null
-                      }
-                      previousNode={previousId ? nodeMap.get(previousId) ?? null : null}
-                    />
-                  );
-                })()}
-              </div>
-            ) : null}
-
-            {part.sections.map((section) => (
-              <div className="brief-section" id={section.anchor} key={section.key}>
-                <div className="brief-block-heading">
-                  <p className="eyebrow">{x.inBriefTitle}</p>
-                  <h3>{section.title}</h3>
-                </div>
-
-                {section.introBlock && section.introBlock.nodeIds.length > 0
-                  ? (() => {
-                      const introBlock = section.introBlock;
-                      if (!introBlock) {
-                        return null;
-                      }
-
-                      const fallbackId = getBlockCurrentId(introBlock);
-                      const currentIndex = introBlock.nodeIds.indexOf(fallbackId);
-                      const previousId = currentIndex > 0 ? introBlock.nodeIds[currentIndex - 1] : null;
-                      const nextId =
-                        currentIndex >= 0 && currentIndex < introBlock.nodeIds.length - 1
-                          ? introBlock.nodeIds[currentIndex + 1]
-                          : null;
-                      const currentNode = nodeMap.get(fallbackId);
-
-                      if (!currentNode) {
-                        return null;
-                      }
-
-                      return (
-                        <div className="brief-block" id={introBlock.anchor}>
-                          <ParagraphCard
-                            data={data}
-                            language={language}
-                            links={[
-                              { label: x.showInConnections, to: buildHref('/connections', { paragraph: currentNode.id }) },
-                              { label: x.openInRead, to: buildHref('/read', { read: currentNode.id }) },
-                            ]}
-                            nextNode={nextId ? nodeMap.get(nextId) ?? null : null}
-                            node={currentNode}
-                            nodeColors={nodeColors}
-                            onNext={
-                              nextId
-                                ? () => setSectionSelection((current) => ({ ...current, [introBlock.key]: nextId }))
-                                : null
-                            }
-                            onPrevious={
-                              previousId
-                                ? () => setSectionSelection((current) => ({ ...current, [introBlock.key]: previousId }))
-                                : null
-                            }
-                            previousNode={previousId ? nodeMap.get(previousId) ?? null : null}
-                          />
-                        </div>
-                      );
-                    })()
-                  : null}
-
-                {section.chapters.map((chapter) => {
-                  const fallbackId = getBlockCurrentId(chapter);
-                  const currentIndex = chapter.nodeIds.indexOf(fallbackId);
-                  const previousId = currentIndex > 0 ? chapter.nodeIds[currentIndex - 1] : null;
-                  const nextId =
-                    currentIndex >= 0 && currentIndex < chapter.nodeIds.length - 1
-                      ? chapter.nodeIds[currentIndex + 1]
-                      : null;
-                  const currentNode = nodeMap.get(fallbackId);
-
-                  if (!currentNode) {
-                    return null;
-                  }
-
-                  return (
-                    <div className="brief-block brief-chapter" id={chapter.anchor} key={chapter.key}>
-                      <div className="brief-block-heading">
-                        <p className="eyebrow">{getHierarchyWord(language, 'chapter')}</p>
-                        <h3>{chapter.title}</h3>
-                      </div>
-                      <ParagraphCard
-                        data={data}
-                        language={language}
-                        links={[
-                          { label: x.showInConnections, to: buildHref('/connections', { paragraph: currentNode.id }) },
-                          { label: x.openInRead, to: buildHref('/read', { read: currentNode.id }) },
-                        ]}
-                        nextNode={nextId ? nodeMap.get(nextId) ?? null : null}
-                        node={currentNode}
-                        nodeColors={nodeColors}
-                        onNext={nextId ? () => setSectionSelection((current) => ({ ...current, [chapter.key]: nextId })) : null}
-                        onPrevious={
-                          previousId ? () => setSectionSelection((current) => ({ ...current, [chapter.key]: previousId })) : null
-                        }
-                        previousNode={previousId ? nodeMap.get(previousId) ?? null : null}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </section>
-        ))}
-      </div>
-    </PageLayout>
-  );
-}
-
-function ReadPage({
-  data,
-  language,
-  buildHref,
-}: {
-  data: CatechismData;
-  language: AppLanguage;
-  buildHref: (path: string, options?: QueryOptions) => string;
-}) {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const x = extraUi[language];
-  const nodeMap = useMemo(() => new Map(data.nodes.map((node) => [node.id, node])), [data.nodes]);
-  const nodeColors = useMemo(() => buildNodeColorMap(data.nodes), [data.nodes]);
-  const orderedNodes = useMemo(() => [...data.nodes].sort((a, b) => a.id - b.id), [data.nodes]);
-  const readValue = searchParams.get('read');
-  const readId = readValue ? Number(readValue) : null;
-  const validReadId = readId !== null && Number.isFinite(readId) && nodeMap.has(readId) ? readId : null;
-  const cookieReadId = readCookieNumber(readCookieName);
-  const cookieHistory = readCookieNumbers(readHistoryCookieName).filter((id) => nodeMap.has(id));
-  const selectedId = validReadId ?? (cookieReadId !== null && nodeMap.has(cookieReadId) ? cookieReadId : 1);
-  const [sidebarHoverId, setSidebarHoverId] = useState<number | null>(null);
-  const node = nodeMap.get(selectedId) ?? orderedNodes[0] ?? null;
-  const sidebarNode = sidebarHoverId !== null ? nodeMap.get(sidebarHoverId) ?? node : node;
-  const nodeIndex = node ? orderedNodes.findIndex((entry) => entry.id === node.id) : -1;
-  const previousNode = nodeIndex > 0 ? orderedNodes[nodeIndex - 1] : null;
-  const nextNode = nodeIndex >= 0 && nodeIndex < orderedNodes.length - 1 ? orderedNodes[nodeIndex + 1] : null;
-  const recentNodeIds = node ? pushRecentParagraph(cookieHistory, node.id) : cookieHistory;
-
-  const setReadNode = useCallback(
-    (id: number) => {
-      writeCookieNumber(readCookieName, id);
-      writeCookieNumbers(readHistoryCookieName, pushRecentParagraph(cookieHistory, id));
-      navigate(buildHref('/read', { read: id }));
-    },
-    [buildHref, cookieHistory, navigate],
-  );
-
-  useEffect(() => {
-    if (validReadId === null && selectedId !== null) {
-      navigate(buildHref('/read', { read: selectedId }), { replace: true });
-    }
-  }, [buildHref, navigate, selectedId, validReadId]);
-
-  useEffect(() => {
-    if (!node) {
-      return;
-    }
-
-    writeCookieNumber(readCookieName, node.id);
-    writeCookieNumbers(readHistoryCookieName, recentNodeIds);
-  }, [node, recentNodeIds]);
-
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (!node || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || isEditableTarget(event.target)) {
-        return;
-      }
-
-      if (event.key === 'ArrowLeft' && previousNode) {
-        event.preventDefault();
-        setReadNode(previousNode.id);
-      }
-
-      if (event.key === 'ArrowRight' && nextNode) {
-        event.preventDefault();
-        setReadNode(nextNode.id);
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nextNode, node, previousNode, setReadNode]);
-
-  return (
-    <PageLayout
-      sidebar={
-        <SearchSidebar
-          activeNode={sidebarNode}
-          data={data}
-          language={language}
-          onHoverNode={setSidebarHoverId}
-          onOpenNode={setReadNode}
-        />
-      }
-    >
-      <section className="section-heading workspace-heading">
-        <p className="eyebrow">{brandKicker}</p>
-        <h1>{x.readTitle}</h1>
-        <RecentReadTrail
-          buildHref={buildHref}
-          nodeIds={recentNodeIds}
-          nodeMap={nodeMap}
-          paragraphLabel={uiStrings[language].paragraph}
-        />
-      </section>
-
-      <section className="selection-panel">
-        {node ? (
-          <div className="selection-stack">
-            <ParagraphCard
-              data={data}
-              language={language}
-              links={[
-                { label: x.showInConnections, to: buildHref('/connections', { paragraph: node.id, center: true }) },
-              ]}
-              nextNode={nextNode}
-              node={node}
-              nodeColors={nodeColors}
-              onNext={nextNode ? () => setReadNode(nextNode.id) : null}
-              onPrevious={previousNode ? () => setReadNode(previousNode.id) : null}
-              previousNode={previousNode}
-            />
-            <RelatedPassages language={language} node={node} nodeMap={nodeMap} onSelect={setReadNode} />
+    <div className={`book-app ${tocOpen ? '' : 'toc-hidden'} ${citation ? 'citation-open' : ''} ${toolbarHidden ? 'toolbar-hidden' : ''}`} lang={language} style={{ '--aside': `${citationWidth}px` } as CSSProperties}>
+      <header className="reader-toolbar">
+        <button aria-expanded={tocOpen} aria-label={tocOpen ? t.hideContents : t.showContents} className="toc-toggle" onClick={() => setTocOpen((value) => !value)} type="button"><span /><span /><span /></button>
+        <div className="book-title">{t.title}</div>
+        <div className="reader-tools">
+          <form className={`jump-form ${jumpInvalid ? 'is-invalid' : ''}`} onSubmit={submitJump}>
+            <input aria-describedby={jumpInvalid ? 'jump-error' : undefined} aria-invalid={jumpInvalid} aria-label={t.paragraph} inputMode="numeric" onChange={(event) => { setJumpValue(event.target.value); setJumpInvalid(false); }} placeholder={`${t.paragraph}…`} value={jumpValue} />
+            <button type="submit">{t.jump}</button>
+            <span className="visually-hidden" id="jump-error" role="alert">{jumpInvalid ? t.invalidParagraph : ''}</span>
+          </form>
+          <div className="search-control">
+            <span aria-hidden="true">⌕</span>
+            <input aria-label={t.search} onChange={(event) => { setSearch(event.target.value); setSearchOpen(event.target.value.trim().length >= 2); }} onFocus={() => search.trim().length >= 2 && setSearchOpen(true)} placeholder={t.search} value={search} />
           </div>
-        ) : (
-          <div className="selection-empty">
-            <p className="eyebrow">{brandKicker}</p>
-            <h2>{x.noParagraph}</h2>
-          </div>
-        )}
-      </section>
-    </PageLayout>
-  );
-}
-
-function LegacyParagraphRedirect({
-  language,
-  devMode,
-}: {
-  language: AppLanguage;
-  devMode: boolean;
-}) {
-  const params = useParams();
-  const id = params.id ? Number(params.id) : null;
-
-  return (
-    <Navigate
-      replace
-      to={buildRouteUrl('/connections', language, {
-        dev: devMode,
-        paragraph: id !== null && Number.isFinite(id) ? id : null,
-      })}
-    />
-  );
-}
-
-function RoutedShell({
-  data,
-  schedule,
-  language,
-  onLanguageChange,
-}: {
-  data: CatechismData;
-  schedule: DailyScheduleData;
-  language: AppLanguage;
-  onLanguageChange: (language: AppLanguage) => void;
-}) {
-  const [searchParams] = useSearchParams();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const languageMeta = getLanguageMeta(language);
-  const devMode = searchParams.get('dev') === 'true';
-  const x = extraUi[language];
-  const t = uiStrings[language];
-
-  const buildHref = useCallback(
-    (path: string, options: QueryOptions = {}) =>
-      buildRouteUrl(path, language, {
-        dev: devMode,
-        ...options,
-      }),
-    [devMode, language],
-  );
-
-  const navItems = [
-    { path: '/', label: x.homeTab },
-    { path: '/connections', label: x.connectionsTab },
-    { path: '/in-brief', label: x.inBriefTab },
-    { path: '/read', label: x.readTab },
-  ];
-
-  return (
-    <div className="app-shell" dir={languageMeta.direction} lang={language}>
-      <header className="site-header">
-        <div className="site-header-main">
-          <Link className="wordmark wordmark-inline" to={buildHref('/')}>
-            <span className="wordmark-kicker">{brandKicker}</span>
-            <span className="wordmark-title">{brandTitle}</span>
-          </Link>
-
-          <nav className="site-nav site-nav-desktop">
-            {navItems.map((item) => (
-              <NavLink
-                className={({ isActive }) => (isActive ? 'is-active' : undefined)}
-                key={item.path}
-                to={buildHref(item.path)}
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-        </div>
-
-        <div className="site-header-controls">
-          <button
-            aria-expanded={menuOpen}
-            aria-label={x.menuLabel}
-            className={`menu-button ${menuOpen ? 'is-open' : ''}`}
-            onClick={() => setMenuOpen((current) => !current)}
-            type="button"
-          >
-            <span />
-            <span />
-            <span />
-          </button>
-
-          <div className="language-switcher language-switcher-desktop" aria-label={t.languageSelector}>
-            {languages.map((entry) => (
-              <button
-                className={entry.code === language ? 'is-active' : undefined}
-                key={entry.code}
-                onClick={() => onLanguageChange(entry.code)}
-                title={entry.nativeLabel}
-                type="button"
-              >
-                <span>{entry.flag}</span>
-                <small>{entry.code.toUpperCase()}</small>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className={`mobile-menu ${menuOpen ? 'is-open' : ''}`}>
-          <nav className="site-nav site-nav-mobile">
-            {navItems.map((item) => (
-              <NavLink
-                className={({ isActive }) => (isActive ? 'is-active' : undefined)}
-                key={item.path}
-                to={buildHref(item.path)}
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-
-          <div className="language-switcher language-switcher-mobile" aria-label={t.languageSelector}>
-            {languages.map((entry) => (
-              <button
-                className={entry.code === language ? 'is-active' : undefined}
-                key={entry.code}
-                onClick={() => onLanguageChange(entry.code)}
-                title={entry.nativeLabel}
-                type="button"
-              >
-                <span>{entry.flag}</span>
-                <small>{entry.code.toUpperCase()}</small>
-              </button>
-            ))}
+          <div className="language-control" aria-label="Language">
+            <button className={language === 'en' ? 'is-active' : ''} onClick={() => setLanguage('en')} type="button">EN</button>
+            <button className={language === 'sv' ? 'is-active' : ''} onClick={() => setLanguage('sv')} type="button">SV</button>
           </div>
         </div>
       </header>
 
-      <Routes>
-        <Route path="/" element={<HomePage buildHref={buildHref} data={data} devMode={devMode} language={language} schedule={schedule} />} />
-        <Route path="/connections" element={<ConnectionsPage buildHref={buildHref} data={data} language={language} />} />
-        <Route path="/in-brief" element={<InBriefPage buildHref={buildHref} data={data} language={language} />} />
-        <Route path="/read" element={<ReadPage buildHref={buildHref} data={data} language={language} />} />
-        <Route path="/explore" element={<Navigate replace to={buildHref('/connections')} />} />
-        <Route path="/paragraph/:id" element={<LegacyParagraphRedirect devMode={devMode} language={language} />} />
-      </Routes>
+      <aside className="toc-panel">
+        <div className="toc-heading"><span>{t.contents}</span><button onClick={() => setTocOpen(false)} type="button">×</button></div>
+        <nav aria-label={t.contents}><ul>{toc.map((branch) => <TocItem activePath={activeNode?.breadcrumbs ?? []} branch={branch} key={branch.label} language={language} onJump={jumpTo} titles={data.hierarchyTitles} />)}</ul></nav>
+      </aside>
 
-      {devMode ? <div className="build-label">build {buildHash}</div> : null}
+      <main className="book-column">
+        <div className="edition-title"><span>CCC</span><h1>{t.title}</h1><p>{language === 'sv' ? 'Den fullständiga texten' : 'The complete text'}</p></div>
+        {nodes.map((node, index) => <ReaderParagraph active={node.id === activeId} key={node.id} language={language} next={nodes[index + 1]} node={node} onActivate={setActiveId} onCitation={setCitation} previous={nodes[index - 1]} selectedKey={citation?.key} titles={data.hierarchyTitles} />)}
+      </main>
+
+      {searchOpen ? (
+        <div className="search-overlay" role="dialog" aria-label={t.results}>
+          <div className="search-overlay-heading"><div><span>{t.results}</span><strong>“{search}”</strong></div><button aria-label={t.close} onClick={() => setSearchOpen(false)} type="button">×</button></div>
+          <div className="search-results">
+            {results.length ? results.map((node) => <button key={node.id} onClick={() => jumpTo(node.id)} type="button"><span>{node.number}</span><div><strong>{node.title}</strong><p>{node.preview}</p></div></button>) : <p className="no-results">{t.noResults}</p>}
+          </div>
+        </div>
+      ) : null}
+
+      {citation ? <><div aria-hidden="true" className="citation-resize" onMouseDown={beginCitationResize} /><CitationPanel citation={citation} data={data} language={language} onClose={() => setCitation(null)} onJump={jumpTo} /></> : null}
     </div>
   );
 }
 
-export default function App() {
-  const [language, setLanguage] = useState<AppLanguage>(() => getInitialLanguage());
-  const { data, schedule, error, loading } = useCatechismData(language);
-  const t = uiStrings[language];
-
-  useEffect(() => {
-    window.localStorage.setItem('catholic-core-language', language);
-    document.cookie = `catholic-core-language=${language}; path=/; max-age=${60 * 60 * 24 * 365}`;
-    const url = new URL(window.location.href);
-    if (language === 'en') {
-      url.searchParams.delete('lang');
-    } else {
-      url.searchParams.set('lang', language);
-    }
-    window.history.replaceState({}, '', url);
-  }, [language]);
-
-  if (loading) {
-    return (
-      <main className="loading-screen">
-        <p className="eyebrow">{brandKicker}</p>
-        <h1>{t.loadingTitle}</h1>
-      </main>
-    );
-  }
-
-  if (error || !data || !schedule) {
-    return (
-      <main className="loading-screen">
-        <p className="eyebrow">{brandKicker}</p>
-        <h1>{t.errorTitle}</h1>
-        <p>{error ?? 'Unknown error'}</p>
-      </main>
-    );
-  }
-
-  return (
-    <BrowserRouter>
-      <RoutedShell data={data} language={language} onLanguageChange={setLanguage} schedule={schedule} />
-    </BrowserRouter>
-  );
-}
+export default App;
