@@ -51,6 +51,16 @@ function bibleReferenceFromHref(href: string) {
   }
 }
 
+function footnoteIdFromHref(href: string) {
+  const match = href.match(/\/fn\/([^/?#"'<>]+)/i);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
 function normalizeBibleReference(reference: string) {
   return reference.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -221,7 +231,7 @@ function HierarchyBreak({ node, previous, language, titles, onCitation, selected
       })}
       {node.headings.map((heading) => {
         let html = heading.html ? (language === 'sv' ? stripSwedishParagraphLinks(heading.html) : heading.html) : '';
-        html = labelFootnoteLinks(html, language === 'sv' ? 'Fotnot' : 'Footnote', selectedFootnote?.number);
+        html = labelFootnoteLinks(html, language === 'sv' ? 'Fotnot' : 'Footnote', selectedFootnote?.id);
         return html ? (
           <h3 className={`text-heading heading-${heading.kind}`} dangerouslySetInnerHTML={{ __html: html }} key={`${node.id}-${heading.text}`} onClick={(event) => showNodeCitation(event, node, language, onCitation)} />
         ) : (
@@ -240,13 +250,24 @@ function stripSwedishParagraphLinks(html: string) {
   return html.replace(/<i>\s*\[(?:(?!<\/i>)[\s\S])*?katekesen\.se(?:(?!<\/i>)[\s\S])*?<\/i>/gi, '');
 }
 
-function labelFootnoteLinks(html: string, label: string, selectedNumber?: number | string) {
-  const selected = selectedNumber === undefined ? null : String(selectedNumber).replace(/[^0-9]/g, '');
+function labelFootnoteLinks(html: string, label: string, selectedId?: string) {
+  const isSelected = (attributes: string) => {
+    const href = attributes.match(/href\s*=\s*["']([^"']+)["']/i)?.[1] ?? '';
+    return selectedId !== undefined && footnoteIdFromHref(href) === selectedId;
+  };
   return html
     .replace(/<a\s+([^>]*)><sup>(\[?(\d+)\]?)<\/sup><\/a>/gi, (_match, attributes: string, marker: string, number: string) =>
-      `<a ${attributes} aria-label="${label} ${number}"><sup${selected === number ? ' class="is-selected"' : ''}>${marker}</sup></a>`)
+      `<a ${attributes} aria-label="${label} ${number}"><sup${isSelected(attributes) ? ' class="is-selected"' : ''}>${marker}</sup></a>`)
     .replace(/<sup><a\s+([^>]*)>(\[?(\d+)\]?)<\/a><\/sup>/gi, (_match, attributes: string, marker: string, number: string) =>
-      `<sup${selected === number ? ' class="is-selected"' : ''}><a ${attributes} aria-label="${label} ${number}">${marker}</a></sup>`);
+      `<sup${isSelected(attributes) ? ' class="is-selected"' : ''}><a ${attributes} aria-label="${label} ${number}">${marker}</a></sup>`)
+    .replace(/<a\s+([^>]*class=["'][^"']*\binline-citation\b[^"']*["'][^>]*)>([\s\S]*?)<\/a>/gi, (_match, attributes: string, content: string) => {
+      const selectedClass = isSelected(attributes) ? ' is-selected' : '';
+      const markedAttributes = attributes.replace(
+        /class=(["'])([^"']*)\1/i,
+        (_classMatch, quote: string, classNames: string) => `class=${quote}${classNames}${selectedClass}${quote}`,
+      );
+      return `<a ${markedAttributes}>${content}</a>`;
+    });
 }
 
 function indentInternalLineBreaks(html: string) {
@@ -259,7 +280,9 @@ function showNodeCitation(
   language: 'en' | 'sv',
   onCitation: (citation: Citation) => void,
 ) {
-  const target = (event.target as HTMLElement).closest('a');
+  const clicked = event.target as HTMLElement;
+  const sup = clicked.closest('sup');
+  const target = clicked.closest('a') ?? sup?.querySelector('a') ?? null;
   const bibleReference = target ? bibleReferenceFromHref(target.getAttribute('href') ?? '') : null;
   if (language === 'sv' && bibleReference) {
     event.preventDefault();
@@ -268,10 +291,19 @@ function showNodeCitation(
     onCitation({ key: `bible-${node.id}-${name}`, eyebrow: 'Bibelreferens', title: 'Bibel', name, html: '', swedishBibleRef: name });
     return;
   }
-  const sup = target?.querySelector('sup') ?? (event.target as HTMLElement).closest('sup');
-  if (!sup) return;
+  const marker = target?.querySelector('sup') ?? sup;
+  const footnoteId = footnoteIdFromHref(target?.getAttribute('href') ?? '');
+  const exactFootnote = footnoteId
+    ? node.footnotes.find((item) => item.id === footnoteId)
+    : undefined;
+  if (exactFootnote) {
+    event.preventDefault();
+    onCitation(footnoteCitation(node, exactFootnote, language));
+    return;
+  }
+  if (!marker) return;
   event.preventDefault();
-  const token = sup.textContent?.replace(/[^0-9]/g, '');
+  const token = marker.textContent?.replace(/[^0-9]/g, '');
   const footnote = node.footnotes.find((item) => String(item.number) === token);
   if (footnote) onCitation(footnoteCitation(node, footnote, language));
 }
@@ -293,20 +325,21 @@ const ReaderParagraph = memo(function ReaderParagraph({ node, previous, next, se
   const selectedFootnoteId = selectedKey?.startsWith(`fn-${node.id}-`) ? selectedKey.slice(`fn-${node.id}-`.length) : undefined;
   const selectedFootnote = selectedFootnoteId ? node.footnotes.find((item) => item.id === selectedFootnoteId) : undefined;
   let paragraphHtml = language === 'sv' ? stripSwedishParagraphLinks(node.textHtml) : node.textHtml;
+  const smallPrint = /^\s*<(?:span|small)\b[^>]*class\s*=\s*["'][^"']*\bsmaller\b/i.test(paragraphHtml);
   const footnoteLabel = language === 'sv' ? 'Fotnot' : 'Footnote';
-  paragraphHtml = labelFootnoteLinks(paragraphHtml, footnoteLabel, selectedFootnote?.number);
+  paragraphHtml = labelFootnoteLinks(paragraphHtml, footnoteLabel, selectedFootnote?.id);
   paragraphHtml = indentInternalLineBreaks(paragraphHtml);
 
   return (
     <article aria-labelledby={`paragraph-number-${node.id}`} className={`reader-paragraph ${inBrief ? 'in-brief' : ''} ${inBriefStart ? 'in-brief-start' : ''} ${inBriefEnd ? 'in-brief-end' : ''}`} data-paragraph={node.id} id={`paragraph-${node.id}`}>
       <HierarchyBreak language={language} node={node} onCitation={onCitation} previous={previous} selectedFootnote={selectedFootnote} titles={titles} />
       <div className="paragraph-row">
-        <div className="margin-references" aria-label={language === 'sv' ? 'Paragrafhänvisningar' : 'Paragraph references'}>
+        <div className={`margin-references ${smallPrint ? 'is-small-print' : ''}`} aria-label={language === 'sv' ? 'Paragrafhänvisningar' : 'Paragraph references'}>
           {node.xrefs.map((id) => (
             <button className={selectedKey === `xref-${node.id}-${id}` ? 'is-selected' : ''} key={id} onClick={(event) => { event.stopPropagation(); onCitation({ key: `xref-${node.id}-${id}`, eyebrow: copy[language].reference, title: `§ ${id}`, html: '', target: id }); }} type="button">{id}</button>
           ))}
         </div>
-        <div className="paragraph-copy" onClick={(event) => showNodeCitation(event, node, language, onCitation)}>
+        <div className={`paragraph-copy ${smallPrint ? 'is-small-print' : ''}`} onClick={(event) => showNodeCitation(event, node, language, onCitation)}>
           <span className="paragraph-number" id={`paragraph-number-${node.id}`}>{node.number}</span>
           <div className="paragraph-text" dangerouslySetInnerHTML={{ __html: paragraphHtml }} />
         </div>

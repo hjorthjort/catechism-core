@@ -14,6 +14,10 @@ import {
   forceX,
   forceY,
 } from 'd3-force';
+import {
+  assertFootnoteIntegrity,
+  repairEnglishFootnoteIntegrity,
+} from './lib/footnote-integrity.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -2530,6 +2534,12 @@ async function buildSwedishLanguagePack(config, nodeIds, graphNodesById) {
   if (brokenFootnoteMarkers.length > 0) {
     throw new Error(`Swedish footnote markers are missing entries: ${brokenFootnoteMarkers.join(', ')}`);
   }
+  const swedishFootnotes = assertFootnoteIntegrity([...localized.values()], 'sv');
+  debugLog(
+    'Swedish footnotes verified',
+    swedishFootnotes.markerCount,
+    'markers and objects',
+  );
 
   const missingParagraphs = [...nodeIds].filter((id) => !localized.has(id));
   if (missingParagraphs.length > 0) {
@@ -6202,6 +6212,13 @@ async function main() {
 
   debugLog('loading base payload');
   const basePayload = await buildBaseGraphPayload();
+  repairEnglishFootnoteIntegrity(basePayload.nodes);
+  const englishFootnotes = assertFootnoteIntegrity(basePayload.nodes, 'en');
+  debugLog(
+    'English footnotes verified',
+    englishFootnotes.markerCount,
+    'markers and objects',
+  );
   debugLog('base payload ready', basePayload.nodes.length, 'nodes');
   const externalPayload = await buildExternalSourcePayload(
     basePayload.nodes,

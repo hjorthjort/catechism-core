@@ -1,9 +1,17 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+  assertFootnoteIntegrity,
+  repairEnglishFootnoteIntegrity,
+} from './lib/footnote-integrity.mjs';
 
 const output = 'public/data/reader-generated';
 const sourceDirectory = `${output}/sources`;
 const graph = JSON.parse(await readFile('public/data/catechism-graph.json', 'utf8'));
 const swedish = JSON.parse(await readFile('public/data/languages/sv.json', 'utf8'));
+
+repairEnglishFootnoteIntegrity(graph.nodes);
+const englishFootnotes = assertFootnoteIntegrity(graph.nodes, 'en');
+const swedishFootnotes = assertFootnoteIntegrity(swedish.nodes, 'sv');
 
 await rm(output, { recursive: true, force: true });
 await mkdir(sourceDirectory, { recursive: true });
@@ -61,3 +69,7 @@ await Promise.all([
   writeFile(`${output}/sv.json`, JSON.stringify(sv)),
   writeFile(`${output}/source-index.json`, JSON.stringify(sourceIndex)),
 ]);
+
+console.log(
+  `Verified footnotes: English ${englishFootnotes.markerCount}/${englishFootnotes.footnoteCount}, Swedish ${swedishFootnotes.markerCount}/${swedishFootnotes.footnoteCount}`,
+);
