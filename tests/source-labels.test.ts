@@ -55,4 +55,18 @@ test('uses a document abbreviation in the citation and its full title below the 
     title: 'St. Thomas Aquinas, Super Epistolam ad Hebraeos',
     citation: 'St. Thomas Aquinas, Hebr. 8,4.',
   })), 'Hebr. 8,4.');
+
+  assert.equal(sourceCitation(source({
+    id: 'document:md:john-paul-ii-md-27',
+    kind: 'document',
+    title: 'Mulieris dignitatem',
+    citation: 'John Paul II, Mulieris dignitatem 27.',
+  })), 'MD 27.');
+
+  assert.equal(sourceCitation(source({
+    id: 'document:aquinas-compendium:1-2',
+    kind: 'document',
+    title: 'St. Thomas Aquinas, Compendium Theologiae',
+    citation: 'St. Thomas Aquinas. Comp. theol. 1, 2',
+  })), 'Comp. theol. 1, 2');
 });

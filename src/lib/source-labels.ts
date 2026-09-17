@@ -90,10 +90,14 @@ const bibleAliases = bibleBooks
   .sort((a, b) => b.alias.length - a.alias.length);
 
 const documentAbbreviations: Record<string, string> = {
-  aa: 'AA', ag: 'AG', ca: 'CA', cceo: 'CCEO', cd: 'CD', cl: 'CL', ct: 'CT', df: 'DF',
-  dh: 'DH', dv: 'DV', en: 'EN', fc: 'FC', ge: 'GE', girm: 'GIRM', gs: 'GS', hv: 'HV',
-  im: 'IM', le: 'LE', lg: 'LG', na: 'NA', ot: 'OT', pc: 'PC', po: 'PO', rmiss: 'RMiss',
-  sc: 'SC', srs: 'SRS', ur: 'UR',
+  aa: 'AA', ag: 'AG', ca: 'CA', cceo: 'CCEO', cd: 'CD', cic: 'CIC', cl: 'CL', ct: 'CT', df: 'DF',
+  dc: 'DC', dev: 'DeV', dh: 'DH', dm: 'DM', dv: 'DV', en: 'EN', fc: 'FC', ge: 'GE',
+  girm: 'GIRM', gs: 'GS', hv: 'HV', im: 'IM', immd: 'ID', indd: 'Ind. doctr.', le: 'LE',
+  lg: 'LG', lp: 'LP', mc: 'MC', md: 'MD', mf: 'MF', mm: 'MM', na: 'NA', ot: 'OT',
+  pc: 'PC', po: 'PO', pp: 'PP', pt: 'PT', qp: 'QP', rh: 'RH', rmat: 'RMat',
+  rmiss: 'RMiss', rp: 'RP', sc: 'SC', srs: 'SRS', ur: 'UR', vc: 'VC', vqa: 'VQA',
+  cpg: 'CPG',
+  'aquinas-compendium': 'Comp. theol.', 'aquinas-opusculum-57': 'Opusc. 57',
   'aquinas-creed': 'Symb.', 'aquinas-de-malo': 'De Malo', 'aquinas-hebrews': 'Hebr.',
   'aquinas-psalms': 'Expos. in Ps.', 'aquinas-scg': 'SCG', 'aquinas-sentences': 'Sent.',
   'aquinas-sth': 'STh', 'aquinas-ten-commandments': 'Dec. præc.',
@@ -101,15 +105,21 @@ const documentAbbreviations: Record<string, string> = {
 
 const documentTitles: Record<string, string> = {
   aa: 'Apostolicam actuositatem', ag: 'Ad gentes', ca: 'Centesimus annus',
-  cceo: 'Code of Canons of the Eastern Churches', cd: 'Christus Dominus',
+  cceo: 'Code of Canons of the Eastern Churches', cd: 'Christus Dominus', cic: 'Code of Canon Law',
   cl: 'Christifideles laici', ct: 'Catechesi tradendae', df: 'Dei Filius',
-  dh: 'Dignitatis humanae', dv: 'Dei verbum', en: 'Evangelii nuntiandi',
+  cpg: 'Credo of the People of God', dc: 'Dominicae cenae', dev: 'Dominum et vivificantem',
+  dh: 'Dignitatis humanae', dm: 'Dives in misericordia', dv: 'Dei verbum', en: 'Evangelii nuntiandi',
   fc: 'Familiaris consortio', ge: 'Gravissimum educationis',
   girm: 'General Instruction of the Roman Missal', gs: 'Gaudium et spes',
-  hv: 'Humanae vitae', im: 'Inter mirifica', le: 'Laborem exercens',
-  lg: 'Lumen gentium', na: 'Nostra aetate', ot: 'Optatam totius',
-  pc: 'Perfectae caritatis', po: 'Presbyterorum ordinis', rmiss: 'Redemptoris missio',
+  hv: 'Humanae vitae', im: 'Inter mirifica', immd: 'Immortale Dei',
+  indd: 'Indulgentiarum doctrina', le: 'Laborem exercens', lg: 'Lumen gentium',
+  lp: 'Libertas praestantissimum', mc: 'Marialis cultus', md: 'Mulieris dignitatem',
+  mf: 'Mysterium fidei', mm: 'Mater et Magistra', na: 'Nostra aetate', ot: 'Optatam totius',
+  pc: 'Perfectae caritatis', po: 'Presbyterorum ordinis', pp: 'Populorum progressio',
+  pt: 'Pacem in terris', qp: 'Quas primas', rh: 'Redemptor hominis',
+  rmat: 'Redemptoris Mater', rmiss: 'Redemptoris missio', rp: 'Reconciliatio et paenitentia',
   sc: 'Sacrosanctum Concilium', srs: 'Sollicitudo rei socialis', ur: 'Unitatis redintegratio',
+  vc: 'Vita consecrata', vqa: 'Vicesimus quintus annus',
 };
 
 function normalizedReference(value: string) {
@@ -143,7 +153,7 @@ function escapeRegExp(value: string) {
 function documentCitation(citation: string, sourceId?: string | null, title?: string) {
   const key = documentKey(sourceId);
   const shortCitation = key.startsWith('aquinas-')
-    ? citation.replace(/^St\. Thomas Aquinas(?: \(attr\.\))?,\s*/i, '')
+    ? citation.replace(/^St\. Thomas Aquinas(?: \(attr\.\))?[.,]\s*/i, '')
     : citation;
   const abbreviation = documentAbbreviations[key];
   if (!abbreviation) return shortCitation;

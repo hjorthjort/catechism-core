@@ -831,6 +831,120 @@ const documentCatalog = {
     url: 'https://www.vatican.va/content/paul-vi/en/apost_exhortations/documents/hf_p-vi_exh_19751208_evangelii-nuntiandi.html',
     parser: 'modern',
   },
+  RH: {
+    id: 'RH',
+    title: 'Redemptor hominis',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/encyclicals/documents/hf_jp-ii_enc_04031979_redemptor-hominis.html',
+    parser: 'modern',
+  },
+  DM: {
+    id: 'DM',
+    title: 'Dives in misericordia',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/encyclicals/documents/hf_jp-ii_enc_30111980_dives-in-misericordia.html',
+    parser: 'modern',
+  },
+  DeV: {
+    id: 'DeV',
+    title: 'Dominum et vivificantem',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/encyclicals/documents/hf_jp-ii_enc_18051986_dominum-et-vivificantem.html',
+    parser: 'modern',
+  },
+  RMat: {
+    id: 'RMat',
+    title: 'Redemptoris Mater',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/encyclicals/documents/hf_jp-ii_enc_25031987_redemptoris-mater.html',
+    parser: 'modern',
+  },
+  RP: {
+    id: 'RP',
+    title: 'Reconciliatio et paenitentia',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/apost_exhortations/documents/hf_jp-ii_exh_02121984_reconciliatio-et-paenitentia.html',
+    parser: 'modern',
+  },
+  MD: {
+    id: 'MD',
+    title: 'Mulieris dignitatem',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/apost_letters/1988/documents/hf_jp-ii_apl_15081988_mulieris-dignitatem.html',
+    parser: 'modern',
+  },
+  VC: {
+    id: 'VC',
+    title: 'Vita consecrata',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/apost_exhortations/documents/hf_jp-ii_exh_25031996_vita-consecrata.html',
+    parser: 'modern',
+  },
+  VQA: {
+    id: 'VQA',
+    title: 'Vicesimus quintus annus',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/apost_letters/1988/documents/hf_jp-ii_apl_19881204_vicesimus-quintus-annus.html',
+    parser: 'modern',
+  },
+  DC: {
+    id: 'DC',
+    title: 'Dominicae cenae',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/letters/1980/documents/hf_jp-ii_let_19800224_dominicae-cenae.html',
+    parser: 'modern',
+  },
+  MC: {
+    id: 'MC',
+    title: 'Marialis cultus',
+    url: 'https://www.vatican.va/content/paul-vi/en/apost_exhortations/documents/hf_p-vi_exh_19740202_marialis-cultus.html',
+    parser: 'modern',
+  },
+  MF: {
+    id: 'MF',
+    title: 'Mysterium fidei',
+    url: 'https://www.vatican.va/content/paul-vi/en/encyclicals/documents/hf_p-vi_enc_03091965_mysterium.html',
+    parser: 'modern',
+  },
+  PP: {
+    id: 'PP',
+    title: 'Populorum progressio',
+    url: 'https://www.vatican.va/content/paul-vi/en/encyclicals/documents/hf_p-vi_enc_26031967_populorum.html',
+    parser: 'modern',
+  },
+  CPG: {
+    id: 'CPG',
+    title: 'Credo of the People of God',
+    url: 'https://www.vatican.va/content/paul-vi/en/homilies/1968/documents/hf_p-vi_hom_19680630.html',
+    parser: 'modern',
+  },
+  IndD: {
+    id: 'IndD',
+    title: 'Indulgentiarum doctrina',
+    url: 'https://www.vatican.va/content/paul-vi/en/apost_constitutions/documents/hf_p-vi_apc_01011967_indulgentiarum-doctrina.html',
+    parser: 'indulgentiarum',
+  },
+  PT: {
+    id: 'PT',
+    title: 'Pacem in terris',
+    url: 'https://www.vatican.va/content/john-xxiii/en/encyclicals/documents/hf_j-xxiii_enc_11041963_pacem.html',
+    parser: 'modern',
+  },
+  MM: {
+    id: 'MM',
+    title: 'Mater et Magistra',
+    url: 'https://www.vatican.va/content/john-xxiii/en/encyclicals/documents/hf_j-xxiii_enc_15051961_mater.html',
+    parser: 'modern',
+  },
+  QP: {
+    id: 'QP',
+    title: 'Quas primas',
+    url: 'https://www.vatican.va/content/pius-xi/en/encyclicals/documents/hf_p-xi_enc_11121925_quas-primas.html',
+    parser: 'modern',
+  },
+  LP: {
+    id: 'LP',
+    title: 'Libertas praestantissimum',
+    url: 'https://www.vatican.va/content/leo-xiii/en/encyclicals/documents/hf_l-xiii_enc_20061888_libertas.html',
+    parser: 'modern',
+  },
+  ImmD: {
+    id: 'ImmD',
+    title: 'Immortale Dei',
+    url: 'https://www.vatican.va/content/leo-xiii/en/encyclicals/documents/hf_l-xiii_enc_01111885_immortale-dei.html',
+    parser: 'modern',
+  },
   GCD: {
     id: 'GCD',
     title: 'General Catechetical Directory',
@@ -861,6 +975,7 @@ const documentCatalog = {
     url: 'https://www.vatican.va/holy_father/john_paul_ii/apost_constitutions/documents/hf_jp-ii_apc_19901018_index-codex-can-eccl-orient_lt.html',
     parser: 'cceo',
     language: 'la',
+    translate: false,
   },
 };
 
@@ -906,6 +1021,25 @@ const documentAliasPatterns = {
   RMiss: [/\bRM\b/i, /redemptoris missio/i],
   HV: [/humanae vitae/i],
   EN: [/evangelii nuntiandi/i],
+  RH: [/redemptor hominis/i],
+  DM: [/dives in misericordia/i],
+  DeV: [/dominum et vivificantem/i],
+  RMat: [/redemptoris mater/i],
+  RP: [/reconciliatio et paenitentia/i],
+  MD: [/mulieris dignitatem/i],
+  VC: [/vita consecrata/i],
+  VQA: [/vicesimus quintus annus/i],
+  DC: [/dominicae cenae/i],
+  MC: [/marialis cultus/i],
+  MF: [/mysterium fidei/i],
+  PP: [/populorum progressio/i],
+  CPG: [/credo of the people of god/i],
+  IndD: [/indulgentiarum doctrina/i],
+  PT: [/pacem in terris/i],
+  MM: [/mater et magistra/i],
+  QP: [/quas primas/i],
+  LP: [/libertas pr[æa]estantissimum/i],
+  ImmD: [/immortale dei/i],
   GCD: [/general catechetical directory/i],
   GIRM: [/general instruction of the roman missal/i],
   GE: [/gravissimum educationis/i],
@@ -1887,7 +2021,9 @@ async function getCachedBuffer(url) {
         }
 
         if (response.status !== 429 || attempt === 5) {
-          throw new Error(`Request failed with ${response.status} for ${url}`);
+          const error = new Error(`Request failed with ${response.status} for ${url}`);
+          error.nonRetryable = response.status !== 429;
+          throw error;
         }
 
         const retryAfterSeconds = Number(response.headers.get('retry-after') ?? '0');
@@ -1896,7 +2032,7 @@ async function getCachedBuffer(url) {
         await new Promise((resolve) => setTimeout(resolve, delayMs));
         continue;
       } catch (error) {
-        if (attempt === 5) {
+        if (error?.nonRetryable || attempt === 5) {
           throw error;
         }
 
@@ -3346,7 +3482,7 @@ function parseNumberedSectionsFromHtml(html, parser) {
       return;
     }
 
-    if (parser === 'legacy' && /^notes$/i.test(text)) {
+    if (/^notes$/i.test(text)) {
       reachedNotes = true;
     }
 
@@ -3356,8 +3492,8 @@ function parseNumberedSectionsFromHtml(html, parser) {
 
     const match = text.match(/^(\d+)\.\s*(.*)$/);
     if (match) {
-      if (parser === 'legacy' && current && Number(match[1]) < current.number) {
-        reachedNotes = true;
+      const number = Number(match[1]);
+      if (current && number <= current.number) {
         return;
       }
 
@@ -3366,7 +3502,7 @@ function parseNumberedSectionsFromHtml(html, parser) {
       }
 
       current = {
-        number: Number(match[1]),
+        number,
         parts: [match[2] ? `<p>${escapeHtml(match[2])}</p>` : ''],
       };
       return;
@@ -3403,6 +3539,60 @@ function parseNumberedSectionsFromHtml(html, parser) {
       })(),
     ]),
   );
+}
+
+function parseIndulgentiarumSections(html) {
+  const sections = parseNumberedSectionsFromHtml(html, 'modern');
+  const $ = cheerio.load(html);
+  const container = extractModernDocumentContainer($);
+  const root = container.length ? container : $.root();
+  let inNorms = false;
+  let current = null;
+
+  function flushCurrent() {
+    if (!current) {
+      return;
+    }
+    sections.set(`norm:${current.number}`, buildHtmlParagraphs(current.parts));
+    current = null;
+  }
+
+  root.find('p').each((_, element) => {
+    const entry = $(element);
+    const text = cleanText(entry.text());
+    if (!text) {
+      return;
+    }
+
+    if (/^NORMS$/i.test(text)) {
+      inNorms = true;
+      return;
+    }
+    if (!inNorms) {
+      return;
+    }
+    if (/^notes$/i.test(text)) {
+      flushCurrent();
+      return false;
+    }
+
+    const normMatch = text.match(/^n\.\s*(\d+)\s*[—–-]\s*(.*)$/i);
+    if (normMatch) {
+      flushCurrent();
+      current = {
+        number: Number(normMatch[1]),
+        parts: [normMatch[2] ? `<p>${escapeHtml(normMatch[2])}</p>` : ''],
+      };
+      return;
+    }
+
+    if (current) {
+      current.parts.push(`<p>${entry.html()?.trim() ?? escapeHtml(text)}</p>`);
+    }
+  });
+
+  flushCurrent();
+  return sections;
 }
 
 function numberToRomanNumeral(value) {
@@ -3640,9 +3830,16 @@ function parseCanonsFromHtml(html, selector = '#corpo p') {
 
 async function loadCicSections() {
   const indexHtml = await fetchHtml(documentCatalog.CIC.url);
-  const indexLinks = extractLinks(indexHtml, documentCatalog.CIC.url).filter((url) =>
-    /\/archive\/cod-iuris-canonici\/eng\/documents\/cic_.*_en\.html$/i.test(url),
-  );
+  const indexLinks = [...new Set(
+    extractLinks(indexHtml, documentCatalog.CIC.url)
+      .filter((url) => /\/archive\/cod-iuris-canonici\/eng\/documents\/cic_.*_en\.html$/i.test(url))
+      .map((url) => {
+        const normalizedUrl = new URL(url);
+        normalizedUrl.protocol = 'https:';
+        normalizedUrl.hostname = 'press.vatican.va';
+        return normalizedUrl.toString();
+      }),
+  )];
   const pageEntries = indexLinks
     .map((url) => ({ url, range: canonRangeForUrl(url) }))
     .filter((entry) => entry.range)
@@ -3650,19 +3847,28 @@ async function loadCicSections() {
   const sections = new Map();
 
   for (const entry of pageEntries) {
-    let html;
-    try {
-      html = await fetchHtml(entry.url);
-    } catch (error) {
-      if (String(error).includes('404') || String(error).includes('Offline cache miss')) {
-        continue;
+    let html = null;
+    let resolvedUrl = entry.url;
+    const alternateUrl = new URL(entry.url);
+    alternateUrl.hostname = 'www.vatican.va';
+    for (const candidateUrl of [entry.url, alternateUrl.toString()]) {
+      try {
+        html = await fetchHtml(candidateUrl);
+        resolvedUrl = candidateUrl;
+        break;
+      } catch (error) {
+        if (!String(error).includes('404') && !String(error).includes('Offline cache miss')) {
+          throw error;
+        }
       }
-      throw error;
+    }
+    if (!html) {
+      continue;
     }
     const pageSections = parseCanonsFromHtml(html);
     for (const [number, payload] of pageSections) {
       if (!sections.has(number)) {
-        sections.set(number, { ...payload, url: entry.url });
+        sections.set(number, { ...payload, url: resolvedUrl });
       }
     }
   }
@@ -3811,6 +4017,20 @@ async function loadDocumentSections(documentId, override = null) {
     sections = new Map(
       [...parsed.entries()].map(([key, payload]) => [key, { ...payload, url }]),
     );
+  } else if (parser === 'indulgentiarum') {
+    let html;
+    try {
+      html = await fetchHtml(url);
+    } catch (error) {
+      if (String(error).includes('Offline cache miss')) {
+        return null;
+      }
+      throw error;
+    }
+    const parsed = parseIndulgentiarumSections(html);
+    sections = new Map(
+      [...parsed.entries()].map(([key, payload]) => [key, { ...payload, url }]),
+    );
   } else {
     let html;
     try {
@@ -3835,7 +4055,10 @@ async function loadDocumentSections(documentId, override = null) {
 function findDocumentCatalogMatch(label) {
   for (const [documentId, config] of Object.entries(documentCatalog)) {
     const patterns = [
-      new RegExp(`(?:^|[\\s,(;])${escapeRegExp(documentId)}(?=$|[\\s,;:§])`, 'i'),
+      new RegExp(
+        `(?:^|[\\s,(;])${escapeRegExp(documentId)}(?=$|\\s*,?\\s*(?:\\d|§|cann?\\.?))`,
+        'i',
+      ),
       ...(documentAliasPatterns[documentId] ?? []),
       new RegExp(escapeRegExp(config.title), 'i'),
     ];
@@ -3929,14 +4152,18 @@ function parseDocumentLocator(locatorText) {
 
   for (const token of tokens) {
     if (/^§+\s*/.test(token)) {
+      const sectionOrPinpoint = Number(token.replace(/^§+\s*/, '').match(/^\d+/)?.[0] ?? NaN);
       if (currentSection === null) {
+        if (Number.isFinite(sectionOrPinpoint)) {
+          sections.push(sectionOrPinpoint);
+          currentSection = sectionOrPinpoint;
+        }
         continue;
       }
 
-      const pinpointValue = Number(token.replace(/^§+\s*/, '').match(/^\d+/)?.[0] ?? NaN);
-      if (Number.isFinite(pinpointValue)) {
+      if (Number.isFinite(sectionOrPinpoint)) {
         const existing = pinpointMap.get(currentSection) ?? [];
-        existing.push(pinpointValue);
+        existing.push(sectionOrPinpoint);
         pinpointMap.set(currentSection, [...new Set(existing)]);
       }
       continue;
@@ -3972,6 +4199,36 @@ function parseDocumentLocator(locatorText) {
     sections: [...new Set(sections)],
     pinpointMap,
   };
+}
+
+function parseCanonLawLocator(locatorText) {
+  const sections = [];
+  const normalized = cleanText(locatorText)
+    .replace(/^(?:cann?|canons?)\.?\s*/i, '')
+    .replace(/\bpara(?:graph)?\.?\s*/gi, '§ ');
+
+  for (const segment of normalized.split(/\s*;\s*/).map((entry) => entry.trim()).filter(Boolean)) {
+    const rangeMatch = segment.match(/^(\d+)\s*-\s*(\d+)/);
+    if (rangeMatch) {
+      const start = Number(rangeMatch[1]);
+      const end = Number(rangeMatch[2]);
+      const safeEnd = end >= start && end - start <= 32 ? end : start;
+      for (let number = start; number <= safeEnd; number += 1) {
+        sections.push(number);
+      }
+    } else {
+      const firstNumber = Number(segment.match(/^(\d+)/)?.[1] ?? NaN);
+      if (Number.isFinite(firstNumber)) {
+        sections.push(firstNumber);
+      }
+    }
+
+    for (const match of segment.matchAll(/,\s*(\d{2,4})(?=\s*(?:§|#|$|[.)]))/g)) {
+      sections.push(Number(match[1]));
+    }
+  }
+
+  return [...new Set(sections)];
 }
 
 const deiFiliusDenzingerMap = [
@@ -4083,6 +4340,33 @@ function parseDocumentReference(reference) {
   if (documentId === 'DF') {
     return parseDeiFiliusReference(label, locatorText);
   }
+  if (documentId === 'CIC' || documentId === 'CCEO') {
+    const sections = parseCanonLawLocator(locatorText);
+    if (sections.length === 0) {
+      return null;
+    }
+    return {
+      documentId,
+      title: documentCatalog[documentId].title,
+      citation: label,
+      sections,
+      pinpointMap: new Map(),
+    };
+  }
+  if (documentId === 'IndD') {
+    const normMatch = locatorText.match(/\bNorm\s+(\d+)/i);
+    if (normMatch) {
+      const section = `norm:${Number(normMatch[1])}`;
+      return {
+        documentId,
+        title: documentCatalog[documentId].title,
+        citation: label,
+        sections: [section],
+        pinpointMap: new Map(),
+        sectionLabelMap: new Map([[section, `Norm ${Number(normMatch[1])}`]]),
+      };
+    }
+  }
   const { sections, pinpointMap } = parseDocumentLocator(locatorText);
   if (sections.length === 0) {
     return null;
@@ -4145,7 +4429,7 @@ function renderDocumentSectionEntry(entry, pinpoints = []) {
   };
 }
 
-function shouldRebuildAquinasSource(existing) {
+function shouldRebuildAquinasSource(existing, parsed) {
   if (existing?.kind !== 'document') {
     return false;
   }
@@ -4155,7 +4439,16 @@ function shouldRebuildAquinasSource(existing) {
     return false;
   }
 
-  return !existing.contentByLanguage;
+  if (!existing.contentByLanguage) {
+    return true;
+  }
+
+  if (parsed?.kind === 'aquinas-compendium') {
+    return !new RegExp(`\\bCaput\\s+${parsed.chapter}\\b`, 'i').test(existing.contentText ?? '');
+  }
+
+  return parsed?.kind === 'aquinas-ten-commandments'
+    && !existing.url?.endsWith(`#${parsed.article + 2}`);
 }
 
 function ensureContentByLanguage(source, fallbackLanguage, fallbackTranslationNote = source?.translationNote) {
@@ -4247,6 +4540,46 @@ function parseAquinasPinpoint(text) {
 function parseAquinasReference(reference) {
   const label = normalizeDocumentLabel(reference.canonicalLabel ?? reference.label);
 
+  const compendiumMatch = label.match(
+    /^St\.\s*Thomas\s*Aquinas[.,]\s*Comp\.\s*theol\.\s*(\d+)\s*,\s*(\d+)\.?$/i,
+  );
+  if (compendiumMatch) {
+    const book = Number(compendiumMatch[1]);
+    const chapter = Number(compendiumMatch[2]);
+    if (!Number.isFinite(book) || !Number.isFinite(chapter)) {
+      return null;
+    }
+
+    return {
+      kind: 'aquinas-compendium',
+      title: 'St. Thomas Aquinas, Compendium Theologiae',
+      citation: label,
+      sourceId: `document:aquinas-compendium:${slugSegment(`${book}-${chapter}`)}`,
+      book,
+      chapter,
+    };
+  }
+
+  const opusculumMatch = label.match(
+    /^St\.\s*Thomas\s*Aquinas,\s*Opusc\.\s*57\s*,\s*(\d+)\s*-\s*(\d+)\.?$/i,
+  );
+  if (opusculumMatch) {
+    const start = Number(opusculumMatch[1]);
+    const end = Number(opusculumMatch[2]);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+      return null;
+    }
+
+    return {
+      kind: 'aquinas-opusculum-57',
+      title: 'St. Thomas Aquinas, In festo Corporis Christi',
+      citation: label,
+      sourceId: `document:aquinas-opusculum-57:${slugSegment(`${start}-${end}`)}`,
+      start,
+      end,
+    };
+  }
+
   const sthMatch = label.match(
     /^St\.\s*Thomas\s*Aquinas,\s*STh\.?\s*([IVX]+(?:-[IVX]+)?)\s*,?\s*(\d+)[,\s]+(\d+)(.*)$/i,
   );
@@ -4328,7 +4661,7 @@ function parseAquinasReference(reference) {
     };
   }
 
-  const commandmentsMatch = label.match(/St\.\s*Thomas\s*Aquinas,\s*Dec\.\s*pr[æa]c\.\s*([IVXLC]+|\d+)\.?/i);
+  const commandmentsMatch = label.match(/St\.\s*Thomas\s*Aquinas,\s*Dec\.\s*pr(?:æ|ae|a)c\.\s*([IVXLC]+|\d+)\.?/i);
   if (commandmentsMatch) {
     const article = romanNumeralToNumber(commandmentsMatch[1]);
     if (!Number.isFinite(article)) {
@@ -4685,8 +5018,102 @@ async function buildAquinasTenCommandmentsSource(parsed) {
   return buildAquinasAnchoredBilingualSource(
     parsed,
     'https://isidore.co/aquinas/TenCommandments.htm',
-    String(parsed.article),
+    String(parsed.article + 2),
   );
+}
+
+async function buildAquinasCompendiumSource(parsed) {
+  if (parsed.book !== 1) {
+    return null;
+  }
+  const url = 'https://isidore.co/aquinas/Compendium.htm';
+  const html = await fetchHtml(url);
+  const $ = cheerio.load(html);
+  const anchor = $(`a[name="${parsed.chapter}"], a[id="${parsed.chapter}"]`).first();
+  const table = anchor.closest('table');
+  if (!table.length) {
+    return null;
+  }
+
+  const bilingual = buildBilingualTableContent(table, url);
+  if (!bilingual.latinText && !bilingual.englishText) {
+    return null;
+  }
+
+  return {
+    id: parsed.sourceId,
+    kind: 'document',
+    title: parsed.title,
+    citation: parsed.citation,
+    url: `${url}#${parsed.chapter}`,
+    language: 'la',
+    sourceLabel: 'Isidore.co',
+    translationStatus: 'public-domain',
+    translationNote: 'Open-source bilingual Latin and English text.',
+    contentHtml: `<p><strong>Latin</strong></p>${bilingual.latinHtml}<p><strong>English</strong></p>${bilingual.englishHtml}`,
+    contentText: cleanText(`${bilingual.latinText} ${bilingual.englishText}`),
+    contentByLanguage: {
+      la: { html: bilingual.latinHtml, text: bilingual.latinText },
+      en: { html: bilingual.englishHtml, text: bilingual.englishText },
+    },
+  };
+}
+
+async function buildAquinasOpusculum57Source(parsed) {
+  const url = 'https://isidore.co/aquinas/CorpusChristiRd.htm';
+  const html = await fetchHtml(url);
+  const $ = cheerio.load(html);
+  const latinParts = [];
+  const englishParts = [];
+
+  $('tr').each((_, row) => {
+    const cells = $(row).children('td');
+    if (cells.length !== 2) {
+      return;
+    }
+
+    const readingMatch = cleanText($(cells[0]).text()).match(/^Reading\s+(\d+)\b/i);
+    const reading = Number(readingMatch?.[1] ?? NaN);
+    if (!Number.isFinite(reading) || reading < parsed.start || reading > parsed.end) {
+      return;
+    }
+
+    const latinHtml = absolutizeFragmentLinks($(cells[0]).html() ?? '', url);
+    const englishHtml = absolutizeFragmentLinks($(cells[1]).html() ?? '', url);
+    if (cleanText($(cells[0]).text())) {
+      latinParts.push(`<p>${latinHtml}</p>`);
+    }
+    if (cleanText($(cells[1]).text())) {
+      englishParts.push(`<p><strong>Reading ${reading}</strong></p><p>${englishHtml}</p>`);
+    }
+  });
+
+  if (latinParts.length === 0 || englishParts.length === 0) {
+    return null;
+  }
+
+  const latinHtml = latinParts.join('');
+  const englishHtml = englishParts.join('');
+  const latinText = cleanText(cheerio.load(`<div>${latinHtml}</div>`)('div').text());
+  const englishText = cleanText(cheerio.load(`<div>${englishHtml}</div>`)('div').text());
+
+  return {
+    id: parsed.sourceId,
+    kind: 'document',
+    title: parsed.title,
+    citation: parsed.citation,
+    url,
+    language: 'la',
+    sourceLabel: 'Isidore.co',
+    translationStatus: 'public-domain',
+    translationNote: 'Open-source Latin and English text.',
+    contentHtml: `<p><strong>Latin</strong></p>${latinHtml}<p><strong>English</strong></p>${englishHtml}`,
+    contentText: cleanText(`${latinText} ${englishText}`),
+    contentByLanguage: {
+      la: { html: latinHtml, text: latinText },
+      en: { html: englishHtml, text: englishText },
+    },
+  };
 }
 
 async function buildAquinasAdoroTeSource(parsed) {
@@ -4916,6 +5343,12 @@ async function buildAquinasSource(parsed) {
   }
   if (parsed.kind === 'aquinas-ten-commandments') {
     return buildAquinasTenCommandmentsSource(parsed);
+  }
+  if (parsed.kind === 'aquinas-compendium') {
+    return buildAquinasCompendiumSource(parsed);
+  }
+  if (parsed.kind === 'aquinas-opusculum-57') {
+    return buildAquinasOpusculum57Source(parsed);
   }
   if (parsed.kind === 'aquinas-psalms') {
     return buildAquinasPsalmsSource(parsed);
@@ -5749,10 +6182,22 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
 
   const externalSources = {};
   const missingScriptureQueries = [...scriptureQueries];
-  debugLog('scripture queries', scriptureQueries.size, 'rebuilding', missingScriptureQueries.length);
+  debugLog('scripture queries', scriptureQueries.size, 'checking', missingScriptureQueries.length);
   debugLog('document queries', documentQueries.size, 'aquinas', aquinasQueries.size);
 
   for (const query of missingScriptureQueries) {
+    const sourceId = `scripture:${slugSegment(query)}`;
+    const existing = existingExternalSources[sourceId];
+    if (existing?.kind === 'scripture' && existing.contentHtml) {
+      externalSources[sourceId] = {
+        ...existing,
+        id: sourceId,
+        citation: query,
+        contentByLanguage: ensureContentByLanguage(existing, existing.language ?? 'en'),
+      };
+      continue;
+    }
+
     const variants = {};
     let defaultSource = null;
 
@@ -5781,7 +6226,6 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
       continue;
     }
 
-    const sourceId = `scripture:${slugSegment(query)}`;
     const preferredLanguage = variants.en ? 'en' : Object.keys(variants)[0];
     const preferredContent = variants[preferredLanguage];
     externalSources[sourceId] = {
@@ -5826,10 +6270,6 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
         translationNote,
         contentByLanguage: ensureContentByLanguage(existing, existing.language ?? config?.language ?? 'en', translationNote),
       };
-      continue;
-    }
-
-    if (parsed.documentId === 'CIC') {
       continue;
     }
 
@@ -5885,15 +6325,24 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
       contentHtml = contentByLanguage[preferredLanguage]?.html ?? contentHtml;
       contentText = contentByLanguage[preferredLanguage]?.text ?? contentText;
     } else if (config.language && config.language !== 'en') {
-      const translated = await translateHtmlParagraphs(contentHtml, config.language);
-      if (!translated.contentHtml) {
-        continue;
+      if (config.translate === false) {
+        translationNote = `Official ${languageLabel(config.language)} Vatican text.`;
+      } else {
+        let translated = null;
+        try {
+          translated = await translateHtmlParagraphs(contentHtml, config.language);
+        } catch (error) {
+          console.warn(`Translation unavailable for ${sourceId}: ${error.message}`);
+        }
+        if (translated?.contentHtml) {
+          contentHtml = translated.contentHtml;
+          contentText = translated.contentText;
+          translationStatus = 'ai';
+          translationNote = `Translated with AI from the official ${languageLabel(config.language)} Vatican text.`;
+        } else {
+          translationNote = `Official ${languageLabel(config.language)} Vatican text.`;
+        }
       }
-
-      contentHtml = translated.contentHtml;
-      contentText = translated.contentText;
-      translationStatus = 'ai';
-      translationNote = `Translated with AI from the official ${languageLabel(config.language)} Vatican text.`;
     }
 
     externalSources[sourceId] = {
@@ -5927,7 +6376,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
     aquinasIndex += 1;
     debugLog('building aquinas source', aquinasIndex, aquinasQueries.size, parsed.kind, parsed.citation);
     const existing = existingExternalSources[parsed.sourceId] ?? existingDocumentSourceByKey.get(parsed.sourceId);
-    if (existing?.kind === 'document' && !shouldRebuildAquinasSource(existing)) {
+    if (existing?.kind === 'document' && !shouldRebuildAquinasSource(existing, parsed)) {
       externalSources[parsed.sourceId] = {
         ...existing,
         id: parsed.sourceId,
@@ -6225,6 +6674,21 @@ async function buildBaseGraphPayload() {
   };
 }
 
+async function loadExistingExternalSources() {
+  const merged = {};
+  for (let index = 1; index <= 4; index += 1) {
+    const chunkPath = path.join(path.dirname(outputPath), `external-sources-${index}.json`);
+    try {
+      Object.assign(merged, JSON.parse(await readFile(chunkPath, 'utf8')));
+    } catch (error) {
+      if (error?.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+  }
+  return merged;
+}
+
 async function main() {
   const languageFilter = process.env.ONLY_LANGUAGE_PACKS
     ?.split(',')
@@ -6255,9 +6719,11 @@ async function main() {
     'markers and objects',
   );
   debugLog('base payload ready', basePayload.nodes.length, 'nodes');
+  const existingExternalSources = await loadExistingExternalSources();
+  debugLog('existing external sources ready', Object.keys(existingExternalSources).length, 'sources');
   const externalPayload = await buildExternalSourcePayload(
     basePayload.nodes,
-    basePayload.externalSources ?? {},
+    existingExternalSources,
   );
   debugLog('external payload ready', Object.keys(externalPayload.externalSources).length, 'sources');
   const payload = {
