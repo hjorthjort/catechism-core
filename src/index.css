@@ -1,3 +1,35 @@
+@font-face {
+  font-family: 'Conciliar Text';
+  src: url('/fonts/ConciliarText-Regular.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Conciliar Text';
+  src: url('/fonts/ConciliarText-Italic.woff2') format('woff2');
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Conciliar Text';
+  src: url('/fonts/ConciliarText-Semibold.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 600 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Conciliar Text';
+  src: url('/fonts/ConciliarText-SemiboldItalic.woff2') format('woff2');
+  font-style: italic;
+  font-weight: 600 700;
+  font-display: swap;
+}
+
 :root {
   font-family:
     'Avenir Next',
@@ -22,6 +54,7 @@
   --accent-dark: #9e4a1d;
   --shadow: 0 24px 60px rgba(75, 52, 24, 0.14);
   --sidebar-top-offset: 6.4rem;
+  --font-reading: 'Conciliar Text', 'Iowan Old Style', 'Palatino Linotype', 'Noto Serif', serif;
 }
 
 * {
@@ -129,7 +162,7 @@ input {
 }
 
 .wordmark-title {
-  font-family: 'Iowan Old Style', 'Palatino Linotype', serif;
+  font-family: var(--font-reading);
   font-size: 1.15rem;
   font-weight: 700;
 }
@@ -295,7 +328,7 @@ input {
 .loading-screen h1,
 .not-found h1 {
   margin: 0;
-  font-family: 'Iowan Old Style', 'Book Antiqua', serif;
+  font-family: var(--font-reading);
   font-size: clamp(2.6rem, 5vw, 4.8rem);
   line-height: 0.98;
 }
@@ -378,7 +411,7 @@ input {
 .related-passages h2,
 .related-passage-card h3 {
   margin: 0 0 0.5rem;
-  font-family: 'Iowan Old Style', serif;
+  font-family: var(--font-reading);
   font-size: 1.5rem;
 }
 
@@ -845,8 +878,10 @@ input {
 }
 
 .paragraph-text {
-  font-family: 'Iowan Old Style', 'Palatino Linotype', serif;
+  font-family: var(--font-reading);
   font-size: clamp(1rem, 0.95rem + 0.35vw, 1.16rem);
+  line-height: 1.62;
+  font-variant-numeric: oldstyle-nums proportional-nums;
   overflow-wrap: anywhere;
 }
 
@@ -1067,7 +1102,7 @@ input {
 .external-reference-content {
   display: grid;
   gap: 0.55rem;
-  font-family: 'Iowan Old Style', 'Palatino Linotype', serif;
+  font-family: var(--font-reading);
   font-size: 1rem;
   line-height: 1.55;
 }
@@ -1216,7 +1251,7 @@ input {
 .brief-part-heading h2,
 .brief-block-heading h3 {
   margin: 0;
-  font-family: 'Iowan Old Style', serif;
+  font-family: var(--font-reading);
   line-height: 1.05;
 }
 
