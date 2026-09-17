@@ -457,6 +457,8 @@ function App() {
     if (language === 'sv') url.searchParams.set('lang', 'sv'); else url.searchParams.delete('lang');
     history.replaceState({}, '', url);
     localStorage.setItem('catholic-core-language', language);
+    document.title = language === 'sv' ? 'Katolska Kyrkans Katekes' : 'Catechism of the Catholic Church';
+    document.documentElement.lang = language;
   }, [language]);
 
   useEffect(() => {
