@@ -31,3 +31,4 @@
 .citation-translations{display:grid;gap:10px}.citation-translations details{border-top:1px solid #bbb}.citation-translations summary{padding:12px 2px;cursor:pointer;text-transform:uppercase;font:600 10px Arial,sans-serif;letter-spacing:.14em}.citation-translations .citation-text{padding:5px 2px 18px}
 @media(max-width:760px){.citation-resize{display:none}.citation-panel{width:100%}.toolbar-hidden .citation-panel{top:0}}
 .citation-panel h2{display:flex;align-items:baseline;gap:12px}.citation-panel h2>span{font-variant-numeric:tabular-nums}.citation-panel h2>strong{font-size:17px;line-height:1.25;font-weight:600}.verse-number{font:600 10px Arial,sans-serif;vertical-align:super;margin-right:2px}.source-note{margin-top:22px;padding-top:12px;border-top:1px solid #ccc;font-size:12px;font-style:italic;color:#555}
+.reader-paragraph.is-current .paragraph-row{border-left-color:transparent}
