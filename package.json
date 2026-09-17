@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "node scripts/build-reader-data.mjs && vite",
     "build:data": "node scripts/build-catechism-data.mjs && node scripts/build-liturgical-schedule.mjs",
-    "build": "node scripts/build-reader-data.mjs && tsc -b && vite build && node scripts/build-sites-worker.mjs",
+    "build": "npm test && node scripts/build-reader-data.mjs && tsc -b && vite build && node scripts/build-sites-worker.mjs",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.ts"
   },
   "dependencies": {
     "preact": "^10.29.8"

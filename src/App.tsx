@@ -2,6 +2,7 @@ import { memo, type CSSProperties, type FormEvent, type MouseEvent as ReactMouse
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 
 import { loadExternalSource, useCatechismData } from './lib/data';
+import { cleanHierarchyLabel } from './lib/hierarchy';
 import type { AppLanguage } from './lib/i18n';
 import type { CatechismData, CatechismNode, ExternalReference, ExternalSource, Footnote } from './types';
 
@@ -109,10 +110,6 @@ const copy = {
     englishFallback: 'Engelsk källa visas eftersom hänvisningen saknas på svenska.',
   },
 };
-
-function cleanHierarchyLabel(value: string) {
-  return value.replace(/^(Part|Section|Chapter|Article|Paragraph)\s+(\w+):\s*/i, '').replace(/^"|"$/g, '');
-}
 
 function textPreview(html: string) {
   return html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ').replace(/\s+/g, ' ').trim().slice(0, 210);
