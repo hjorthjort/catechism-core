@@ -77,4 +77,11 @@ test('all generated English and Swedish footnotes have exactly one marker and ob
   const swedishReport = assertFootnoteIntegrity(swedish.nodes, 'sv');
   assert.equal(englishReport.markerCount, englishReport.footnoteCount);
   assert.equal(swedishReport.markerCount, swedishReport.footnoteCount);
+
+  const paragraph2247 = english.nodes.find((node: { id: number }) => node.id === 2247);
+  assert.match(paragraph2247.textHtml, /class="inline-citation"/);
+  assert.deepEqual(
+    paragraph2247.externalReferences.map((reference: { label: string }) => reference.label),
+    ['Deuteronomy 5:16', 'Mark 7:10'],
+  );
 });

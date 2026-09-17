@@ -2986,13 +2986,14 @@ function normalizeParagraphHierarchy(nodes, vaticanLookup) {
     }
 
     const isInBrief = inBriefMode;
-    const inlineFootnotes =
-      isInBrief && node.footnotes.length === 0
-        ? extractInlineReferenceFootnotes(node.text, `inline:${node.id}`)
-        : [];
-    const footnotes = inlineFootnotes.length > 0 ? inlineFootnotes : node.footnotes;
-    const externalReferences =
-      inlineFootnotes.length > 0 ? extractExternalReferences(inlineFootnotes) : node.externalReferences;
+    const inlineFootnotes = isInBrief
+      ? extractInlineReferenceFootnotes(node.text, `inline:${node.id}`)
+      : [];
+    const footnotes = [...node.footnotes, ...inlineFootnotes];
+    const externalReferences = [
+      ...node.externalReferences,
+      ...extractExternalReferences(inlineFootnotes),
+    ];
     const title =
       isInBrief
         ? 'IN BRIEF'
@@ -6104,12 +6105,25 @@ async function buildBaseGraphPayload() {
         );
         return hierarchyChanged && !startsInBrief;
       }) ?? false;
+    const hasUnlinkedInBriefReferences =
+      parsed?.nodes?.some((node) => {
+        if (cleanText(node.title).toUpperCase() !== 'IN BRIEF') return false;
+        const expected = extractInlineReferenceFootnotes(
+          node.text,
+          `inline:${node.id}`,
+        ).length;
+        const linked = node.footnotes.filter((footnote) =>
+          String(footnote.id).startsWith(`inline:${node.id}:`),
+        ).length;
+        return linked < expected;
+      }) ?? false;
     if (
       parsed?.nodes?.length > 0 &&
       parsed?.edges?.length > 0 &&
       maxRelativePagerank > 1 &&
       !hasSuspiciousPrologueAssignments &&
-      !hasInBriefHierarchyLeaks
+      !hasInBriefHierarchyLeaks &&
+      !hasUnlinkedInBriefReferences
     ) {
       return parsed;
     }
