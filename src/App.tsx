@@ -224,11 +224,7 @@ function HierarchyBreak({ node, previous, language, titles, onCitation, selected
       })}
       {node.headings.map((heading) => {
         let html = heading.html ? (language === 'sv' ? stripSwedishParagraphLinks(heading.html) : heading.html) : '';
-        html = labelFootnoteLinks(html, language === 'sv' ? 'Fotnot' : 'Footnote');
-        if (html && selectedFootnote) {
-          const number = String(selectedFootnote.number).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          html = html.replace(new RegExp(`<sup>([\\s\\S]*?${number}[\\s\\S]*?)<\\/sup>`), '<sup class="is-selected">$1</sup>');
-        }
+        html = labelFootnoteLinks(html, language === 'sv' ? 'Fotnot' : 'Footnote', selectedFootnote?.number);
         return html ? (
           <h3 className={`text-heading heading-${heading.kind}`} dangerouslySetInnerHTML={{ __html: html }} key={`${node.id}-${heading.text}`} onClick={(event) => showNodeCitation(event, node, language, onCitation)} />
         ) : (
@@ -247,10 +243,13 @@ function stripSwedishParagraphLinks(html: string) {
   return html.replace(/<i>\s*\[(?:(?!<\/i>)[\s\S])*?katekesen\.se(?:(?!<\/i>)[\s\S])*?<\/i>/gi, '');
 }
 
-function labelFootnoteLinks(html: string, label: string) {
+function labelFootnoteLinks(html: string, label: string, selectedNumber?: number | string) {
+  const selected = selectedNumber === undefined ? null : String(selectedNumber).replace(/[^0-9]/g, '');
   return html
-    .replace(/<a\s+([^>]*)><sup>(\[?\d+\]?)<\/sup><\/a>/gi, `<a $1 aria-label="${label} $2"><sup>$2</sup></a>`)
-    .replace(/<sup><a\s+([^>]*)>(\[?\d+\]?)<\/a><\/sup>/gi, `<sup><a $1 aria-label="${label} $2">$2</a></sup>`);
+    .replace(/<a\s+([^>]*)><sup>(\[?(\d+)\]?)<\/sup><\/a>/gi, (_match, attributes: string, marker: string, number: string) =>
+      `<a ${attributes} aria-label="${label} ${number}"><sup${selected === number ? ' class="is-selected"' : ''}>${marker}</sup></a>`)
+    .replace(/<sup><a\s+([^>]*)>(\[?(\d+)\]?)<\/a><\/sup>/gi, (_match, attributes: string, marker: string, number: string) =>
+      `<sup${selected === number ? ' class="is-selected"' : ''}><a ${attributes} aria-label="${label} ${number}">${marker}</a></sup>`);
 }
 
 function showNodeCitation(
@@ -294,11 +293,7 @@ const ReaderParagraph = memo(function ReaderParagraph({ node, previous, next, se
   const selectedFootnote = selectedFootnoteId ? node.footnotes.find((item) => item.id === selectedFootnoteId) : undefined;
   let paragraphHtml = language === 'sv' ? stripSwedishParagraphLinks(node.textHtml) : node.textHtml;
   const footnoteLabel = language === 'sv' ? 'Fotnot' : 'Footnote';
-  paragraphHtml = labelFootnoteLinks(paragraphHtml, footnoteLabel);
-  if (selectedFootnote) {
-    const number = String(selectedFootnote.number).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    paragraphHtml = paragraphHtml.replace(new RegExp(`<sup>([\\s\\S]*?${number}[\\s\\S]*?)<\\/sup>`), '<sup class="is-selected">$1</sup>');
-  }
+  paragraphHtml = labelFootnoteLinks(paragraphHtml, footnoteLabel, selectedFootnote?.number);
 
   return (
     <article aria-labelledby={`paragraph-number-${node.id}`} className={`reader-paragraph ${inBrief ? 'in-brief' : ''} ${inBriefStart ? 'in-brief-start' : ''} ${inBriefEnd ? 'in-brief-end' : ''}`} data-paragraph={node.id} id={`paragraph-${node.id}`}>
