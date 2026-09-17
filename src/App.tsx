@@ -64,9 +64,9 @@ function displayHierarchy(value: string, language: 'en' | 'sv', titles?: Record<
   const translated = language === 'sv' ? titles?.[value] : undefined;
   const prefix = value.split(':')[0];
   const kind = hierarchyKind(value);
-  const SwedishKinds: Record<string, string> = { part: 'Del', section: 'Avdelning', chapter: 'Kapitel', article: 'Artikel' };
+  const SwedishKinds: Record<string, string> = { part: 'Del', section: 'Avdelning', chapter: 'Kapitel', article: 'Artikel', paragraph: 'Paragraf' };
   return {
-    kind: language === 'sv' ? prefix.replace(/^(Part|Section|Chapter|Article)/, SwedishKinds[kind] ?? prefix) : prefix,
+    kind: language === 'sv' ? prefix.replace(/^(Part|Section|Chapter|Article|Paragraph)/, SwedishKinds[kind] ?? prefix) : prefix,
     title: translated ?? cleanHierarchyLabel(value),
   };
 }
@@ -111,7 +111,7 @@ const copy = {
 };
 
 function cleanHierarchyLabel(value: string) {
-  return value.replace(/^(Part|Section|Chapter|Article)\s+(\w+):\s*/i, '').replace(/^"|"$/g, '');
+  return value.replace(/^(Part|Section|Chapter|Article|Paragraph)\s+(\w+):\s*/i, '').replace(/^"|"$/g, '');
 }
 
 function textPreview(html: string) {
@@ -119,7 +119,7 @@ function textPreview(html: string) {
 }
 
 function hierarchyKind(value: string) {
-  return value.match(/^(Part|Section|Chapter|Article)/i)?.[1]?.toLowerCase() ?? '';
+  return value.match(/^(Part|Section|Chapter|Article|Paragraph)/i)?.[1]?.toLowerCase() ?? '';
 }
 
 function buildToc(nodes: CatechismNode[]) {
@@ -177,7 +177,14 @@ function TocItem({ branch, activePath, onJump, titles, language, depth = 0 }: {
   );
 }
 
-function HierarchyBreak({ node, previous, language, titles }: { node: CatechismNode; previous?: CatechismNode; language: 'en' | 'sv'; titles?: Record<string, string> }) {
+function HierarchyBreak({ node, previous, language, titles, onCitation, selectedFootnote }: {
+  node: CatechismNode;
+  previous?: CatechismNode;
+  language: 'en' | 'sv';
+  titles?: Record<string, string>;
+  onCitation: (citation: Citation) => void;
+  selectedFootnote?: Footnote;
+}) {
   const changed = node.breadcrumbs.filter((entry, index) => previous?.breadcrumbs[index] !== entry);
   if (!changed.length && !node.headings.length) return null;
 
@@ -190,9 +197,19 @@ function HierarchyBreak({ node, previous, language, titles }: { node: CatechismN
           <h2>{display.title}</h2>
         </div>;
       })}
-      {node.headings.map((heading) => (
-        <h3 className={`text-heading heading-${heading.kind}`} key={`${node.id}-${heading.text}`}>{language === 'sv' && heading.text === 'IN BRIEF' ? 'SAMMANFATTNING' : heading.text}</h3>
-      ))}
+      {node.headings.map((heading) => {
+        let html = heading.html ? (language === 'sv' ? stripSwedishParagraphLinks(heading.html) : heading.html) : '';
+        html = labelFootnoteLinks(html, language === 'sv' ? 'Fotnot' : 'Footnote');
+        if (html && selectedFootnote) {
+          const number = String(selectedFootnote.number).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          html = html.replace(new RegExp(`<sup>([\\s\\S]*?${number}[\\s\\S]*?)<\\/sup>`), '<sup class="is-selected">$1</sup>');
+        }
+        return html ? (
+          <h3 className={`text-heading heading-${heading.kind}`} dangerouslySetInnerHTML={{ __html: html }} key={`${node.id}-${heading.text}`} onClick={(event) => showNodeCitation(event, node, language, onCitation)} />
+        ) : (
+          <h3 className={`text-heading heading-${heading.kind}`} key={`${node.id}-${heading.text}`}>{language === 'sv' && heading.text === 'IN BRIEF' ? 'SAMMANFATTNING' : heading.text}</h3>
+        );
+      })}
     </header>
   );
 }
@@ -203,6 +220,35 @@ function isInBrief(node?: CatechismNode) {
 
 function stripSwedishParagraphLinks(html: string) {
   return html.replace(/<i>\s*\[(?:(?!<\/i>)[\s\S])*?katekesen\.se(?:(?!<\/i>)[\s\S])*?<\/i>/gi, '');
+}
+
+function labelFootnoteLinks(html: string, label: string) {
+  return html
+    .replace(/<a\s+([^>]*)><sup>(\[?\d+\]?)<\/sup><\/a>/gi, `<a $1 aria-label="${label} $2"><sup>$2</sup></a>`)
+    .replace(/<sup><a\s+([^>]*)>(\[?\d+\]?)<\/a><\/sup>/gi, `<sup><a $1 aria-label="${label} $2">$2</a></sup>`);
+}
+
+function showNodeCitation(
+  event: ReactMouseEvent<HTMLElement>,
+  node: CatechismNode,
+  language: 'en' | 'sv',
+  onCitation: (citation: Citation) => void,
+) {
+  const target = (event.target as HTMLElement).closest('a');
+  const bibleReference = target ? bibleReferenceFromHref(target.getAttribute('href') ?? '') : null;
+  if (language === 'sv' && bibleReference) {
+    event.preventDefault();
+    event.stopPropagation();
+    const name = normalizeBibleReference(bibleReference);
+    onCitation({ key: `bible-${node.id}-${name}`, eyebrow: 'Bibelreferens', title: 'Bibel', name, html: '', swedishBibleRef: name });
+    return;
+  }
+  const sup = target?.querySelector('sup') ?? (event.target as HTMLElement).closest('sup');
+  if (!sup) return;
+  event.preventDefault();
+  const token = sup.textContent?.replace(/[^0-9]/g, '');
+  const footnote = node.footnotes.find((item) => String(item.number) === token);
+  if (footnote) onCitation(footnoteCitation(node, footnote, language));
 }
 
 const ReaderParagraph = memo(function ReaderParagraph({ node, previous, next, selectedKey, onCitation, language, titles }: {
@@ -223,35 +269,15 @@ const ReaderParagraph = memo(function ReaderParagraph({ node, previous, next, se
   const selectedFootnote = selectedFootnoteId ? node.footnotes.find((item) => item.id === selectedFootnoteId) : undefined;
   let paragraphHtml = language === 'sv' ? stripSwedishParagraphLinks(node.textHtml) : node.textHtml;
   const footnoteLabel = language === 'sv' ? 'Fotnot' : 'Footnote';
-  paragraphHtml = paragraphHtml
-    .replace(/<a\s+([^>]*)><sup>(\[?\d+\]?)<\/sup><\/a>/gi, `<a $1 aria-label="${footnoteLabel} $2"><sup>$2</sup></a>`)
-    .replace(/<sup><a\s+([^>]*)>(\[?\d+\]?)<\/a><\/sup>/gi, `<sup><a $1 aria-label="${footnoteLabel} $2">$2</a></sup>`);
+  paragraphHtml = labelFootnoteLinks(paragraphHtml, footnoteLabel);
   if (selectedFootnote) {
     const number = String(selectedFootnote.number).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     paragraphHtml = paragraphHtml.replace(new RegExp(`<sup>([\\s\\S]*?${number}[\\s\\S]*?)<\\/sup>`), '<sup class="is-selected">$1</sup>');
   }
 
-  function showFootnote(event: ReactMouseEvent<HTMLElement>) {
-    const target = (event.target as HTMLElement).closest('a');
-    const bibleReference = target ? bibleReferenceFromHref(target.getAttribute('href') ?? '') : null;
-    if (language === 'sv' && bibleReference) {
-      event.preventDefault();
-      event.stopPropagation();
-      const name = normalizeBibleReference(bibleReference);
-      onCitation({ key: `bible-${node.id}-${name}`, eyebrow: 'Bibelreferens', title: 'Bibel', name, html: '', swedishBibleRef: name });
-      return;
-    }
-    const sup = target?.querySelector('sup') ?? (event.target as HTMLElement).closest('sup');
-    if (!sup) return;
-    event.preventDefault();
-    const token = sup.textContent?.replace(/[^0-9]/g, '');
-    const footnote = node.footnotes.find((item) => String(item.number) === token);
-    if (footnote) onCitation(footnoteCitation(node, footnote, language));
-  }
-
   return (
     <article aria-labelledby={`paragraph-number-${node.id}`} className={`reader-paragraph ${inBrief ? 'in-brief' : ''} ${inBriefStart ? 'in-brief-start' : ''} ${inBriefEnd ? 'in-brief-end' : ''}`} data-paragraph={node.id} id={`paragraph-${node.id}`}>
-      <HierarchyBreak language={language} node={node} previous={previous} titles={titles} />
+      <HierarchyBreak language={language} node={node} onCitation={onCitation} previous={previous} selectedFootnote={selectedFootnote} titles={titles} />
       <div className="paragraph-row">
         <div className="margin-references" aria-label={language === 'sv' ? 'Paragrafhänvisningar' : 'Paragraph references'}>
           {node.xrefs.map((id) => (
@@ -259,7 +285,7 @@ const ReaderParagraph = memo(function ReaderParagraph({ node, previous, next, se
           ))}
         </div>
         <div className="paragraph-number" id={`paragraph-number-${node.id}`}>{node.number}</div>
-        <div className="paragraph-copy" dangerouslySetInnerHTML={{ __html: paragraphHtml }} onClick={showFootnote} />
+        <div className="paragraph-copy" dangerouslySetInnerHTML={{ __html: paragraphHtml }} onClick={(event) => showNodeCitation(event, node, language, onCitation)} />
       </div>
     </article>
   );

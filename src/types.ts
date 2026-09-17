@@ -48,6 +48,7 @@ export type VaticanSource = {
 export type Heading = {
   kind: 'major' | 'minor';
   text: string;
+  html?: string;
 };
 
 export type CatechismNode = {

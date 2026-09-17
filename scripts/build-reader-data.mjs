@@ -37,7 +37,9 @@ const sv = {
   hierarchyTitles: swedish.hierarchyTitles,
   nodes: swedish.nodes.map((node) => ({
     id: node.id,
+    title: node.title,
     textHtml: node.textHtml,
+    headings: node.headings,
     footnotes: node.footnotes,
   })),
 };

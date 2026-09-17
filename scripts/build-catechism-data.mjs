@@ -1091,6 +1091,7 @@ const localizedHierarchyPatterns = {
     { kind: 'section', regex: /^(?:FÖRSTA|ANDRA|TREDJE|FJÄRDE)\s+AVDELNINGEN(?:\s*(.+))?$/i },
     { kind: 'chapter', regex: /^(?:FÖRSTA|ANDRA|TREDJE|FJÄRDE|FEMTE|SJÄTTE|SJUNDE|ÅTTONDE|NIONDE|TIONDE)\s+KAPITLET(?:\s*(.+))?$/i },
     { kind: 'article', regex: /^ARTIKEL\s+\d+(?:\s*(.+))?$/i },
+    { kind: 'paragraph', regex: /^PARAGRAF\s+\d+(?:\s*(.+))?$/i },
   ],
 };
 
@@ -1137,7 +1138,7 @@ function dedupeLocalizedHierarchyEntries(entries, code) {
 }
 
 function hierarchyEntriesFromState(state) {
-  return ['part', 'section', 'chapter', 'article']
+  return ['part', 'section', 'chapter', 'article', 'paragraph']
     .map((kind) => (state[kind] ? { kind, title: state[kind] } : null))
     .filter(Boolean);
 }
@@ -1208,10 +1209,12 @@ function collectLocalizedHierarchyTitlesFromHtml(target, html, code, graphNodesB
     section: null,
     chapter: null,
     article: null,
+    paragraph: null,
   };
   const metaContent = $('meta[name="part"]').attr('content');
   let pendingKind = null;
   let continuationKind = null;
+  let continuationCanAppend = false;
 
   if (metaContent) {
     for (const entry of dedupeLocalizedHierarchyEntries(
@@ -1226,14 +1229,18 @@ function collectLocalizedHierarchyTitlesFromHtml(target, html, code, graphNodesB
 
   const lines = $('p')
     .toArray()
-    .map((element) => cleanText($(element).text()))
-    .filter(Boolean);
+    .map((element) => ({
+      element: $(element),
+      text: cleanText($(element).text()),
+    }))
+    .filter(({ text }) => Boolean(text));
 
-  for (const line of lines) {
+  for (const { element, text: line } of lines) {
     const start = extractParagraphStart(line);
     if (start) {
       collectLocalizedHierarchyTitles(target, hierarchyEntriesFromState(state), graphNodesById.get(start.id), code);
       continuationKind = null;
+      continuationCanAppend = false;
       continue;
     }
 
@@ -1243,26 +1250,50 @@ function collectLocalizedHierarchyTitlesFromHtml(target, html, code, graphNodesB
         state[parsed.kind] = parsed.title;
         pendingKind = null;
         continuationKind = parsed.kind;
+        continuationCanAppend = false;
       } else {
         pendingKind = parsed.kind;
         continuationKind = null;
+        continuationCanAppend = false;
       }
+      continue;
+    }
+
+    const isParagraphReferenceOnly = /^\[\s*\d+(?:\s*[-–]\s*\d+)?(?:\s*;\s*\d+(?:\s*[-–]\s*\d+)?)*\s*\]$/u.test(line);
+    if (code === 'sv' && isParagraphReferenceOnly && (pendingKind || continuationKind)) {
       continue;
     }
 
     if (pendingKind) {
       state[pendingKind] = line;
       continuationKind = pendingKind;
+      continuationCanAppend = true;
       pendingKind = null;
       continue;
     }
 
-    if (code === 'sv' && continuationKind && isSwedishHierarchyContinuation(line)) {
+    const isCenteredPlainSwedishContinuation =
+      code === 'sv' &&
+      continuationKind &&
+      continuationCanAppend &&
+      element.attr('align')?.toLowerCase() === 'center' &&
+      element.find('b, strong').length === 0 &&
+      !/^[IVXLCDM]+[.)]\s/u.test(line);
+    if (
+      code === 'sv' &&
+      continuationKind &&
+      continuationCanAppend &&
+      !/^[IVXLCDM]+[.)]\s/u.test(line) &&
+      (isSwedishHierarchyContinuation(line) ||
+        isCenteredPlainSwedishContinuation ||
+        element.attr('align')?.toLowerCase() === 'center')
+    ) {
       state[continuationKind] = `${state[continuationKind]} ${line}`;
       continue;
     }
 
     continuationKind = null;
+    continuationCanAppend = false;
   }
 }
 
@@ -2050,7 +2081,212 @@ function normalizeSwedishLegacyText(value) {
   return value.replace(/[\u0080-\u009f]/g, (character) => replacements.get(character) ?? '');
 }
 
-function parseSwedishParagraphsFromHtml(html, sourceUrl) {
+function containsSwedishParagraphMarker($, element) {
+  let containsMarker = false;
+  element.find('a[name]').addBack('a[name]').each((_, anchor) => {
+    const id = Number($(anchor).attr('name'));
+    if (Number.isFinite(id) && id >= 1 && id <= 2865) {
+      containsMarker = true;
+    }
+  });
+  return containsMarker;
+}
+
+function isSwedishNavigationText(text) {
+  return /^(?:hem|navigation|navigera|[«<>]+\s*navigera\s*[»<>]+)$/iu.test(cleanText(text));
+}
+
+function isSwedishHierarchyMarker(text) {
+  const normalized = cleanText(text);
+  if (!normalized || /^(?:prolog|artikel\s+\d+|paragraf\s+\d+)$/iu.test(normalized)) {
+    return Boolean(normalized);
+  }
+
+  const parsed = parseLocalizedHierarchyLine(normalized, 'sv');
+  if (!parsed) {
+    return false;
+  }
+
+  return !parsed.title || normalized === normalized.toLocaleUpperCase('sv-SE');
+}
+
+function swedishHeadingBlocksBeforeMarker($, marker) {
+  let cursor = marker.closest('tr').length > 0 ? marker.closest('tr') : marker.closest('p');
+  const blocks = [];
+  let steps = 0;
+
+  while (cursor.length > 0 && steps < 200) {
+    steps += 1;
+    const previous = cursor.prev();
+    if (!previous.length) {
+      cursor = cursor.parent();
+      if (!cursor.length || cursor.is('body, html')) {
+        break;
+      }
+      continue;
+    }
+
+    cursor = previous;
+    if (containsSwedishParagraphMarker($, cursor)) {
+      break;
+    }
+
+    const text = normalizeSwedishLegacyText(cleanText(cursor.text()));
+    if (text) {
+      blocks.unshift({ element: cursor, text });
+    }
+  }
+
+  return blocks;
+}
+
+function rewriteSwedishLinks($, container, sourceUrl, paragraphId, footnoteSources) {
+  container.find('a[href]').each((_, link) => {
+    const anchor = $(link);
+    const href = absoluteSwedishHref(anchor.attr('href'), sourceUrl);
+    const footnoteNumber = Number(cleanText(anchor.text()).match(/\d+/)?.[0]);
+    if (/\/noter\//i.test(href) && Number.isFinite(footnoteNumber)) {
+      footnoteSources.push({ number: footnoteNumber, url: href });
+      anchor.attr('href', `#!/search/s1/fn/${paragraphId}:${footnoteNumber}`);
+    } else {
+      anchor.attr('href', href);
+    }
+    anchor.attr('target', '_blank');
+    anchor.attr('rel', 'noreferrer');
+  });
+}
+
+function swedishHeadingHtml($, element, sourceUrl, paragraphId, footnoteSources) {
+  const content = $('<div></div>');
+  content.append(element.clone());
+  content.find('script, style').remove();
+  content.find('a[name]:not([href])').each((_, anchor) => {
+    $(anchor).replaceWith($(anchor).contents());
+  });
+  rewriteSwedishLinks($, content, sourceUrl, paragraphId, footnoteSources);
+
+  return normalizeSwedishLegacyText(content.html() ?? '')
+    .replace(/<\/p\s*>/gi, '<br>')
+    .replace(/<\/?(?:p|blockquote|small)(?:\s[^>]*)?>/gi, '')
+    .replace(/(?:<br>\s*)+$/i, '')
+    .trim();
+}
+
+function extractSwedishHeadings(
+  $,
+  marker,
+  hierarchyTitles,
+  baseNode,
+  sourceUrl,
+  paragraphId,
+  footnoteSources,
+) {
+  const localizedHierarchyTitles = new Set(
+    (baseNode?.breadcrumbs ?? [])
+      .map((breadcrumb) => hierarchyTitles.get(breadcrumb))
+      .filter(Boolean)
+      .map((title) => cleanText(title).toLocaleUpperCase('sv-SE')),
+  );
+  const headings = [];
+  let hierarchyContext = false;
+
+  for (const { element, text } of swedishHeadingBlocksBeforeMarker($, marker)) {
+    const normalized = text.toLocaleUpperCase('sv-SE');
+    const isHierarchy =
+      isSwedishHierarchyMarker(text) || localizedHierarchyTitles.has(normalized);
+    if (isHierarchy) {
+      hierarchyContext = true;
+      continue;
+    }
+    if (isSwedishNavigationText(text) || element.is('table, tbody, thead, tfoot')) {
+      continue;
+    }
+
+    const hasBold = element.is('b, strong') || element.find('b, strong').length > 0;
+    const isQuotation =
+      element.is('small, blockquote') || element.find('blockquote').length > 0;
+    if (!hasBold && !(isQuotation && (hierarchyContext || headings.length > 0))) {
+      continue;
+    }
+
+    const isCentered =
+      element.attr('align')?.toLowerCase() === 'center' ||
+      element.find('[align="center" i]').length > 0;
+    const heading = {
+      kind: isCentered && !isQuotation ? 'major' : 'minor',
+      text,
+      html: swedishHeadingHtml($, element, sourceUrl, paragraphId, footnoteSources),
+    };
+    const previous = headings.at(-1);
+    if (!previous || previous.kind !== heading.kind || previous.text !== heading.text) {
+      headings.push(heading);
+    }
+  }
+
+  return headings;
+}
+
+function localizedSwedishNodeTitle(baseNode, headings, hierarchyTitles, id) {
+  if (headings.length > 0) {
+    return headings.at(-1).text;
+  }
+
+  const lastBreadcrumb = baseNode?.breadcrumbs?.at(-1);
+  return hierarchyTitles.get(lastBreadcrumb) ?? lastBreadcrumb ?? `Paragraf ${id}`;
+}
+
+function swedishContinuationBlocks($, sourceBlock) {
+  const blocks = [];
+  let cursor = sourceBlock;
+  let steps = 0;
+
+  while (cursor.length > 0 && steps < 200) {
+    steps += 1;
+    const next = cursor.next();
+    if (!next.length) {
+      cursor = cursor.parent();
+      if (!cursor.length || cursor.is('body, html')) {
+        break;
+      }
+      continue;
+    }
+
+    cursor = next;
+    if (containsSwedishParagraphMarker($, cursor)) {
+      break;
+    }
+
+    const tagName = cursor[0]?.tagName?.toLowerCase() ?? '';
+    if (tagName === 'br' || tagName === 'hr') {
+      break;
+    }
+
+    const text = normalizeSwedishLegacyText(cleanText(cursor.text()));
+    if (!text) {
+      continue;
+    }
+    const hasBold = cursor.is('b, strong') || cursor.find('b, strong').length > 0;
+    const isCentered =
+      cursor.attr('align')?.toLowerCase() === 'center' ||
+      cursor.find('[align="center" i]').length > 0;
+    if (
+      isSwedishNavigationText(text) ||
+      isSwedishHierarchyMarker(text) ||
+      hasBold ||
+      isCentered
+    ) {
+      break;
+    }
+
+    if (/^(?:p|blockquote|small|table|div)$/i.test(tagName)) {
+      blocks.push(cursor.clone());
+    }
+  }
+
+  return blocks;
+}
+
+function parseSwedishParagraphsFromHtml(html, sourceUrl, hierarchyTitles, graphNodesById) {
   const $ = cheerio.load(html);
   const paragraphs = new Map();
 
@@ -2071,12 +2307,18 @@ function parseSwedishParagraphsFromHtml(html, sourceUrl) {
     if (row.length > 0) {
       content.append(sourceContainer.html() ?? '');
     } else {
-      content.append(sourceContainer.clone());
-      if (id === 83 && sourceContainer.parent().is('small')) {
-        sourceContainer.nextAll('p').each((__, continuation) => {
-          content.append($(continuation).clone());
-        });
+      const isSmallPrint = sourceContainer.parents('small').length > 0;
+      if (isSmallPrint) {
+        const smallPrint = $('<small class="smaller"></small>');
+        smallPrint.append(sourceContainer.clone());
+        content.append(smallPrint);
+      } else {
+        content.append(sourceContainer.clone());
       }
+    }
+    const sourceBlock = row.length > 0 ? row : sourceContainer;
+    for (const continuation of swedishContinuationBlocks($, sourceBlock)) {
+      content.append(continuation);
     }
 
     if (row.length === 0) {
@@ -2085,21 +2327,9 @@ function parseSwedishParagraphsFromHtml(html, sourceUrl) {
       clonedMarker.remove();
     }
 
-    content.find('script, style').remove();
     const footnoteSources = [];
-    content.find('a[href]').each((__, link) => {
-      const anchor = $(link);
-      const href = absoluteSwedishHref(anchor.attr('href'), sourceUrl);
-      const footnoteNumber = Number(cleanText(anchor.text()).match(/\d+/)?.[0]);
-      if (/\/noter\//i.test(href) && Number.isFinite(footnoteNumber)) {
-        footnoteSources.push({ number: footnoteNumber, url: href });
-        anchor.attr('href', `#!/search/s1/fn/${id}:${footnoteNumber}`);
-      } else {
-        anchor.attr('href', href);
-      }
-      anchor.attr('target', '_blank');
-      anchor.attr('rel', 'noreferrer');
-    });
+    content.find('script, style').remove();
+    rewriteSwedishLinks($, content, sourceUrl, id, footnoteSources);
 
     const text = normalizeSwedishLegacyText(cleanText(content.text()));
     if (!text) {
@@ -2109,11 +2339,23 @@ function parseSwedishParagraphsFromHtml(html, sourceUrl) {
     const textHtml = normalizeSwedishLegacyText((content.html() ?? '').trim());
 
     const sourceWithAnchor = `${sourceUrl}#${id}`;
+    const baseNode = graphNodesById.get(id);
+    const headings = extractSwedishHeadings(
+      $,
+      marker,
+      hierarchyTitles,
+      baseNode,
+      sourceUrl,
+      id,
+      footnoteSources,
+    );
     paragraphs.set(id, {
       id,
+      title: localizedSwedishNodeTitle(baseNode, headings, hierarchyTitles, id),
       text,
       textHtml,
       preview: buildPreview(text),
+      headings,
       footnotes: [],
       externalReferences: [],
       swedishFootnoteSources: footnoteSources,
@@ -2193,17 +2435,60 @@ async function buildSwedishLanguagePack(config, nodeIds, graphNodesById) {
   const pageUrls = discoverSwedishPageUrls(indexHtml, config.indexUrl);
   const localized = new Map();
   const hierarchyTitles = new Map();
+  const pages = [];
 
   for (const pageUrl of pageUrls) {
     const html = await fetchHtml(pageUrl);
-    const pageParagraphs = parseSwedishParagraphsFromHtml(html, pageUrl);
+    pages.push({ html, pageUrl });
     collectLocalizedHierarchyTitlesFromHtml(hierarchyTitles, html, config.code, graphNodesById);
+  }
+  hierarchyTitles.set('Prologue', 'Prolog');
+  const finalPrayerTitles = {
+    'Chapter 1: "The Summary of the Whole Gospel"': '”SAMMANFATTNING AV HELA EVANGELIET”',
+    'Chapter 2: "Our Father Who Art in Heaven"': '”FADER VÅR SOM ÄR I HIMMELEN”',
+    'Chapter 3: The Seven Petitions': 'DE SJU BÖNERNA',
+    'Chapter 4: The Final Doxology': 'AVSLUTANDE LOVPRISNING',
+    'Article 3: The Prayer of the Hour of Jesus': 'JESU ÖVERSTEPRÄSTERLIGA BÖN',
+    'Article 4: The Final Doxology': 'AVSLUTANDE LOVPRISNING',
+  };
+  for (const [canonicalTitle, localizedTitle] of Object.entries(finalPrayerTitles)) {
+    hierarchyTitles.set(canonicalTitle, localizedTitle);
+  }
+
+  for (const { html, pageUrl } of pages) {
+    const pageParagraphs = parseSwedishParagraphsFromHtml(
+      html,
+      pageUrl,
+      hierarchyTitles,
+      graphNodesById,
+    );
 
     for (const [id, payload] of pageParagraphs) {
       if (nodeIds.has(id) && !localized.has(id)) {
         localized.set(id, payload);
       }
     }
+  }
+
+  let inBriefMode = false;
+  let previousBreadcrumbs = [];
+  for (const node of [...localized.values()].sort((left, right) => left.id - right.id)) {
+    const breadcrumbs = graphNodesById.get(node.id)?.breadcrumbs ?? [];
+    const hierarchyChanged = breadcrumbs.some(
+      (breadcrumb, index) => previousBreadcrumbs[index] !== breadcrumb,
+    );
+    if (hierarchyChanged) {
+      inBriefMode = false;
+    }
+    if (node.headings.length > 0) {
+      inBriefMode = node.headings.some(
+        (heading) => cleanText(heading.text).toLocaleUpperCase('sv-SE') === 'SAMMANFATTNING',
+      );
+    }
+    if (inBriefMode) {
+      node.title = 'SAMMANFATTNING';
+    }
+    previousBreadcrumbs = breadcrumbs;
   }
 
   const footnoteJobs = [...localized.values()].flatMap((node) =>
@@ -2221,16 +2506,44 @@ async function buildSwedishLanguagePack(config, nodeIds, graphNodesById) {
     delete node.swedishFootnoteSources;
   }
 
-  const finalPrayerTitles = {
-    'Chapter 1: "The Summary of the Whole Gospel"': '”SAMMANFATTNING AV HELA EVANGELIET”',
-    'Chapter 2: "Our Father Who Art in Heaven"': '”FADER VÅR SOM ÄR I HIMMELEN”',
-    'Chapter 3: The Seven Petitions': 'DE SJU BÖNERNA',
-    'Chapter 4: The Final Doxology': 'AVSLUTANDE LOVPRISNING',
-    'Article 3: The Prayer of the Hour of Jesus': 'JESU ÖVERSTEPRÄSTERLIGA BÖN',
-    'Article 4: The Final Doxology': 'AVSLUTANDE LOVPRISNING',
-  };
-  for (const [canonicalTitle, localizedTitle] of Object.entries(finalPrayerTitles)) {
-    hierarchyTitles.set(canonicalTitle, localizedTitle);
+  const brokenFootnoteMarkers = [];
+  const duplicateFootnoteNumbers = [];
+  for (const node of localized.values()) {
+    const footnoteNumbers = node.footnotes.map((footnote) => String(footnote.number));
+    if (new Set(footnoteNumbers).size !== footnoteNumbers.length) {
+      duplicateFootnoteNumbers.push(node.id);
+    }
+    const availableFootnotes = new Set(footnoteNumbers);
+    const linkedHtml = [
+      node.textHtml,
+      ...node.headings.map((heading) => heading.html ?? ''),
+    ].join(' ');
+    for (const match of linkedHtml.matchAll(/#!\/search\/s1\/fn\/\d+:(\d+)/g)) {
+      if (!availableFootnotes.has(match[1])) {
+        brokenFootnoteMarkers.push(`${node.id}:${match[1]}`);
+      }
+    }
+  }
+  if (duplicateFootnoteNumbers.length > 0) {
+    throw new Error(`Swedish paragraphs contain duplicate footnote numbers: ${duplicateFootnoteNumbers.join(', ')}`);
+  }
+  if (brokenFootnoteMarkers.length > 0) {
+    throw new Error(`Swedish footnote markers are missing entries: ${brokenFootnoteMarkers.join(', ')}`);
+  }
+
+  const missingParagraphs = [...nodeIds].filter((id) => !localized.has(id));
+  if (missingParagraphs.length > 0) {
+    throw new Error(`Swedish source is missing paragraphs: ${missingParagraphs.join(', ')}`);
+  }
+
+  const canonicalHierarchyTitles = new Set(
+    [...graphNodesById.values()].flatMap((node) => node.breadcrumbs ?? []),
+  );
+  const missingHierarchyTitles = [...canonicalHierarchyTitles].filter(
+    (title) => !hierarchyTitles.has(title),
+  );
+  if (missingHierarchyTitles.length > 0) {
+    throw new Error(`Swedish source is missing hierarchy titles: ${missingHierarchyTitles.join('; ')}`);
   }
 
   return {
