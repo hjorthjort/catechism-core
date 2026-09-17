@@ -2963,8 +2963,14 @@ function normalizeParagraphHierarchy(nodes, vaticanLookup) {
       .map((level) => nextContext[level])
       .filter(Boolean);
 
+    const hierarchyChanged = hierarchyOrder.some(
+      (level) => context[level] !== nextContext[level],
+    );
     context = nextContext;
 
+    if (hierarchyChanged) {
+      inBriefMode = false;
+    }
     if (node.headings.length > 0) {
       inBriefMode = node.headings.some((heading) => cleanText(heading.text).toUpperCase() === 'IN BRIEF');
     }
@@ -2977,12 +2983,18 @@ function normalizeParagraphHierarchy(nodes, vaticanLookup) {
     const footnotes = inlineFootnotes.length > 0 ? inlineFootnotes : node.footnotes;
     const externalReferences =
       inlineFootnotes.length > 0 ? extractExternalReferences(inlineFootnotes) : node.externalReferences;
+    const title =
+      isInBrief
+        ? 'IN BRIEF'
+        : cleanText(node.title).toUpperCase() === 'IN BRIEF'
+          ? normalizedBreadcrumbs.at(-1) ?? node.title
+          : node.title;
 
     return {
       ...node,
       part: inferPart(normalizedBreadcrumbs),
       breadcrumbs: [...normalizedBreadcrumbs, ...extras],
-      title: isInBrief ? 'IN BRIEF' : node.title,
+      title,
       footnotes,
       externalReferences,
     };
@@ -6069,11 +6081,25 @@ async function buildBaseGraphPayload() {
     );
     const hasSuspiciousPrologueAssignments =
       parsed?.nodes?.some((node) => node.id > 25 && node.part === 'Prologue') ?? false;
+    const hasInBriefHierarchyLeaks =
+      parsed?.nodes?.some((node, index, nodes) => {
+        const previous = nodes[index - 1];
+        if (!previous || cleanText(node.title).toUpperCase() !== 'IN BRIEF') {
+          return false;
+        }
+        const hierarchyChanged =
+          previous.breadcrumbs.join('|') !== node.breadcrumbs.join('|');
+        const startsInBrief = node.headings.some(
+          (heading) => cleanText(heading.text).toUpperCase() === 'IN BRIEF',
+        );
+        return hierarchyChanged && !startsInBrief;
+      }) ?? false;
     if (
       parsed?.nodes?.length > 0 &&
       parsed?.edges?.length > 0 &&
       maxRelativePagerank > 1 &&
-      !hasSuspiciousPrologueAssignments
+      !hasSuspiciousPrologueAssignments &&
+      !hasInBriefHierarchyLeaks
     ) {
       return parsed;
     }
@@ -6202,8 +6228,21 @@ async function main() {
         new Map(payload.nodes.map((node) => [node.id, node])),
       );
 
+  const externalSourceChunks = Array.from({ length: 4 }, () => ({}));
+  Object.entries(payload.externalSources).forEach(([sourceId, source], index) => {
+    externalSourceChunks[index % externalSourceChunks.length][sourceId] = source;
+  });
+
   await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, JSON.stringify(payload, null, 2));
+  await Promise.all([
+    writeFile(outputPath, JSON.stringify({ ...payload, externalSources: {} })),
+    ...externalSourceChunks.map((sources, index) =>
+      writeFile(
+        path.join(path.dirname(outputPath), `external-sources-${index + 1}.json`),
+        JSON.stringify(sources),
+      ),
+    ),
+  ]);
   if (!skipLanguagePacks) {
     await writeLanguagePacks(packs);
   }
