@@ -77,6 +77,7 @@ const copy = {
     hideContents: 'Hide contents',
     showContents: 'Show contents',
     paragraph: 'Paragraph',
+    invalidParagraph: 'Enter a paragraph number from 1 to 2865.',
     jump: 'Go',
     search: 'Search the text',
     noResults: 'No passages found.',
@@ -94,6 +95,7 @@ const copy = {
     hideContents: 'Dölj innehåll',
     showContents: 'Visa innehåll',
     paragraph: 'Paragraf',
+    invalidParagraph: 'Ange ett paragrafnummer från 1 till 2865.',
     jump: 'Gå',
     search: 'Sök i texten',
     noResults: 'Inga textställen hittades.',
@@ -333,6 +335,7 @@ function App() {
   const [tocOpen, setTocOpen] = useState(true);
   const [activeId, setActiveId] = useState(1);
   const [jumpValue, setJumpValue] = useState('');
+  const [jumpInvalid, setJumpInvalid] = useState(false);
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [citation, setCitation] = useState<Citation | null>(null);
@@ -426,7 +429,12 @@ function App() {
   function submitJump(event: FormEvent) {
     event.preventDefault();
     const id = Number(jumpValue);
-    if (Number.isInteger(id)) jumpTo(id);
+    if (Number.isInteger(id) && nodes.some((node) => node.id === id)) {
+      setJumpInvalid(false);
+      jumpTo(id);
+      return;
+    }
+    setJumpInvalid(true);
   }
 
   if (loading) return <main className="loading">{language === 'sv' ? 'Öppnar katekesen…' : 'Opening the Catechism…'}</main>;
@@ -438,9 +446,10 @@ function App() {
         <button aria-expanded={tocOpen} aria-label={tocOpen ? t.hideContents : t.showContents} className="toc-toggle" onClick={() => setTocOpen((value) => !value)} type="button"><span /><span /><span /></button>
         <div className="book-title">{t.title}</div>
         <div className="reader-tools">
-          <form className="jump-form" onSubmit={submitJump}>
-            <input aria-label={t.paragraph} inputMode="numeric" onChange={(event) => setJumpValue(event.target.value.replace(/\D/g, ''))} placeholder={`${t.paragraph}…`} value={jumpValue} />
+          <form className={`jump-form ${jumpInvalid ? 'is-invalid' : ''}`} onSubmit={submitJump}>
+            <input aria-describedby={jumpInvalid ? 'jump-error' : undefined} aria-invalid={jumpInvalid} aria-label={t.paragraph} inputMode="numeric" onChange={(event) => { setJumpValue(event.target.value); setJumpInvalid(false); }} placeholder={`${t.paragraph}…`} value={jumpValue} />
             <button type="submit">{t.jump}</button>
+            <span className="visually-hidden" id="jump-error" role="alert">{jumpInvalid ? t.invalidParagraph : ''}</span>
           </form>
           <div className="search-control">
             <span aria-hidden="true">⌕</span>
