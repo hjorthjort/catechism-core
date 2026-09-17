@@ -354,6 +354,22 @@ function paragraphTarget(reference?: ExternalReference) {
   return match ? Number(match[1]) : undefined;
 }
 
+function normalizedCitationText(value: string) {
+  return value
+    .replace(/<(?:br|\/p|\/div|\/li)\b[^>]*>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;|&#160;|&#xa0;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#(?:39|x27);/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function repeatsCitationName(html: string | undefined, name: string | undefined) {
+  return Boolean(html && name && normalizedCitationText(html) === normalizedCitationText(name));
+}
+
 function CitationPanel({ citation, data, language, onClose, onJump }: {
   citation: Citation;
   data: CatechismData;
@@ -379,6 +395,9 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
   const isFallback = language === 'sv' && source && !source.contentByLanguage?.sv;
   const translations = Object.entries(source?.contentByLanguage ?? {});
   const currentTranslation = source?.contentByLanguage?.[language];
+  const visibleTranslations = translations.filter(([, translation]) => !repeatsCitationName(translation.html, citation.name));
+  const sourceRepeatsName = repeatsCitationName(sourceContent, citation.name);
+  const citationRepeatsName = repeatsCitationName(citation.html, citation.name);
   const languageNames: Record<string, string> = { en: 'English', sv: 'Svenska', la: 'Latina', it: 'Italiano', es: 'Español', zh: '中文' };
 
   return (
@@ -386,8 +405,8 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
       <button aria-label={t.close} className="citation-close" onClick={onClose} type="button">×</button>
       <p className="citation-eyebrow">{citation.eyebrow}</p>
       <h2><span>{citation.title}</span>{citation.name ? <strong>{citation.name}</strong> : null}</h2>
-      {citation.swedishBibleRef ? <SwedishBiblePassage reference={citation.swedishBibleRef} /> : targetNode ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: targetNode.textHtml }} /> : currentTranslation ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: currentTranslation.html }} /> : translations.length > 1 ? <div className="citation-translations">{translations.map(([code, translation]) => <details key={code}><summary>{languageNames[code] ?? code.toUpperCase()}</summary><div className="citation-text" dangerouslySetInnerHTML={{ __html: translation.html }} /></details>)}</div> : sourceContent ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: sourceContent }} /> : citation.html ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: citation.html }} /> : <p>{t.citationUnavailable}</p>}
-      {isFallback ? <p className="fallback-note">{t.englishFallback}</p> : null}
+      {citation.swedishBibleRef ? <SwedishBiblePassage reference={citation.swedishBibleRef} /> : targetNode ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: targetNode.textHtml }} /> : currentTranslation ? repeatsCitationName(currentTranslation.html, citation.name) ? null : <div className="citation-text" dangerouslySetInnerHTML={{ __html: currentTranslation.html }} /> : translations.length > 1 ? visibleTranslations.length ? <div className="citation-translations">{visibleTranslations.map(([code, translation]) => <details key={code}><summary>{languageNames[code] ?? code.toUpperCase()}</summary><div className="citation-text" dangerouslySetInnerHTML={{ __html: translation.html }} /></details>)}</div> : null : sourceContent ? sourceRepeatsName ? null : <div className="citation-text" dangerouslySetInnerHTML={{ __html: sourceContent }} /> : citation.html ? citationRepeatsName ? null : <div className="citation-text" dangerouslySetInnerHTML={{ __html: citation.html }} /> : <p>{t.citationUnavailable}</p>}
+      {isFallback && !sourceRepeatsName ? <p className="fallback-note">{t.englishFallback}</p> : null}
       {citation.target ? <button className="jump-citation" onClick={() => onJump(citation.target!)} title={t.open} type="button"><span>↗</span>{t.open}</button> : null}
     </aside>
   );
