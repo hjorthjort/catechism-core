@@ -252,6 +252,10 @@ function labelFootnoteLinks(html: string, label: string, selectedNumber?: number
       `<sup${selected === number ? ' class="is-selected"' : ''}><a ${attributes} aria-label="${label} ${number}">${marker}</a></sup>`);
 }
 
+function indentInternalLineBreaks(html: string) {
+  return html.replace(/<br\s*\/?>/gi, (lineBreak) => `${lineBreak}<span aria-hidden="true" class="line-indent"></span>`);
+}
+
 function showNodeCitation(
   event: ReactMouseEvent<HTMLElement>,
   node: CatechismNode,
@@ -294,6 +298,7 @@ const ReaderParagraph = memo(function ReaderParagraph({ node, previous, next, se
   let paragraphHtml = language === 'sv' ? stripSwedishParagraphLinks(node.textHtml) : node.textHtml;
   const footnoteLabel = language === 'sv' ? 'Fotnot' : 'Footnote';
   paragraphHtml = labelFootnoteLinks(paragraphHtml, footnoteLabel, selectedFootnote?.number);
+  paragraphHtml = indentInternalLineBreaks(paragraphHtml);
 
   return (
     <article aria-labelledby={`paragraph-number-${node.id}`} className={`reader-paragraph ${inBrief ? 'in-brief' : ''} ${inBriefStart ? 'in-brief-start' : ''} ${inBriefEnd ? 'in-brief-end' : ''}`} data-paragraph={node.id} id={`paragraph-${node.id}`}>
@@ -304,8 +309,10 @@ const ReaderParagraph = memo(function ReaderParagraph({ node, previous, next, se
             <button className={selectedKey === `xref-${node.id}-${id}` ? 'is-selected' : ''} key={id} onClick={(event) => { event.stopPropagation(); onCitation({ key: `xref-${node.id}-${id}`, eyebrow: copy[language].reference, title: `§ ${id}`, html: '', target: id }); }} type="button">{id}</button>
           ))}
         </div>
-        <div className="paragraph-number" id={`paragraph-number-${node.id}`}>{node.number}</div>
-        <div className="paragraph-copy" dangerouslySetInnerHTML={{ __html: paragraphHtml }} onClick={(event) => showNodeCitation(event, node, language, onCitation)} />
+        <div className="paragraph-copy" onClick={(event) => showNodeCitation(event, node, language, onCitation)}>
+          <span className="paragraph-number" id={`paragraph-number-${node.id}`}>{node.number}</span>
+          <div className="paragraph-text" dangerouslySetInnerHTML={{ __html: paragraphHtml }} />
+        </div>
       </div>
     </article>
   );
