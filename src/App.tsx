@@ -155,18 +155,43 @@ function TocItem({ branch, activePath, onJump, titles, language, depth = 0 }: {
   const active = activePath.includes(branch.label);
   const hasChildren = branch.children.length > 0;
   const display = displayHierarchy(branch.label, language, titles);
+  const [open, setOpen] = useState(active || depth === 0);
+  const childrenId = `toc-children-${depth}-${branch.start}`;
+
+  useEffect(() => {
+    if (active) setOpen(true);
+  }, [active]);
+
   return (
     <li className={`toc-item toc-depth-${depth} ${active ? 'is-active' : ''}`}>
       {hasChildren ? (
-        <details open={active || depth === 0}>
-          <summary aria-label={`${display.kind}: ${display.title}`}>
-            <span><small>{display.kind}</small>{display.title}</span>
-          </summary>
-          <button className="toc-open" onClick={() => onJump(branch.start)} type="button">
-            {language === 'sv' ? `Gå till ${display.title}` : `Go to ${display.title}`}
-          </button>
-          <ul>{branch.children.map((child) => <TocItem activePath={activePath} branch={child} depth={depth + 1} key={child.label} language={language} onJump={onJump} titles={titles} />)}</ul>
-        </details>
+        <>
+          <div className="toc-branch-row">
+            <button
+              aria-controls={childrenId}
+              aria-expanded={open}
+              aria-label={language === 'sv'
+                ? `${open ? 'Dölj' : 'Visa'} ${display.title}`
+                : `${open ? 'Collapse' : 'Expand'} ${display.title}`}
+              className="toc-caret"
+              onClick={() => setOpen((current) => !current)}
+              type="button"
+            >
+              <span aria-hidden="true">›</span>
+            </button>
+            <button
+              className="toc-branch-link"
+              onClick={() => {
+                setOpen(true);
+                onJump(branch.start);
+              }}
+              type="button"
+            >
+              <span><small>{display.kind}</small>{display.title}</span>
+            </button>
+          </div>
+          <ul hidden={!open} id={childrenId}>{branch.children.map((child) => <TocItem activePath={activePath} branch={child} depth={depth + 1} key={child.label} language={language} onJump={onJump} titles={titles} />)}</ul>
+        </>
       ) : (
         <button onClick={() => onJump(branch.start)} type="button">
           <span>{display.kind}</span>
