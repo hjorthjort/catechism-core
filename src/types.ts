@@ -3,6 +3,7 @@ export type Footnote = {
   number: number | string;
   html: string;
   text: string;
+  compare?: boolean;
 };
 
 export type ExternalReference = {
@@ -83,6 +84,7 @@ export type LocalizedFootnote = {
   number: number | string;
   html: string;
   text: string;
+  compare?: boolean;
 };
 
 export type LocalizedNode = {

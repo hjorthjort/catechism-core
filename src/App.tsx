@@ -275,6 +275,30 @@ const extraUi: Record<
     openInRead: '在閱讀 CCC 中打開',
     noSearchResults: '沒有結果',
   },
+  sv: {
+    homeTab: 'Hem',
+    connectionsTab: 'Samband',
+    inBriefTab: 'Sammanfattning',
+    readTab: 'Läs katekesen',
+    menuLabel: 'Meny',
+    paragraphOfDay: 'Dagens stycke',
+    liturgicalTheme: 'Tema',
+    liturgicalCelebration: 'Firande',
+    liturgicalSeason: 'Kyrkoårstid',
+    liturgicalReadings: 'Läsningar',
+    liturgicalDate: 'Datum',
+    developerDate: 'Utvecklardatum',
+    nextYearRange: 'Planerad från 3 april 2026 till 2 april 2027.',
+    chosenParagraph: 'Valt stycke',
+    showInConnections: 'Visa i Samband',
+    inBriefTitle: 'Sammanfattning',
+    inBriefLede: 'En översikt över katekesen efter delar, avdelningar och kapitel.',
+    partIntro: 'Delens inledning',
+    readTitle: 'Läs katekesen',
+    noParagraph: 'Inget stycke valt',
+    openInRead: 'Öppna i Läsaren',
+    noSearchResults: 'Inga resultat',
+  },
   ar: {
     homeTab: 'الرئيسية',
     connectionsTab: 'الروابط',
@@ -1241,6 +1265,11 @@ function ParagraphCard({
             ))}
             {plainBubbleFootnotes.map((note) => (
               <div className="external-reference footnote-reference" id={footnoteJumpAnchorId(note.id)} key={note.id}>
+                {note.compare ? (
+                  <div className="external-reference-compare" title={t.compareLabel}>
+                    <img alt="" aria-hidden="true" src="/compare-icon.svg" />
+                  </div>
+                ) : null}
                 <span className="reference-kind">{t.footnote}</span>
                 <strong>
                   {t.footnote} {note.number}
