@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent as ReactMouseEvent } from 'react';
 
 import { useCatechismData } from './lib/data';
 import type { AppLanguage } from './lib/i18n';
@@ -150,9 +150,18 @@ function HierarchyBreak({ node, previous, language, titles }: { node: CatechismN
   );
 }
 
-function ReaderParagraph({ node, previous, active, selectedKey, onActivate, onCitation, language, titles }: {
+function isInBrief(node?: CatechismNode) {
+  return Boolean(node && (node.title.toUpperCase() === 'IN BRIEF' || node.title.toLocaleUpperCase('sv') === 'SAMMANFATTNING'));
+}
+
+function stripSwedishParagraphLinks(html: string) {
+  return html.replace(/<i>\s*\[(?:(?!<\/i>)[\s\S])*?katekesen\.se(?:(?!<\/i>)[\s\S])*?<\/i>/gi, '');
+}
+
+function ReaderParagraph({ node, previous, next, active, selectedKey, onActivate, onCitation, language, titles }: {
   node: CatechismNode;
   previous?: CatechismNode;
+  next?: CatechismNode;
   active: boolean;
   selectedKey?: string;
   onActivate: (id: number) => void;
@@ -160,9 +169,20 @@ function ReaderParagraph({ node, previous, active, selectedKey, onActivate, onCi
   language: 'en' | 'sv';
   titles?: Record<string, string>;
 }) {
-  const inBrief = node.title.toUpperCase() === 'IN BRIEF' || node.title.toLocaleUpperCase('sv') === 'SAMMANFATTNING';
+  const inBrief = isInBrief(node);
+  const sameHierarchyAsPrevious = previous?.breadcrumbs.join('|') === node.breadcrumbs.join('|');
+  const sameHierarchyAsNext = next?.breadcrumbs.join('|') === node.breadcrumbs.join('|');
+  const inBriefStart = inBrief && (!isInBrief(previous) || !sameHierarchyAsPrevious);
+  const inBriefEnd = inBrief && (!isInBrief(next) || !sameHierarchyAsNext);
+  const selectedFootnoteId = selectedKey?.startsWith(`fn-${node.id}-`) ? selectedKey.slice(`fn-${node.id}-`.length) : undefined;
+  const selectedFootnote = selectedFootnoteId ? node.footnotes.find((item) => item.id === selectedFootnoteId) : undefined;
+  let paragraphHtml = language === 'sv' ? stripSwedishParagraphLinks(node.textHtml) : node.textHtml;
+  if (selectedFootnote) {
+    const number = String(selectedFootnote.number).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    paragraphHtml = paragraphHtml.replace(new RegExp(`<sup>([\\s\\S]*?${number}[\\s\\S]*?)<\\/sup>`), '<sup class="is-selected">$1</sup>');
+  }
 
-  function showFootnote(event: MouseEvent<HTMLElement>) {
+  function showFootnote(event: ReactMouseEvent<HTMLElement>) {
     const target = (event.target as HTMLElement).closest('a');
     const sup = target?.querySelector('sup') ?? (event.target as HTMLElement).closest('sup');
     if (!sup) return;
@@ -173,7 +193,7 @@ function ReaderParagraph({ node, previous, active, selectedKey, onActivate, onCi
   }
 
   return (
-    <article className={`reader-paragraph ${active ? 'is-current' : ''} ${inBrief ? 'in-brief' : ''}`} data-paragraph={node.id} id={`paragraph-${node.id}`} onClick={() => onActivate(node.id)}>
+    <article className={`reader-paragraph ${active ? 'is-current' : ''} ${inBrief ? 'in-brief' : ''} ${inBriefStart ? 'in-brief-start' : ''} ${inBriefEnd ? 'in-brief-end' : ''}`} data-paragraph={node.id} id={`paragraph-${node.id}`} onClick={() => onActivate(node.id)}>
       <HierarchyBreak language={language} node={node} previous={previous} titles={titles} />
       <div className="paragraph-row">
         <aside className="margin-references" aria-label="Paragraph references">
@@ -182,7 +202,7 @@ function ReaderParagraph({ node, previous, active, selectedKey, onActivate, onCi
           ))}
         </aside>
         <div className="paragraph-number">{node.number}</div>
-        <div className="paragraph-copy" dangerouslySetInnerHTML={{ __html: node.textHtml }} onClick={showFootnote} onMouseOver={showFootnote} />
+        <div className="paragraph-copy" dangerouslySetInnerHTML={{ __html: paragraphHtml }} onClick={showFootnote} />
       </div>
     </article>
   );
@@ -210,13 +230,15 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
   const source = citation.sourceId ? data.externalSources[citation.sourceId] : Object.values(data.externalSources).find((item) => item.citation === citation.title || item.title === citation.title);
   const sourceContent = source?.contentByLanguage?.[language]?.html ?? source?.contentHtml;
   const isFallback = language === 'sv' && source && !source.contentByLanguage?.sv;
+  const translations = Object.entries(source?.contentByLanguage ?? {});
+  const languageNames: Record<string, string> = { en: 'English', sv: 'Svenska', la: 'Latina', it: 'Italiano', es: 'Español', zh: '中文' };
 
   return (
     <aside className="citation-panel" aria-live="polite">
       <button aria-label={t.close} className="citation-close" onClick={onClose} type="button">×</button>
       <p className="citation-eyebrow">{citation.eyebrow}</p>
       <h2>{citation.title}</h2>
-      {targetNode ? <div className="citation-text">{targetNode.text}</div> : sourceContent ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: sourceContent }} /> : citation.html ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: citation.html }} /> : <p>{t.citationUnavailable}</p>}
+      {targetNode ? <div className="citation-text">{targetNode.text}</div> : translations.length > 1 ? <div className="citation-translations">{translations.map(([code, translation]) => <details key={code}><summary>{languageNames[code] ?? code.toUpperCase()}</summary><div className="citation-text" dangerouslySetInnerHTML={{ __html: translation.html }} /></details>)}</div> : sourceContent ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: sourceContent }} /> : citation.html ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: citation.html }} /> : <p>{t.citationUnavailable}</p>}
       {isFallback ? <p className="fallback-note">{t.englishFallback}</p> : null}
       {citation.target ? <button className="jump-citation" onClick={() => onJump(citation.target!)} title={t.open} type="button"><span>↗</span>{t.open}</button> : null}
     </aside>
@@ -232,6 +254,8 @@ function App() {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [citation, setCitation] = useState<Citation | null>(null);
+  const [toolbarHidden, setToolbarHidden] = useState(false);
+  const [citationWidth, setCitationWidth] = useState(340);
   const observer = useRef<IntersectionObserver | null>(null);
   const t = copy[language];
 
@@ -275,6 +299,48 @@ function App() {
     return () => observer.current?.disconnect();
   }, [jumpTo, nodes.length]);
 
+  useEffect(() => {
+    let lastY = window.scrollY;
+    function onScroll() {
+      const currentY = window.scrollY;
+      if (Math.abs(currentY - lastY) > 8) setToolbarHidden(currentY > lastY && currentY > 120);
+      lastY = currentY;
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target?.tagName ?? '')) return;
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+      const index = nodes.findIndex((node) => node.id === activeId);
+      const destination = event.key === 'ArrowDown' ? nodes[index + 1] : nodes[index - 1];
+      if (destination) {
+        event.preventDefault();
+        jumpTo(destination.id);
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeId, jumpTo, nodes]);
+
+  function beginCitationResize(event: ReactMouseEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = citationWidth;
+    function onMove(moveEvent: globalThis.MouseEvent) {
+      setCitationWidth(Math.min(620, Math.max(280, startWidth + startX - moveEvent.clientX)));
+    }
+    function onUp() {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+
   function submitJump(event: FormEvent) {
     event.preventDefault();
     const id = Number(jumpValue);
@@ -285,7 +351,7 @@ function App() {
   if (error || !data) return <main className="loading">{error ?? 'Unable to load the Catechism.'}</main>;
 
   return (
-    <div className={`book-app ${tocOpen ? '' : 'toc-hidden'} ${citation ? 'citation-open' : ''}`} lang={language}>
+    <div className={`book-app ${tocOpen ? '' : 'toc-hidden'} ${citation ? 'citation-open' : ''} ${toolbarHidden ? 'toolbar-hidden' : ''}`} lang={language} style={{ '--aside': `${citationWidth}px` } as CSSProperties}>
       <header className="reader-toolbar">
         <button aria-expanded={tocOpen} aria-label={tocOpen ? t.hideContents : t.showContents} className="toc-toggle" onClick={() => setTocOpen((value) => !value)} type="button"><span /><span /><span /></button>
         <div className="book-title">{t.title}</div>
@@ -312,7 +378,7 @@ function App() {
 
       <main className="book-column">
         <div className="edition-title"><span>CCC</span><h1>{t.title}</h1><p>{language === 'sv' ? 'Den fullständiga texten' : 'The complete text'}</p></div>
-        {nodes.map((node, index) => <ReaderParagraph active={node.id === activeId} key={node.id} language={language} node={node} onActivate={setActiveId} onCitation={setCitation} previous={nodes[index - 1]} selectedKey={citation?.key} titles={data.hierarchyTitles} />)}
+        {nodes.map((node, index) => <ReaderParagraph active={node.id === activeId} key={node.id} language={language} next={nodes[index + 1]} node={node} onActivate={setActiveId} onCitation={setCitation} previous={nodes[index - 1]} selectedKey={citation?.key} titles={data.hierarchyTitles} />)}
       </main>
 
       {searchOpen ? (
@@ -324,7 +390,7 @@ function App() {
         </div>
       ) : null}
 
-      {citation ? <CitationPanel citation={citation} data={data} language={language} onClose={() => setCitation(null)} onJump={jumpTo} /> : null}
+      {citation ? <><div aria-hidden="true" className="citation-resize" onMouseDown={beginCitationResize} /><CitationPanel citation={citation} data={data} language={language} onClose={() => setCitation(null)} onJump={jumpTo} /></> : null}
     </div>
   );
 }
