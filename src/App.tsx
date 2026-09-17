@@ -11,7 +11,47 @@ type Citation = {
   html: string;
   target?: number;
   sourceId?: string | null;
+  name?: string;
+  swedishBibleRef?: string;
 };
+
+type SwedishBible = {
+  books: Array<{
+    nr: number;
+    name: string;
+    chapters: Array<{ chapter: number; verses: Array<{ verse: number; text: string }> }>;
+  }>;
+};
+
+let swedishBiblePromise: Promise<SwedishBible> | null = null;
+
+const swedishBookNumbers: Record<string, number> = {
+  '1 mos': 1, '2 mos': 2, '3 mos': 3, '4 mos': 4, '5 mos': 5, jos: 6, dom: 7, rut: 8,
+  '1 sam': 9, '2 sam': 10, '1 kung': 11, '2 kung': 12, '1 krön': 13, '2 krön': 14,
+  esr: 15, neh: 16, est: 17, job: 18, ps: 19, ords: 20, pred: 21, höga: 22, jes: 23,
+  jer: 24, klag: 25, hes: 26, dan: 27, hos: 28, joel: 29, am: 30, ob: 31, jona: 32,
+  mik: 33, nah: 34, hab: 35, sef: 36, hagg: 37, sak: 38, mal: 39, matt: 40, mark: 41,
+  luk: 42, joh: 43, apg: 44, rom: 45, '1 kor': 46, '2 kor': 47, gal: 48, ef: 49,
+  fil: 50, kol: 51, '1 thess': 52, '2 thess': 53, '1 tim': 54, '2 tim': 55, tit: 56,
+  filem: 57, heb: 58, jak: 59, '1 pet': 60, '2 pet': 61, '1 joh': 62, '2 joh': 63,
+  '3 joh': 64, jud: 65, upp: 66, tob: 69, judit: 70, vis: 73, syr: 74, bar: 75,
+  '1 mack': 80, '2 mack': 81, vish: 73, 'h�ga v': 22,
+};
+
+function bibleReferenceFromHref(href: string) {
+  try {
+    const url = new URL(href, location.href);
+    if (!url.hostname.includes('bibeln.se')) return null;
+    const query = new URLSearchParams(url.hash.replace(/^#/, '')).get('q');
+    return query?.replace(/\+/g, ' ').replace(/\s+/g, ' ').trim() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeBibleReference(reference: string) {
+  return reference.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+}
 
 type TocBranch = {
   label: string;
@@ -184,6 +224,14 @@ function ReaderParagraph({ node, previous, next, active, selectedKey, onActivate
 
   function showFootnote(event: ReactMouseEvent<HTMLElement>) {
     const target = (event.target as HTMLElement).closest('a');
+    const bibleReference = target ? bibleReferenceFromHref(target.getAttribute('href') ?? '') : null;
+    if (language === 'sv' && bibleReference) {
+      event.preventDefault();
+      event.stopPropagation();
+      const name = normalizeBibleReference(bibleReference);
+      onCitation({ key: `bible-${node.id}-${name}`, eyebrow: 'Bibelreferens', title: 'Bibel', name, html: '', swedishBibleRef: name });
+      return;
+    }
     const sup = target?.querySelector('sup') ?? (event.target as HTMLElement).closest('sup');
     if (!sup) return;
     event.preventDefault();
@@ -210,7 +258,40 @@ function ReaderParagraph({ node, previous, next, active, selectedKey, onActivate
 
 function footnoteCitation(node: CatechismNode, footnote: Footnote, language: 'en' | 'sv'): Citation {
   const reference = node.externalReferences.find((item) => item.footnoteId === footnote.id);
-  return { key: `fn-${node.id}-${footnote.id}`, eyebrow: copy[language].footnote, title: String(footnote.number), html: footnote.html || footnote.text, target: paragraphTarget(reference), sourceId: reference?.sourceId };
+  return { key: `fn-${node.id}-${footnote.id}`, eyebrow: copy[language].footnote, title: String(footnote.number), name: reference?.label ?? footnote.text, html: footnote.html || footnote.text, target: paragraphTarget(reference), sourceId: reference?.sourceId };
+}
+
+function SwedishBiblePassage({ reference }: { reference: string }) {
+  const [passage, setPassage] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    const match = normalizeBibleReference(reference).match(/^(.+?)\s+(\d+):(\d+)(?:-(\d+))?(f{1,2})?/i);
+    if (!match) { setFailed(true); return; }
+    const bookKey = match[1].toLocaleLowerCase('sv').replace(/\.$/, '');
+    const bookNumber = swedishBookNumbers[bookKey];
+    const chapterNumber = Number(match[2]);
+    const firstVerse = Number(match[3]);
+    const lastVerse = match[4] ? Number(match[4]) : firstVerse + (match[5]?.length ?? 0);
+    if (!bookNumber) { setFailed(true); return; }
+    swedishBiblePromise ??= fetch('https://api.getbible.net/v2/swedish.json').then((response) => {
+      if (!response.ok) throw new Error('Bible source unavailable');
+      return response.json() as Promise<SwedishBible>;
+    });
+    let cancelled = false;
+    swedishBiblePromise.then((bible) => {
+      const chapter = bible.books.find((book) => book.nr === bookNumber)?.chapters.find((entry) => entry.chapter === chapterNumber);
+      const text = chapter?.verses.filter((verse) => verse.verse >= firstVerse && verse.verse <= lastVerse).map((verse) => `<span class="verse-number">${verse.verse}</span> ${verse.text.trim()}`).join(' ');
+      if (!cancelled) {
+        if (text) setPassage(text); else setFailed(true);
+      }
+    }).catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, [reference]);
+
+  if (failed) return <p>Den svenska bibeltexten kunde inte hämtas.</p>;
+  if (!passage) return <p>Hämtar bibeltext…</p>;
+  return <><div className="citation-text" dangerouslySetInnerHTML={{ __html: passage }} /><p className="source-note">Svenska 1917 (public domain)</p></>;
 }
 
 function paragraphTarget(reference?: ExternalReference) {
@@ -231,14 +312,15 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
   const sourceContent = source?.contentByLanguage?.[language]?.html ?? source?.contentHtml;
   const isFallback = language === 'sv' && source && !source.contentByLanguage?.sv;
   const translations = Object.entries(source?.contentByLanguage ?? {});
+  const currentTranslation = source?.contentByLanguage?.[language];
   const languageNames: Record<string, string> = { en: 'English', sv: 'Svenska', la: 'Latina', it: 'Italiano', es: 'Español', zh: '中文' };
 
   return (
     <aside className="citation-panel" aria-live="polite">
       <button aria-label={t.close} className="citation-close" onClick={onClose} type="button">×</button>
       <p className="citation-eyebrow">{citation.eyebrow}</p>
-      <h2>{citation.title}</h2>
-      {targetNode ? <div className="citation-text">{targetNode.text}</div> : translations.length > 1 ? <div className="citation-translations">{translations.map(([code, translation]) => <details key={code}><summary>{languageNames[code] ?? code.toUpperCase()}</summary><div className="citation-text" dangerouslySetInnerHTML={{ __html: translation.html }} /></details>)}</div> : sourceContent ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: sourceContent }} /> : citation.html ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: citation.html }} /> : <p>{t.citationUnavailable}</p>}
+      <h2><span>{citation.title}</span>{citation.name ? <strong>{citation.name}</strong> : null}</h2>
+      {citation.swedishBibleRef ? <SwedishBiblePassage reference={citation.swedishBibleRef} /> : targetNode ? <div className="citation-text">{targetNode.text}</div> : currentTranslation ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: currentTranslation.html }} /> : translations.length > 1 ? <div className="citation-translations">{translations.map(([code, translation]) => <details key={code}><summary>{languageNames[code] ?? code.toUpperCase()}</summary><div className="citation-text" dangerouslySetInnerHTML={{ __html: translation.html }} /></details>)}</div> : sourceContent ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: sourceContent }} /> : citation.html ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: citation.html }} /> : <p>{t.citationUnavailable}</p>}
       {isFallback ? <p className="fallback-note">{t.englishFallback}</p> : null}
       {citation.target ? <button className="jump-citation" onClick={() => onJump(citation.target!)} title={t.open} type="button"><span>↗</span>{t.open}</button> : null}
     </aside>
