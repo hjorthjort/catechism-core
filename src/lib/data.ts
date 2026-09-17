@@ -1,52 +1,30 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'preact/hooks';
 
-import type { CatechismData, DailyScheduleData, LanguagePack } from '../types';
+import type { CatechismData, ExternalSource, LanguagePack } from '../types';
 import type { AppLanguage } from './i18n';
 
 type LoadState = {
   data: CatechismData | null;
-  schedule: DailyScheduleData | null;
   error: string | null;
   loading: boolean;
 };
 
 let graphPromise: Promise<CatechismData> | null = null;
-let schedulePromise: Promise<DailyScheduleData> | null = null;
 const packPromises = new Map<AppLanguage, Promise<LanguagePack | null>>();
+let sourceIndexPromise: Promise<Record<string, string>> | null = null;
+const sourcePromises = new Map<string, Promise<ExternalSource | null>>();
 
 function loadGraph() {
   if (!graphPromise) {
-    graphPromise = Promise.all([
-      fetch('/data/catechism-graph.json'),
-      fetch('/data/external-sources-1.json'),
-      fetch('/data/external-sources-2.json'),
-      fetch('/data/external-sources-3.json'),
-      fetch('/data/external-sources-4.json'),
-    ]).then(async ([graphResponse, ...sourceResponses]) => {
-      if (!graphResponse.ok || sourceResponses.some((response) => !response.ok)) {
+    graphPromise = fetch('/data/reader-generated/core.json').then(async (graphResponse) => {
+      if (!graphResponse.ok) {
         throw new Error('Failed to load catechism data');
       }
-      const graph = await graphResponse.json() as CatechismData;
-      const sourceChunks = await Promise.all(sourceResponses.map((response) => response.json() as Promise<CatechismData['externalSources']>));
-      return { ...graph, externalSources: Object.assign({}, ...sourceChunks) };
+      return graphResponse.json() as Promise<CatechismData>;
     });
   }
 
   return graphPromise;
-}
-
-function loadSchedule() {
-  if (!schedulePromise) {
-    schedulePromise = fetch('/data/daily-schedule.json').then(async (response) => {
-      if (!response.ok) {
-        throw new Error(`Failed to load liturgical schedule (${response.status})`);
-      }
-
-      return response.json() as Promise<DailyScheduleData>;
-    });
-  }
-
-  return schedulePromise;
 }
 
 function loadLanguagePack(language: AppLanguage) {
@@ -59,7 +37,7 @@ function loadLanguagePack(language: AppLanguage) {
     return cached;
   }
 
-  const promise = fetch(`/data/languages/${language}.json`)
+  const promise = fetch('/data/reader-generated/sv.json')
     .then(async (response) => {
       if (!response.ok) {
         throw new Error(`Failed to load ${language} content (${response.status})`);
@@ -112,7 +90,6 @@ function mergeData(graph: CatechismData, pack: LanguagePack | null): CatechismDa
 export function useCatechismData(language: AppLanguage): LoadState {
   const [state, setState] = useState<LoadState>({
     data: null,
-    schedule: null,
     error: null,
     loading: true,
   });
@@ -120,15 +97,14 @@ export function useCatechismData(language: AppLanguage): LoadState {
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([loadGraph(), loadLanguagePack(language), loadSchedule()])
-      .then(([graph, pack, schedule]) => {
+    Promise.all([loadGraph(), loadLanguagePack(language)])
+      .then(([graph, pack]) => {
         if (cancelled) {
           return;
         }
 
         setState({
           data: mergeData(graph, pack),
-          schedule,
           error: null,
           loading: false,
         });
@@ -140,7 +116,6 @@ export function useCatechismData(language: AppLanguage): LoadState {
 
         setState({
           data: null,
-          schedule: null,
           error: error.message,
           loading: false,
         });
@@ -152,4 +127,22 @@ export function useCatechismData(language: AppLanguage): LoadState {
   }, [language]);
 
   return state;
+}
+
+export function loadExternalSource(sourceId: string) {
+  const cached = sourcePromises.get(sourceId);
+  if (cached) return cached;
+  sourceIndexPromise ??= fetch('/data/reader-generated/source-index.json').then((response) => {
+    if (!response.ok) throw new Error('Failed to load citation index');
+    return response.json() as Promise<Record<string, string>>;
+  });
+  const promise = sourceIndexPromise.then(async (index) => {
+    const file = index[sourceId];
+    if (!file) return null;
+    const response = await fetch(`/data/reader-generated/sources/${file}`);
+    if (!response.ok) return null;
+    return response.json() as Promise<ExternalSource>;
+  }).catch(() => null);
+  sourcePromises.set(sourceId, promise);
+  return promise;
 }

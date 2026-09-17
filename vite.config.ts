@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import preact from '@preact/preset-vite'
 
 const gitCommitHash = (() => {
   try {
@@ -13,7 +13,7 @@ const gitCommitHash = (() => {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [preact()],
   define: {
     'import.meta.env.VITE_GIT_COMMIT_HASH': JSON.stringify(gitCommitHash),
   },

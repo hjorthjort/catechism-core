@@ -4,26 +4,20 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/build-reader-data.mjs && vite",
     "build:data": "node scripts/build-catechism-data.mjs && node scripts/build-liturgical-schedule.mjs",
-    "build": "tsc -b && vite build && node scripts/build-sites-worker.mjs",
+    "build": "node scripts/build-reader-data.mjs && tsc -b && vite build && node scripts/build-sites-worker.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
-    "cheerio": "^1.2.0",
-    "d3-force": "^3.0.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "react-router-dom": "^7.13.2"
+    "preact": "^10.29.8"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
-    "@types/d3-force": "^3.0.10",
+    "@preact/preset-vite": "^2.10.6",
     "@types/node": "^24.12.0",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
+    "cheerio": "^1.2.0",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
