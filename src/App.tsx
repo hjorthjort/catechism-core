@@ -63,7 +63,11 @@ function footnoteIdFromHref(href: string) {
 }
 
 function normalizeBibleReference(reference: string) {
-  return reference.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+  return reference
+    .replace(/\u00a0/g, ' ')
+    .replace(/^([1-5])(?=[A-Za-zÅÄÖåäö])/u, '$1 ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 type TocBranch = {

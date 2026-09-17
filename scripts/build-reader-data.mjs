@@ -3,6 +3,7 @@ import {
   assertFootnoteIntegrity,
   repairEnglishFootnoteIntegrity,
 } from './lib/footnote-integrity.mjs';
+import { assertNoUnlinkedInlineScriptureReferences } from './lib/inline-scripture.mjs';
 
 const output = 'public/data/reader-generated';
 const sourceDirectory = `${output}/sources`;
@@ -12,6 +13,8 @@ const swedish = JSON.parse(await readFile('public/data/languages/sv.json', 'utf8
 repairEnglishFootnoteIntegrity(graph.nodes);
 const englishFootnotes = assertFootnoteIntegrity(graph.nodes, 'en');
 const swedishFootnotes = assertFootnoteIntegrity(swedish.nodes, 'sv');
+assertNoUnlinkedInlineScriptureReferences(graph.nodes, 'en');
+assertNoUnlinkedInlineScriptureReferences(swedish.nodes, 'sv');
 
 await rm(output, { recursive: true, force: true });
 await mkdir(sourceDirectory, { recursive: true });

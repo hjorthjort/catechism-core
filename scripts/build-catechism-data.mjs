@@ -18,6 +18,10 @@ import {
   assertFootnoteIntegrity,
   repairEnglishFootnoteIntegrity,
 } from './lib/footnote-integrity.mjs';
+import {
+  assertNoUnlinkedInlineScriptureReferences,
+  linkSwedishInlineScriptureReferences,
+} from './lib/inline-scripture.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -1822,6 +1826,14 @@ function extractInlineReferenceFootnotes(text, noteIdPrefix) {
   return footnotes;
 }
 
+function extractReaderInlineFootnotes(text, noteIdPrefix, includeDocuments) {
+  const footnotes = extractInlineReferenceFootnotes(text, noteIdPrefix);
+  if (includeDocuments) return footnotes;
+  return footnotes.filter((footnote) =>
+    extractExternalReferences([footnote]).some((reference) => reference.kind === 'scripture'),
+  );
+}
+
 function buildPreview(text) {
   return text.length > 220 ? `${text.slice(0, 217).trimEnd()}...` : text;
 }
@@ -2340,7 +2352,9 @@ function parseSwedishParagraphsFromHtml(html, sourceUrl, hierarchyTitles, graphN
       return;
     }
 
-    const textHtml = normalizeSwedishLegacyText((content.html() ?? '').trim());
+    const textHtml = linkSwedishInlineScriptureReferences(
+      normalizeSwedishLegacyText((content.html() ?? '').trim()),
+    );
 
     const sourceWithAnchor = `${sourceUrl}#${id}`;
     const baseNode = graphNodesById.get(id);
@@ -2352,7 +2366,9 @@ function parseSwedishParagraphsFromHtml(html, sourceUrl, hierarchyTitles, graphN
       sourceUrl,
       id,
       footnoteSources,
-    );
+    ).map((heading) => heading.html
+      ? { ...heading, html: linkSwedishInlineScriptureReferences(heading.html) }
+      : heading);
     paragraphs.set(id, {
       id,
       title: localizedSwedishNodeTitle(baseNode, headings, hierarchyTitles, id),
@@ -2540,6 +2556,7 @@ async function buildSwedishLanguagePack(config, nodeIds, graphNodesById) {
     swedishFootnotes.markerCount,
     'markers and objects',
   );
+  assertNoUnlinkedInlineScriptureReferences([...localized.values()], 'sv');
 
   const missingParagraphs = [...nodeIds].filter((id) => !localized.has(id));
   if (missingParagraphs.length > 0) {
@@ -2986,9 +3003,11 @@ function normalizeParagraphHierarchy(nodes, vaticanLookup) {
     }
 
     const isInBrief = inBriefMode;
-    const inlineFootnotes = isInBrief
-      ? extractInlineReferenceFootnotes(node.text, `inline:${node.id}`)
-      : [];
+    const inlineFootnotes = extractReaderInlineFootnotes(
+      node.text,
+      `inline:${node.id}`,
+      isInBrief,
+    );
     const footnotes = [...node.footnotes, ...inlineFootnotes];
     const externalReferences = [
       ...node.externalReferences,
@@ -6105,12 +6124,13 @@ async function buildBaseGraphPayload() {
         );
         return hierarchyChanged && !startsInBrief;
       }) ?? false;
-    const hasUnlinkedInBriefReferences =
+    const hasUnlinkedInlineReferences =
       parsed?.nodes?.some((node) => {
-        if (cleanText(node.title).toUpperCase() !== 'IN BRIEF') return false;
-        const expected = extractInlineReferenceFootnotes(
+        const isInBrief = cleanText(node.title).toUpperCase() === 'IN BRIEF';
+        const expected = extractReaderInlineFootnotes(
           node.text,
           `inline:${node.id}`,
+          isInBrief,
         ).length;
         const linked = node.footnotes.filter((footnote) =>
           String(footnote.id).startsWith(`inline:${node.id}:`),
@@ -6123,7 +6143,7 @@ async function buildBaseGraphPayload() {
       maxRelativePagerank > 1 &&
       !hasSuspiciousPrologueAssignments &&
       !hasInBriefHierarchyLeaks &&
-      !hasUnlinkedInBriefReferences
+      !hasUnlinkedInlineReferences
     ) {
       return parsed;
     }
@@ -6228,6 +6248,7 @@ async function main() {
   const basePayload = await buildBaseGraphPayload();
   repairEnglishFootnoteIntegrity(basePayload.nodes);
   const englishFootnotes = assertFootnoteIntegrity(basePayload.nodes, 'en');
+  assertNoUnlinkedInlineScriptureReferences(basePayload.nodes, 'en');
   debugLog(
     'English footnotes verified',
     englishFootnotes.markerCount,

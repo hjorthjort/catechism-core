@@ -6,6 +6,7 @@ import {
   assertFootnoteIntegrity,
   repairEnglishFootnoteIntegrity,
 } from '../scripts/lib/footnote-integrity.mjs';
+import { findUnlinkedInlineScriptureReferences } from '../scripts/lib/inline-scripture.mjs';
 
 test('repairs detached heading notes, inline citations, and carried-over notes', () => {
   const nodes = [
@@ -77,6 +78,8 @@ test('all generated English and Swedish footnotes have exactly one marker and ob
   const swedishReport = assertFootnoteIntegrity(swedish.nodes, 'sv');
   assert.equal(englishReport.markerCount, englishReport.footnoteCount);
   assert.equal(swedishReport.markerCount, swedishReport.footnoteCount);
+  assert.deepEqual(findUnlinkedInlineScriptureReferences(english.nodes, 'en'), []);
+  assert.deepEqual(findUnlinkedInlineScriptureReferences(swedish.nodes, 'sv'), []);
 
   const paragraph2247 = english.nodes.find((node: { id: number }) => node.id === 2247);
   assert.match(paragraph2247.textHtml, /class="inline-citation"/);
