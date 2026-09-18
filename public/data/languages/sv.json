@@ -4635,7 +4635,7 @@
           "canonicalLabel": "Upp 21:1-22:5",
           "kind": "scripture",
           "compare": true,
-          "sourceId": null
+          "sourceId": "scripture:rev-21-1-22-5"
         }
       ],
       "vaticanSource": {
@@ -14492,7 +14492,7 @@
           "canonicalLabel": "1 Mos 1:1-2:4",
           "kind": "scripture",
           "compare": true,
-          "sourceId": null
+          "sourceId": "scripture:gen-1-1-2-4"
         },
         {
           "id": "337:42:document:1",
@@ -39734,7 +39734,7 @@
           "canonicalLabel": "Jes 52:13-15",
           "kind": "scripture",
           "compare": true,
-          "sourceId": null
+          "sourceId": "scripture:isa-52-13-53-12"
         },
         {
           "id": "713:75:scripture:9",
@@ -40272,7 +40272,7 @@
           "canonicalLabel": "Ords 8:1-9:6",
           "kind": "scripture",
           "compare": true,
-          "sourceId": null
+          "sourceId": "scripture:prov-8-1-9-6"
         },
         {
           "id": "721:90:scripture:2",
@@ -61506,7 +61506,7 @@
           "canonicalLabel": "Heb 3:7-4:11",
           "kind": "scripture",
           "compare": true,
-          "sourceId": null
+          "sourceId": "scripture:heb-3-7-4-11"
         },
         {
           "kind": "scripture",
@@ -100332,7 +100332,7 @@
           "canonicalLabel": "ef 5:21-6:4",
           "kind": "scripture",
           "compare": true,
-          "sourceId": null
+          "sourceId": "scripture:eph-5-21-6-4"
         },
         {
           "id": "2204:5:scripture:2",
@@ -112610,7 +112610,7 @@
           "canonicalLabel": "2 Mos 32:1-34:9",
           "kind": "scripture",
           "compare": true,
-          "sourceId": null
+          "sourceId": "scripture:ex-32-1-34-9"
         }
       ],
       "vaticanSource": {

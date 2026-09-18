@@ -26,6 +26,7 @@ import {
   attachLocalizedFootnoteReferences,
   findUnresolvedLocalizedFootnotes,
 } from './lib/localized-footnote-references.mjs';
+import { parseVerseSelections } from './lib/scripture-selection.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -3326,7 +3327,9 @@ function splitScriptureQuery(query) {
   let currentChapter = null;
 
   for (const rawSegment of segments) {
-    const segment = rawSegment.trim();
+    const segment = rawSegment
+      .trim()
+      .replace(/^(?:cf|see also|see)\.?\s+/i, '');
     if (!segment) {
       continue;
     }
@@ -3365,27 +3368,6 @@ function splitScriptureQuery(query) {
   return normalized;
 }
 
-function expandVerseToken(token) {
-  const trimmed = token.trim();
-  if (!trimmed) {
-    return [];
-  }
-
-  const rangeMatch = trimmed.match(/^(\d+)-(\d+)$/);
-  if (rangeMatch) {
-    const start = Number(rangeMatch[1]);
-    const end = Number(rangeMatch[2]);
-    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
-      return [];
-    }
-
-    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
-  }
-
-  const single = Number(trimmed);
-  return Number.isFinite(single) ? [single] : [];
-}
-
 function parseScriptureSegment(segment) {
   const match = segment.query.match(/^(.+?)\s+(\d+)(?::(.+))?$/);
   if (!match) {
@@ -3411,70 +3393,26 @@ function parseScriptureSegment(segment) {
     };
   }
 
-  const tokens = verseSpec.split(/\s*,\s*/);
-  const selections = [];
-  const chapters = new Set([chapter]);
-
-  for (const token of tokens) {
-    const crossChapterMatch = token.match(/^(\d+):(\d+)-(\d+):(\d+)$/);
-    if (crossChapterMatch) {
-      const startChapter = Number(crossChapterMatch[1]);
-      const startVerse = Number(crossChapterMatch[2]);
-      const endChapter = Number(crossChapterMatch[3]);
-      const endVerse = Number(crossChapterMatch[4]);
-
-      for (let currentChapter = startChapter; currentChapter <= endChapter; currentChapter += 1) {
-        chapters.add(currentChapter);
-        if (currentChapter === startChapter && currentChapter === endChapter) {
-          selections.push({
-            chapter: currentChapter,
-            verses: Array.from({ length: endVerse - startVerse + 1 }, (_, index) => startVerse + index),
-          });
-        } else if (currentChapter === startChapter) {
-          selections.push({
-            chapter: currentChapter,
-            verses: { start: startVerse, end: null },
-          });
-        } else if (currentChapter === endChapter) {
-          selections.push({
-            chapter: currentChapter,
-            verses: { start: 1, end: endVerse },
-          });
-        } else {
-          selections.push({
-            chapter: currentChapter,
-            verses: null,
-          });
-        }
-      }
-      continue;
-    }
-
-    const chapterSpecificMatch = token.match(/^(\d+):(.+)$/);
-    if (chapterSpecificMatch) {
-      const tokenChapter = Number(chapterSpecificMatch[1]);
-      const verses = chapterSpecificMatch[2]
-        .split(/\s*,\s*/)
-        .flatMap((part) => expandVerseToken(part));
-      if (verses.length > 0) {
-        chapters.add(tokenChapter);
-        selections.push({ chapter: tokenChapter, verses });
-      }
-      continue;
-    }
-
-    const verses = expandVerseToken(token);
-    if (verses.length > 0) {
-      selections.push({ chapter, verses });
-    }
-  }
+  const { chapters, selections } = parseVerseSelections(chapter, verseSpec);
 
   return {
     ...segment,
-    chapters: [...chapters].sort((left, right) => left - right),
+    chapters,
     selections,
     citation: segment.query,
   };
+}
+
+function scriptureSourceCoversQuery(source, query) {
+  const englishText = source.contentByLanguage?.en?.text ?? (source.language === 'en' ? source.contentText : '');
+  if (!englishText) return false;
+
+  const expectedChapters = splitScriptureQuery(query)
+    .map((segment) => ({ segment, parsed: parseScriptureSegment(segment) }))
+    .filter(({ parsed }) => Boolean(parsed))
+    .flatMap(({ segment, parsed }) => parsed.chapters.map((chapter) => `${segment.bookName} ${chapter}:`));
+
+  return expectedChapters.length > 0 && expectedChapters.every((heading) => englishText.includes(heading));
 }
 
 function canonRangeForUrl(url) {
@@ -6218,7 +6156,11 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
   for (const query of missingScriptureQueries) {
     const sourceId = `scripture:${slugSegment(query)}`;
     const existing = existingExternalSources[sourceId];
-    if (existing?.kind === 'scripture' && existing.contentHtml) {
+    if (
+      existing?.kind === 'scripture' &&
+      existing.contentHtml &&
+      scriptureSourceCoversQuery(existing, query)
+    ) {
       externalSources[sourceId] = {
         ...existing,
         id: sourceId,
