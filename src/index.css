@@ -23,6 +23,8 @@
 .paragraph-copy sup.is-selected,.text-heading sup.is-selected{color:#fff;background:#111;outline:2px solid #111}
 .in-brief{margin:0;padding:0 26px;border-left:1px solid #111;border-right:1px solid #111;background:transparent}
 .in-brief-start{margin-top:18px;border-top:1px solid #111;padding-top:14px}
+.in-brief-start .hierarchy-break{padding-top:28px;padding-bottom:18px}
+.in-brief-start .text-heading{margin-top:0}
 .in-brief-end{margin-bottom:18px;border-bottom:1px solid #111;padding-bottom:14px}
 .in-brief .margin-references{left:4px;right:auto;width:36px;align-items:flex-end}
 .citation-panel{transition:top .2s ease}.toolbar-hidden .citation-panel{top:0}
