@@ -14,9 +14,11 @@ type Citation = {
   html: string;
   target?: number;
   sourceId?: string | null;
-  sources?: Array<{ label: string; sourceId: string }>;
+  sources?: Array<{ label: string; sourceId?: string; swedishBibleRef?: string }>;
   name?: string;
   swedishBibleRef?: string;
+  nodeId?: number;
+  footnoteIndex?: number;
 };
 
 type SwedishBible = {
@@ -39,7 +41,7 @@ const swedishBookNumbers: Record<string, number> = {
   fil: 50, kol: 51, '1 thess': 52, '2 thess': 53, '1 tim': 54, '2 tim': 55, tit: 56,
   filem: 57, heb: 58, jak: 59, '1 pet': 60, '2 pet': 61, '1 joh': 62, '2 joh': 63,
   '3 joh': 64, jud: 65, upp: 66, tob: 69, judit: 70, vis: 73, syr: 74, bar: 75,
-  '1 mack': 80, '2 mack': 81, vish: 73, 'h�ga v': 22,
+  '1 mack': 80, '2 mack': 81, vish: 73, ord: 20, 'h�ga v': 22,
 };
 
 function bibleReferenceFromHref(href: string) {
@@ -294,7 +296,7 @@ function showNodeCitation(
     event.preventDefault();
     event.stopPropagation();
     const name = normalizeBibleReference(bibleReference);
-    onCitation({ key: `bible-${node.id}-${name}`, eyebrow: 'Bibelreferens', title: 'Bibel', name, html: '', swedishBibleRef: name });
+    onCitation({ key: `bible-${node.id}-${name}`, eyebrow: 'Bibelreferens', title: 'Bibel', name, html: '', swedishBibleRef: name, nodeId: node.id });
     return;
   }
   const marker = target?.querySelector('sup') ?? sup;
@@ -359,8 +361,12 @@ function footnoteCitation(node: CatechismNode, footnote: Footnote, language: 'en
   const reference = references[0];
   const inlineReference = footnote.id.startsWith('inline:');
   const scriptureSources = references
-    .filter((item): item is ExternalReference & { sourceId: string } => item.kind === 'scripture' && Boolean(item.sourceId))
-    .map((item) => ({ label: abbreviateLinkedCitation(item.label, item.kind, item.sourceId), sourceId: item.sourceId }));
+    .filter((item) => item.kind === 'scripture' && (language === 'sv' || Boolean(item.sourceId)))
+    .map((item) => ({
+      label: abbreviateLinkedCitation(item.label, item.kind, item.sourceId),
+      sourceId: item.sourceId ?? undefined,
+      swedishBibleRef: language === 'sv' ? normalizeBibleReference(item.label) : undefined,
+    }));
   return {
     key: `fn-${node.id}-${footnote.id}`,
     eyebrow: inlineReference ? copy[language].reference : copy[language].footnote,
@@ -372,30 +378,59 @@ function footnoteCitation(node: CatechismNode, footnote: Footnote, language: 'en
     target: paragraphTarget(reference),
     sourceId: scriptureSources.length === 0 ? reference?.sourceId : undefined,
     sources: scriptureSources.length > 0 ? scriptureSources : undefined,
+    nodeId: node.id,
+    footnoteIndex: node.footnotes.findIndex((item) => item.id === footnote.id),
   };
 }
 
-function SwedishBiblePassage({ reference }: { reference: string }) {
+function SwedishBiblePassage({ reference, fallbackSource }: { reference: string; fallbackSource?: ExternalSource | null }) {
   const [passage, setPassage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    const match = normalizeBibleReference(reference).match(/^(.+?)\s+(\d+):(\d+)(?:-(\d+))?(f{1,2})?/i);
+    setPassage(null);
+    setFailed(false);
+    const normalized = normalizeBibleReference(reference);
+    const match = normalized.match(/^(.+?)\s+(\d[\d\s:;,\-–f]*)$/i);
     if (!match) { setFailed(true); return; }
     const bookKey = match[1].toLocaleLowerCase('sv').replace(/\.$/, '');
     const bookNumber = swedishBookNumbers[bookKey];
-    const chapterNumber = Number(match[2]);
-    const firstVerse = Number(match[3]);
-    const lastVerse = match[4] ? Number(match[4]) : firstVerse + (match[5]?.length ?? 0);
+    const locator = match[2].replace(/\s+/g, '').replace(/–/g, '-');
+    const chapterRange = locator.match(/^(\d+)-(\d+):(\d+)$/);
+    const verseRange = locator.match(/^(\d+):(\d+)(?:-(?:(\d+):)?(\d+))?(f{1,2})?$/i);
+    const wholeChapter = locator.match(/^(\d+)$/);
+    const firstChapter = chapterRange ? Number(chapterRange[1]) : verseRange ? Number(verseRange[1]) : wholeChapter ? Number(wholeChapter[1]) : NaN;
+    const lastChapter = chapterRange ? Number(chapterRange[2]) : verseRange?.[3] ? Number(verseRange[3]) : firstChapter;
+    const firstVerse = chapterRange || wholeChapter ? 1 : Number(verseRange?.[2]);
+    const lastVerse = chapterRange
+      ? Number(chapterRange[3])
+      : wholeChapter
+        ? Number.POSITIVE_INFINITY
+        : verseRange?.[4]
+          ? Number(verseRange[4])
+          : firstVerse + (verseRange?.[5]?.length ?? 0);
     if (!bookNumber) { setFailed(true); return; }
+    if (![firstChapter, lastChapter, firstVerse, lastVerse].every((value) => Number.isFinite(value) || value === Number.POSITIVE_INFINITY)) { setFailed(true); return; }
     swedishBiblePromise ??= fetch('https://api.getbible.net/v2/swedish.json').then((response) => {
       if (!response.ok) throw new Error('Bible source unavailable');
       return response.json() as Promise<SwedishBible>;
     });
     let cancelled = false;
     swedishBiblePromise.then((bible) => {
-      const chapter = bible.books.find((book) => book.nr === bookNumber)?.chapters.find((entry) => entry.chapter === chapterNumber);
-      const text = chapter?.verses.filter((verse) => verse.verse >= firstVerse && verse.verse <= lastVerse).map((verse) => `<span class="verse-number">${verse.verse}</span> ${verse.text.trim()}`).join(' ');
+      const book = bible.books.find((entry) => entry.nr === bookNumber);
+      const text = book?.chapters
+        .filter((chapter) => chapter.chapter >= firstChapter && chapter.chapter <= lastChapter)
+        .map((chapter) => {
+          const verses = chapter.verses
+            .filter((verse) =>
+              (chapter.chapter !== firstChapter || verse.verse >= firstVerse) &&
+              (chapter.chapter !== lastChapter || verse.verse <= lastVerse),
+            )
+            .map((verse) => `<span class="verse-number">${verse.verse}</span> ${verse.text.trim()}`)
+            .join(' ');
+          return verses ? `<p><strong>${book.name} ${chapter.chapter}</strong> ${verses}</p>` : '';
+        })
+        .join('');
       if (!cancelled) {
         if (text) setPassage(text); else setFailed(true);
       }
@@ -403,7 +438,10 @@ function SwedishBiblePassage({ reference }: { reference: string }) {
     return () => { cancelled = true; };
   }, [reference]);
 
-  if (failed) return <p>Den svenska bibeltexten kunde inte hämtas.</p>;
+  if (failed) {
+    const fallback = fallbackSource?.contentByLanguage?.en?.html ?? fallbackSource?.contentHtml;
+    return fallback ? <><div className="citation-text" dangerouslySetInnerHTML={{ __html: fallback }} /><SourceWorkTitle language="sv" reference={reference} source={fallbackSource!} /><p className="fallback-note">{copy.sv.englishFallback}</p></> : <p>Den svenska bibeltexten kunde inte hämtas.</p>;
+  }
   if (!passage) return <p>Hämtar bibeltext…</p>;
   return <><div className="citation-text" dangerouslySetInnerHTML={{ __html: passage }} /><p className="source-work-title">{scriptureWorkTitle(reference, 'sv')}</p><p className="source-note">Svenska 1917 (public domain)</p></>;
 }
@@ -449,7 +487,7 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
   const [source, setSource] = useState<ExternalSource | null>(null);
   const [groupedSources, setGroupedSources] = useState<{
     citationKey: string;
-    values: Array<{ label: string; source: ExternalSource | null }>;
+    values: Array<{ label: string; source: ExternalSource | null; swedishBibleRef?: string }>;
   }>({ citationKey: '', values: [] });
   const panelRef = useRef<HTMLElement>(null);
   const targetNode = citation.target ? data.nodes.find((node) => node.id === citation.target) : undefined;
@@ -459,18 +497,19 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
     setSource(null);
     setGroupedSources({
       citationKey: citation.key,
-      values: citation.sources?.map(({ label }) => ({ label, source: null })) ?? [],
+      values: citation.sources?.map(({ label, swedishBibleRef }) => ({ label, source: null, swedishBibleRef })) ?? [],
     });
     if (citation.sources?.length) {
-      Promise.all(citation.sources.map(async ({ label, sourceId }) => ({
+      Promise.all(citation.sources.map(async ({ label, sourceId, swedishBibleRef }) => ({
         label,
-        source: await loadExternalSource(sourceId),
+        source: sourceId ? await loadExternalSource(sourceId) : null,
+        swedishBibleRef,
       }))).then((values) => { if (!cancelled) setGroupedSources({ citationKey: citation.key, values }); });
     } else if (citation.sourceId) {
       loadExternalSource(citation.sourceId).then((value) => { if (!cancelled) setSource(value); });
     }
     return () => { cancelled = true; };
-  }, [citation.key, citation.sourceId, citation.sources]);
+  }, [citation.key, citation.sourceId, citation.sources, language]);
 
   useEffect(() => panelRef.current?.focus(), [citation.key]);
 
@@ -492,10 +531,10 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
       <button aria-label={t.close} className="citation-close" onClick={onClose} type="button">×</button>
       <p className="citation-eyebrow">{citation.eyebrow}</p>
       <h2>{citation.title ? <span>{citation.title}</span> : null}{displayedName ? <strong>{displayedName}</strong> : null}</h2>
-      {citation.swedishBibleRef ? <SwedishBiblePassage reference={citation.swedishBibleRef} /> : visibleGroupedSources.length > 0 ? <><div className="citation-text citation-reference-list" dangerouslySetInnerHTML={{ __html: citation.html }} /><div className="citation-source-group">{visibleGroupedSources.map(({ label, source: groupedSource }) => {
+      {citation.swedishBibleRef ? <SwedishBiblePassage reference={citation.swedishBibleRef} /> : visibleGroupedSources.length > 0 ? <><div className="citation-text citation-reference-list" dangerouslySetInnerHTML={{ __html: citation.html }} /><div className="citation-source-group">{visibleGroupedSources.map(({ label, source: groupedSource, swedishBibleRef }) => {
         const groupedContent = groupedSource?.contentByLanguage?.[language]?.html ?? groupedSource?.contentHtml;
         const groupedFallback = language === 'sv' && groupedSource && !groupedSource.contentByLanguage?.sv;
-        return <details key={label}><summary>{groupedSource ? sourceCitation(groupedSource) : label}</summary>{groupedContent ? <><div className="citation-text" dangerouslySetInnerHTML={{ __html: groupedContent }} /><SourceWorkTitle language={language} reference={label} source={groupedSource!} /></> : <p>{t.citationUnavailable}</p>}{groupedFallback ? <p className="fallback-note">{t.englishFallback}</p> : null}</details>;
+        return <details key={label}><summary>{groupedSource ? sourceCitation(groupedSource) : label}</summary>{language === 'sv' && swedishBibleRef ? <SwedishBiblePassage fallbackSource={groupedSource} reference={swedishBibleRef} /> : groupedContent ? <><div className="citation-text" dangerouslySetInnerHTML={{ __html: groupedContent }} /><SourceWorkTitle language={language} reference={label} source={groupedSource!} /></> : <p>{t.citationUnavailable}</p>}{groupedFallback && !(language === 'sv' && swedishBibleRef) ? <p className="fallback-note">{t.englishFallback}</p> : null}</details>;
       })}</div></> : targetNode ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: targetNode.textHtml }} /> : currentTranslation ? repeatsCitationName(currentTranslation.html, citation.name) || repeatsCitationName(currentTranslation.html, displayedName) ? null : <><div className="citation-text" dangerouslySetInnerHTML={{ __html: currentTranslation.html }} /><SourceWorkTitle language={language} source={source!} /></> : translations.length > 1 ? visibleTranslations.length ? <div className="citation-translations">{visibleTranslations.map(([code, translation]) => <details key={code}><summary>{languageNames[code] ?? code.toUpperCase()}</summary><div className="citation-text" dangerouslySetInnerHTML={{ __html: translation.html }} /><SourceWorkTitle language={language} source={source!} /></details>)}</div> : null : sourceContent ? sourceRepeatsName ? null : <><div className="citation-text" dangerouslySetInnerHTML={{ __html: sourceContent }} /><SourceWorkTitle language={language} source={source!} /></> : citation.html ? citationRepeatsName ? null : <div className="citation-text" dangerouslySetInnerHTML={{ __html: citation.html }} /> : <p>{t.citationUnavailable}</p>}
       {isFallback && !sourceRepeatsName ? <p className="fallback-note">{t.englishFallback}</p> : null}
       {citation.target ? <button className="jump-citation" onClick={() => onJump(citation.target!)} title={t.open} type="button"><span>↗</span>{t.open}</button> : null}
@@ -505,7 +544,7 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
 
 function App() {
   const [language, setLanguage] = useState<'en' | 'sv'>(() => new URLSearchParams(location.search).get('lang') === 'sv' ? 'sv' : 'en');
-  const { data, error, loading } = useCatechismData(language as AppLanguage);
+  const { data, error, loading, language: dataLanguage } = useCatechismData(language as AppLanguage);
   const [tocOpen, setTocOpen] = useState(true);
   const [activeId, setActiveId] = useState(1);
   const [jumpValue, setJumpValue] = useState('');
@@ -547,6 +586,35 @@ function App() {
     document.title = language === 'sv' ? 'Katolska Kyrkans Katekes' : 'Catechism of the Catholic Church';
     document.documentElement.lang = language;
   }, [language]);
+
+  useEffect(() => {
+    if (dataLanguage !== language || nodes.length === 0) return;
+    setCitation((current) => {
+      if (!current) return null;
+      if (current.nodeId !== undefined && current.footnoteIndex !== undefined) {
+        const node = nodes.find((item) => item.id === current.nodeId);
+        if (!node) return null;
+        const sourceIds = new Set([
+          current.sourceId,
+          ...(current.sources?.map((source) => source.sourceId) ?? []),
+        ].filter((sourceId): sourceId is string => Boolean(sourceId)));
+        const matchingReference = sourceIds.size > 0
+          ? node.externalReferences.find((reference) => reference.sourceId && sourceIds.has(reference.sourceId))
+          : undefined;
+        const footnote = matchingReference
+          ? node.footnotes.find((item) => item.id === matchingReference.footnoteId)
+          : node.footnotes[current.footnoteIndex];
+        return footnote ? footnoteCitation(node, footnote, language) : null;
+      }
+      if (current.key.startsWith('xref-')) {
+        return { ...current, eyebrow: copy[language].reference };
+      }
+      if (current.key.startsWith('bible-')) {
+        return { ...current, eyebrow: language === 'sv' ? 'Bibelreferens' : copy.en.reference };
+      }
+      return current;
+    });
+  }, [dataLanguage, language, nodes]);
 
   useEffect(() => {
     if (!nodes.length) return;

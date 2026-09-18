@@ -22,6 +22,10 @@ import {
   assertNoUnlinkedInlineScriptureReferences,
   linkSwedishInlineScriptureReferences,
 } from './lib/inline-scripture.mjs';
+import {
+  attachLocalizedFootnoteReferences,
+  findUnresolvedLocalizedFootnotes,
+} from './lib/localized-footnote-references.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -1704,7 +1708,7 @@ function slugSegment(value) {
 
 function normalizeDocumentLabel(label) {
   return cleanText(label)
-    .replace(/^cf\.?\s+/i, '')
+    .replace(/^(?:cf|jfr|jmfr)\.?\s+/i, '')
     .replace(/^see also\s+/i, '')
     .replace(/^see\s+/i, '')
     .replace(/\s+/g, ' ')
@@ -1712,7 +1716,7 @@ function normalizeDocumentLabel(label) {
 }
 
 function isCompareOnlyLabel(label) {
-  return /^[,.;:\s]*cf\.?[,.;:\s]*$/i.test(cleanText(label));
+  return /^[,.;:\s]*(?:cf|jfr|jmfr)\.?[,.;:\s]*$/i.test(cleanText(label));
 }
 
 function normalizeBookAlias(value) {
@@ -1767,7 +1771,7 @@ function splitFootnoteIntoReferenceSegments(noteHtml) {
       let index = 0;
 
       while (index < text.length) {
-        const nextCompare = text.slice(index).match(/\bcf\.?(?=\s|$)/i);
+        const nextCompare = text.slice(index).match(/\b(?:cf|jfr|jmfr)\.?(?=\s|$)/i);
         const nextCompareIndex = nextCompare ? index + nextCompare.index : -1;
         const nextSemicolonIndex = text.indexOf(';', index);
         const nextSplitIndex =
@@ -2553,7 +2557,7 @@ function parseSwedishFootnoteHtml(html, sourceUrl, paragraphId, number) {
     number,
     html: footnoteHtml,
     text,
-    compare: /^(?:jfr|jmfr)\b/i.test(text),
+    compare: /^(?:cf|jfr|jmfr)\b/i.test(text),
   };
 }
 
@@ -2661,6 +2665,32 @@ async function buildSwedishLanguagePack(config, nodeIds, graphNodesById) {
     node.footnotes.sort((left, right) => left.number - right.number);
     delete node.swedishFootnoteSources;
   }
+
+  const localizedNodes = [...localized.values()].sort((left, right) => left.id - right.id);
+  const localizedReferenceReport = attachLocalizedFootnoteReferences(
+    localizedNodes,
+    [...graphNodesById.values()],
+    {
+      documentAliases: Object.fromEntries(
+        Object.values(documentCatalog).map((document) => [
+          slugSegment(document.id),
+          [document.id, document.title],
+        ]),
+      ),
+    },
+  );
+  const unresolvedLocalizedFootnotes = findUnresolvedLocalizedFootnotes(localizedNodes);
+  debugLog(
+    'Swedish references linked',
+    localizedReferenceReport.linked,
+    'footnotes,',
+    localizedReferenceReport.scriptureResolved,
+    'scripture passages and',
+    localizedReferenceReport.ibidResolved,
+    'ibid notes;',
+    unresolvedLocalizedFootnotes.length,
+    'compare/ibid notes remain without an imported source',
+  );
 
   const brokenFootnoteMarkers = [];
   const duplicateFootnoteNumbers = [];

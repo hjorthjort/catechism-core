@@ -7,6 +7,7 @@ type LoadState = {
   data: CatechismData | null;
   error: string | null;
   loading: boolean;
+  language: AppLanguage | null;
 };
 
 let graphPromise: Promise<CatechismData> | null = null;
@@ -92,6 +93,7 @@ export function useCatechismData(language: AppLanguage): LoadState {
     data: null,
     error: null,
     loading: true,
+    language: null,
   });
 
   useEffect(() => {
@@ -107,6 +109,7 @@ export function useCatechismData(language: AppLanguage): LoadState {
           data: mergeData(graph, pack),
           error: null,
           loading: false,
+          language,
         });
       })
       .catch((error: Error) => {
@@ -118,6 +121,7 @@ export function useCatechismData(language: AppLanguage): LoadState {
           data: null,
           error: error.message,
           loading: false,
+          language,
         });
       });
 

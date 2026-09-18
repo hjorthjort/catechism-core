@@ -7,6 +7,50 @@ import {
   repairEnglishFootnoteIntegrity,
 } from '../scripts/lib/footnote-integrity.mjs';
 import { findUnlinkedInlineScriptureReferences } from '../scripts/lib/inline-scripture.mjs';
+import { attachLocalizedFootnoteReferences } from '../scripts/lib/localized-footnote-references.mjs';
+
+test('links Swedish Scripture notes and resolves ibid against the actual source', () => {
+  const canonical = [
+    {
+      id: 3,
+      footnotes: [{ id: '3:10', number: 10, text: 'Cf. Acts 2:42.' }],
+      externalReferences: [{ id: '3:10:scripture:1', footnoteId: '3:10', footnoteNumber: 10, label: 'Acts 2:42', canonicalLabel: 'Acts 2:42', kind: 'scripture', sourceId: 'scripture:acts-2-42' }],
+    },
+    {
+      id: 4,
+      footnotes: [{ id: '4:11', number: 11, text: 'CT 1.' }],
+      externalReferences: [{ id: '4:11:document:1', footnoteId: '4:11', footnoteNumber: 11, label: 'CT 1.', canonicalLabel: 'CT 1.', kind: 'document', sourceId: 'document:ct:ct-1' }],
+    },
+    {
+      id: 5,
+      footnotes: [{ id: '5:12', number: 12, text: 'CT 18.' }],
+      externalReferences: [{ id: '5:12:document:1', footnoteId: '5:12', footnoteNumber: 12, label: 'CT 18.', canonicalLabel: 'CT 18.', kind: 'document', sourceId: 'document:ct:ct-18' }],
+    },
+  ];
+  const localized = [
+    {
+      id: 3,
+      footnotes: [{ id: '3:1', number: 1, text: 'jfr Apg 2:42.', html: '<a href="https://www.bibeln.se/las/2k/apg#q=apg%2B2:42">Apg 2:42</a>.', compare: true }],
+    },
+    {
+      id: 4,
+      footnotes: [{ id: '4:2', number: 2, text: 'Johannes Paulus II, Catechesi tradendae, n. 1.', html: 'Johannes Paulus II, Catechesi tradendae, n. 1.' }],
+    },
+    {
+      id: 5,
+      footnotes: [{ id: '5:3', number: 3, text: 'ibid., n. 18.', html: 'ibid., n. 18.' }],
+    },
+  ];
+
+  attachLocalizedFootnoteReferences(localized, canonical);
+
+  assert.deepEqual(localized[0].externalReferences.map((reference: { label: string; sourceId: string }) => [reference.label, reference.sourceId]), [
+    ['Apg 2:42', 'scripture:acts-2-42'],
+  ]);
+  assert.deepEqual(localized[2].externalReferences.map((reference: { label: string; sourceId: string }) => [reference.label, reference.sourceId]), [
+    ['CT 18.', 'document:ct:ct-18'],
+  ]);
+});
 
 test('repairs detached heading notes, inline citations, and carried-over notes', () => {
   const nodes = [

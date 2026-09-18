@@ -4,11 +4,20 @@ import {
   repairEnglishFootnoteIntegrity,
 } from './lib/footnote-integrity.mjs';
 import { assertNoUnlinkedInlineScriptureReferences } from './lib/inline-scripture.mjs';
+import {
+  attachLocalizedFootnoteReferences,
+} from './lib/localized-footnote-references.mjs';
 
 const output = 'public/data/reader-generated';
 const sourceDirectory = `${output}/sources`;
 const graph = JSON.parse(await readFile('public/data/catechism-graph.json', 'utf8'));
 const swedish = JSON.parse(await readFile('public/data/languages/sv.json', 'utf8'));
+
+// Keep reader builds compatible with older cached language packs. The source
+// generator writes these links too; rebuilding them here is deterministic.
+if (!swedish.nodes.some((node) => node.externalReferences?.length > 0)) {
+  attachLocalizedFootnoteReferences(swedish.nodes, graph.nodes);
+}
 
 repairEnglishFootnoteIntegrity(graph.nodes);
 const englishFootnotes = assertFootnoteIntegrity(graph.nodes, 'en');
@@ -52,6 +61,7 @@ const sv = {
     textHtml: node.textHtml,
     headings: node.headings,
     footnotes: node.footnotes,
+    externalReferences: node.externalReferences,
   })),
 };
 
