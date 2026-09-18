@@ -6,6 +6,7 @@ import { paragraphTarget, sourceDocumentUrl, sourceLanguageName } from './lib/ci
 import { cleanHierarchyLabel } from './lib/hierarchy';
 import type { AppLanguage } from './lib/i18n';
 import { abbreviateLinkedCitation, sourceCitation, sourceWorkTitle, scriptureWorkTitle } from './lib/source-labels';
+import { parseSwedishBibleReference } from './lib/swedish-bible';
 import type { CatechismData, CatechismNode, ExternalSource, Footnote } from './types';
 
 type Citation = {
@@ -31,19 +32,6 @@ type SwedishBible = {
 };
 
 let swedishBiblePromise: Promise<SwedishBible> | null = null;
-
-const swedishBookNumbers: Record<string, number> = {
-  '1 mos': 1, '2 mos': 2, '3 mos': 3, '4 mos': 4, '5 mos': 5, jos: 6, dom: 7, rut: 8,
-  '1 sam': 9, '2 sam': 10, '1 kung': 11, '2 kung': 12, '1 krön': 13, '2 krön': 14,
-  esr: 15, neh: 16, est: 17, job: 18, ps: 19, ords: 20, pred: 21, höga: 22, jes: 23,
-  jer: 24, klag: 25, hes: 26, dan: 27, hos: 28, joel: 29, am: 30, ob: 31, jona: 32,
-  mik: 33, nah: 34, hab: 35, sef: 36, hagg: 37, sak: 38, mal: 39, matt: 40, mark: 41,
-  luk: 42, joh: 43, apg: 44, rom: 45, '1 kor': 46, '2 kor': 47, gal: 48, ef: 49,
-  fil: 50, kol: 51, '1 thess': 52, '2 thess': 53, '1 tim': 54, '2 tim': 55, tit: 56,
-  filem: 57, heb: 58, jak: 59, '1 pet': 60, '2 pet': 61, '1 joh': 62, '2 joh': 63,
-  '3 joh': 64, jud: 65, upp: 66, tob: 69, judit: 70, vis: 73, syr: 74, bar: 75,
-  '1 mack': 80, '2 mack': 81, vish: 73, ord: 20, 'h�ga v': 22,
-};
 
 function bibleReferenceFromHref(href: string) {
   try {
@@ -412,35 +400,16 @@ function SwedishBiblePassage({ reference, fallbackSource }: { reference: string;
   useEffect(() => {
     setPassage(null);
     setFailed(false);
-    const normalized = normalizeBibleReference(reference);
-    const match = normalized.match(/^(.+?)\s+(\d[\d\s:;,\-–f]*)$/i);
-    if (!match) { setFailed(true); return; }
-    const bookKey = match[1].toLocaleLowerCase('sv').replace(/\.$/, '');
-    const bookNumber = swedishBookNumbers[bookKey];
-    const locator = match[2].replace(/\s+/g, '').replace(/–/g, '-');
-    const chapterRange = locator.match(/^(\d+)-(\d+):(\d+)$/);
-    const verseRange = locator.match(/^(\d+):(\d+)(?:-(?:(\d+):)?(\d+))?(f{1,2})?$/i);
-    const wholeChapter = locator.match(/^(\d+)$/);
-    const firstChapter = chapterRange ? Number(chapterRange[1]) : verseRange ? Number(verseRange[1]) : wholeChapter ? Number(wholeChapter[1]) : NaN;
-    const lastChapter = chapterRange ? Number(chapterRange[2]) : verseRange?.[3] ? Number(verseRange[3]) : firstChapter;
-    const firstVerse = chapterRange || wholeChapter ? 1 : Number(verseRange?.[2]);
-    const lastVerse = chapterRange
-      ? Number(chapterRange[3])
-      : wholeChapter
-        ? Number.POSITIVE_INFINITY
-        : verseRange?.[4]
-          ? Number(verseRange[4])
-          : firstVerse + (verseRange?.[5]?.length ?? 0);
-    if (!bookNumber) { setFailed(true); return; }
-    if (![firstChapter, lastChapter, firstVerse, lastVerse].every((value) => Number.isFinite(value) || value === Number.POSITIVE_INFINITY)) { setFailed(true); return; }
+    const parsed = parseSwedishBibleReference(reference);
+    if (!parsed) { setFailed(true); return; }
     swedishBiblePromise ??= fetch('https://api.getbible.net/v2/swedish.json').then((response) => {
       if (!response.ok) throw new Error('Bible source unavailable');
       return response.json() as Promise<SwedishBible>;
     });
     let cancelled = false;
     swedishBiblePromise.then((bible) => {
-      const book = bible.books.find((entry) => entry.nr === bookNumber);
-      const text = book?.chapters
+      const book = bible.books.find((entry) => entry.nr === parsed.bookNumber);
+      const text = parsed.selections.map(({ firstChapter, lastChapter, firstVerse, lastVerse }) => book?.chapters
         .filter((chapter) => chapter.chapter >= firstChapter && chapter.chapter <= lastChapter)
         .map((chapter) => {
           const verses = chapter.verses
@@ -452,7 +421,7 @@ function SwedishBiblePassage({ reference, fallbackSource }: { reference: string;
             .join(' ');
           return verses ? `<p><strong>${book.name} ${chapter.chapter}</strong> ${verses}</p>` : '';
         })
-        .join('');
+        .join('') ?? '').join('');
       if (!cancelled) {
         if (text) setPassage(text); else setFailed(true);
       }
@@ -465,7 +434,7 @@ function SwedishBiblePassage({ reference, fallbackSource }: { reference: string;
     return fallback ? <><div className="citation-text" dangerouslySetInnerHTML={{ __html: fallback }} /><SourceWorkTitle language="sv" reference={reference} source={fallbackSource!} /><p className="fallback-note">{copy.sv.englishFallback}</p></> : <p>Den svenska bibeltexten kunde inte hämtas.</p>;
   }
   if (!passage) return <p>Hämtar bibeltext…</p>;
-  return <><div className="citation-text" dangerouslySetInnerHTML={{ __html: passage }} /><p className="source-work-title">{scriptureWorkTitle(reference, 'sv')}</p><p className="source-note">Svenska 1917 (public domain)</p></>;
+  return <><div className="citation-text" dangerouslySetInnerHTML={{ __html: passage }} /><p className="source-work-title">{scriptureWorkTitle(parseSwedishBibleReference(reference)?.reference ?? reference, 'sv')}</p><p className="source-note">Svenska 1917 (public domain)</p></>;
 }
 
 function normalizedCitationText(value: string) {
