@@ -15,6 +15,13 @@ for (const entry of await readdir(output)) {
   }
 }
 
+await Promise.all([
+  rm(join(client, 'data', 'catechism-graph.json'), { force: true }),
+  rm(join(client, 'data', 'daily-schedule.json'), { force: true }),
+  rm(join(client, 'data', 'languages'), { force: true, recursive: true }),
+  ...[1, 2, 3, 4].map((number) => rm(join(client, 'data', `external-sources-${number}.json`), { force: true })),
+]);
+
 await mkdir(server, { recursive: true });
 await writeFile(join(server, 'index.js'), `export default {
   async fetch(request, env) {

@@ -14,6 +14,18 @@ import {
   forceX,
   forceY,
 } from 'd3-force';
+import {
+  assertFootnoteIntegrity,
+  repairEnglishFootnoteIntegrity,
+} from './lib/footnote-integrity.mjs';
+import {
+  assertNoUnlinkedInlineScriptureReferences,
+  linkSwedishInlineScriptureReferences,
+} from './lib/inline-scripture.mjs';
+import {
+  attachLocalizedFootnoteReferences,
+  findUnresolvedLocalizedFootnotes,
+} from './lib/localized-footnote-references.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -823,6 +835,120 @@ const documentCatalog = {
     url: 'https://www.vatican.va/content/paul-vi/en/apost_exhortations/documents/hf_p-vi_exh_19751208_evangelii-nuntiandi.html',
     parser: 'modern',
   },
+  RH: {
+    id: 'RH',
+    title: 'Redemptor hominis',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/encyclicals/documents/hf_jp-ii_enc_04031979_redemptor-hominis.html',
+    parser: 'modern',
+  },
+  DM: {
+    id: 'DM',
+    title: 'Dives in misericordia',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/encyclicals/documents/hf_jp-ii_enc_30111980_dives-in-misericordia.html',
+    parser: 'modern',
+  },
+  DeV: {
+    id: 'DeV',
+    title: 'Dominum et vivificantem',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/encyclicals/documents/hf_jp-ii_enc_18051986_dominum-et-vivificantem.html',
+    parser: 'modern',
+  },
+  RMat: {
+    id: 'RMat',
+    title: 'Redemptoris Mater',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/encyclicals/documents/hf_jp-ii_enc_25031987_redemptoris-mater.html',
+    parser: 'modern',
+  },
+  RP: {
+    id: 'RP',
+    title: 'Reconciliatio et paenitentia',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/apost_exhortations/documents/hf_jp-ii_exh_02121984_reconciliatio-et-paenitentia.html',
+    parser: 'modern',
+  },
+  MD: {
+    id: 'MD',
+    title: 'Mulieris dignitatem',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/apost_letters/1988/documents/hf_jp-ii_apl_15081988_mulieris-dignitatem.html',
+    parser: 'modern',
+  },
+  VC: {
+    id: 'VC',
+    title: 'Vita consecrata',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/apost_exhortations/documents/hf_jp-ii_exh_25031996_vita-consecrata.html',
+    parser: 'modern',
+  },
+  VQA: {
+    id: 'VQA',
+    title: 'Vicesimus quintus annus',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/apost_letters/1988/documents/hf_jp-ii_apl_19881204_vicesimus-quintus-annus.html',
+    parser: 'modern',
+  },
+  DC: {
+    id: 'DC',
+    title: 'Dominicae cenae',
+    url: 'https://www.vatican.va/content/john-paul-ii/en/letters/1980/documents/hf_jp-ii_let_19800224_dominicae-cenae.html',
+    parser: 'modern',
+  },
+  MC: {
+    id: 'MC',
+    title: 'Marialis cultus',
+    url: 'https://www.vatican.va/content/paul-vi/en/apost_exhortations/documents/hf_p-vi_exh_19740202_marialis-cultus.html',
+    parser: 'modern',
+  },
+  MF: {
+    id: 'MF',
+    title: 'Mysterium fidei',
+    url: 'https://www.vatican.va/content/paul-vi/en/encyclicals/documents/hf_p-vi_enc_03091965_mysterium.html',
+    parser: 'modern',
+  },
+  PP: {
+    id: 'PP',
+    title: 'Populorum progressio',
+    url: 'https://www.vatican.va/content/paul-vi/en/encyclicals/documents/hf_p-vi_enc_26031967_populorum.html',
+    parser: 'modern',
+  },
+  CPG: {
+    id: 'CPG',
+    title: 'Credo of the People of God',
+    url: 'https://www.vatican.va/content/paul-vi/en/homilies/1968/documents/hf_p-vi_hom_19680630.html',
+    parser: 'modern',
+  },
+  IndD: {
+    id: 'IndD',
+    title: 'Indulgentiarum doctrina',
+    url: 'https://www.vatican.va/content/paul-vi/en/apost_constitutions/documents/hf_p-vi_apc_01011967_indulgentiarum-doctrina.html',
+    parser: 'indulgentiarum',
+  },
+  PT: {
+    id: 'PT',
+    title: 'Pacem in terris',
+    url: 'https://www.vatican.va/content/john-xxiii/en/encyclicals/documents/hf_j-xxiii_enc_11041963_pacem.html',
+    parser: 'modern',
+  },
+  MM: {
+    id: 'MM',
+    title: 'Mater et Magistra',
+    url: 'https://www.vatican.va/content/john-xxiii/en/encyclicals/documents/hf_j-xxiii_enc_15051961_mater.html',
+    parser: 'modern',
+  },
+  QP: {
+    id: 'QP',
+    title: 'Quas primas',
+    url: 'https://www.vatican.va/content/pius-xi/en/encyclicals/documents/hf_p-xi_enc_11121925_quas-primas.html',
+    parser: 'modern',
+  },
+  LP: {
+    id: 'LP',
+    title: 'Libertas praestantissimum',
+    url: 'https://www.vatican.va/content/leo-xiii/en/encyclicals/documents/hf_l-xiii_enc_20061888_libertas.html',
+    parser: 'modern',
+  },
+  ImmD: {
+    id: 'ImmD',
+    title: 'Immortale Dei',
+    url: 'https://www.vatican.va/content/leo-xiii/en/encyclicals/documents/hf_l-xiii_enc_01111885_immortale-dei.html',
+    parser: 'modern',
+  },
   GCD: {
     id: 'GCD',
     title: 'General Catechetical Directory',
@@ -853,6 +979,7 @@ const documentCatalog = {
     url: 'https://www.vatican.va/holy_father/john_paul_ii/apost_constitutions/documents/hf_jp-ii_apc_19901018_index-codex-can-eccl-orient_lt.html',
     parser: 'cceo',
     language: 'la',
+    translate: false,
   },
 };
 
@@ -898,6 +1025,25 @@ const documentAliasPatterns = {
   RMiss: [/\bRM\b/i, /redemptoris missio/i],
   HV: [/humanae vitae/i],
   EN: [/evangelii nuntiandi/i],
+  RH: [/redemptor hominis/i],
+  DM: [/dives in misericordia/i],
+  DeV: [/dominum et vivificantem/i],
+  RMat: [/redemptoris mater/i],
+  RP: [/reconciliatio et paenitentia/i],
+  MD: [/mulieris dignitatem/i],
+  VC: [/vita consecrata/i],
+  VQA: [/vicesimus quintus annus/i],
+  DC: [/dominicae cenae/i],
+  MC: [/marialis cultus/i],
+  MF: [/mysterium fidei/i],
+  PP: [/populorum progressio/i],
+  CPG: [/credo of the people of god/i],
+  IndD: [/indulgentiarum doctrina/i],
+  PT: [/pacem in terris/i],
+  MM: [/mater et magistra/i],
+  QP: [/quas primas/i],
+  LP: [/libertas pr[æa]estantissimum/i],
+  ImmD: [/immortale dei/i],
   GCD: [/general catechetical directory/i],
   GIRM: [/general instruction of the roman missal/i],
   GE: [/gravissimum educationis/i],
@@ -1091,6 +1237,7 @@ const localizedHierarchyPatterns = {
     { kind: 'section', regex: /^(?:FÖRSTA|ANDRA|TREDJE|FJÄRDE)\s+AVDELNINGEN(?:\s*(.+))?$/i },
     { kind: 'chapter', regex: /^(?:FÖRSTA|ANDRA|TREDJE|FJÄRDE|FEMTE|SJÄTTE|SJUNDE|ÅTTONDE|NIONDE|TIONDE)\s+KAPITLET(?:\s*(.+))?$/i },
     { kind: 'article', regex: /^ARTIKEL\s+\d+(?:\s*(.+))?$/i },
+    { kind: 'paragraph', regex: /^PARAGRAF\s+\d+(?:\s*(.+))?$/i },
   ],
 };
 
@@ -1137,7 +1284,7 @@ function dedupeLocalizedHierarchyEntries(entries, code) {
 }
 
 function hierarchyEntriesFromState(state) {
-  return ['part', 'section', 'chapter', 'article']
+  return ['part', 'section', 'chapter', 'article', 'paragraph']
     .map((kind) => (state[kind] ? { kind, title: state[kind] } : null))
     .filter(Boolean);
 }
@@ -1208,10 +1355,12 @@ function collectLocalizedHierarchyTitlesFromHtml(target, html, code, graphNodesB
     section: null,
     chapter: null,
     article: null,
+    paragraph: null,
   };
   const metaContent = $('meta[name="part"]').attr('content');
   let pendingKind = null;
   let continuationKind = null;
+  let continuationCanAppend = false;
 
   if (metaContent) {
     for (const entry of dedupeLocalizedHierarchyEntries(
@@ -1226,14 +1375,18 @@ function collectLocalizedHierarchyTitlesFromHtml(target, html, code, graphNodesB
 
   const lines = $('p')
     .toArray()
-    .map((element) => cleanText($(element).text()))
-    .filter(Boolean);
+    .map((element) => ({
+      element: $(element),
+      text: cleanText($(element).text()),
+    }))
+    .filter(({ text }) => Boolean(text));
 
-  for (const line of lines) {
+  for (const { element, text: line } of lines) {
     const start = extractParagraphStart(line);
     if (start) {
       collectLocalizedHierarchyTitles(target, hierarchyEntriesFromState(state), graphNodesById.get(start.id), code);
       continuationKind = null;
+      continuationCanAppend = false;
       continue;
     }
 
@@ -1243,26 +1396,50 @@ function collectLocalizedHierarchyTitlesFromHtml(target, html, code, graphNodesB
         state[parsed.kind] = parsed.title;
         pendingKind = null;
         continuationKind = parsed.kind;
+        continuationCanAppend = false;
       } else {
         pendingKind = parsed.kind;
         continuationKind = null;
+        continuationCanAppend = false;
       }
+      continue;
+    }
+
+    const isParagraphReferenceOnly = /^\[\s*\d+(?:\s*[-–]\s*\d+)?(?:\s*;\s*\d+(?:\s*[-–]\s*\d+)?)*\s*\]$/u.test(line);
+    if (code === 'sv' && isParagraphReferenceOnly && (pendingKind || continuationKind)) {
       continue;
     }
 
     if (pendingKind) {
       state[pendingKind] = line;
       continuationKind = pendingKind;
+      continuationCanAppend = true;
       pendingKind = null;
       continue;
     }
 
-    if (code === 'sv' && continuationKind && isSwedishHierarchyContinuation(line)) {
+    const isCenteredPlainSwedishContinuation =
+      code === 'sv' &&
+      continuationKind &&
+      continuationCanAppend &&
+      element.attr('align')?.toLowerCase() === 'center' &&
+      element.find('b, strong').length === 0 &&
+      !/^[IVXLCDM]+[.)]\s/u.test(line);
+    if (
+      code === 'sv' &&
+      continuationKind &&
+      continuationCanAppend &&
+      !/^[IVXLCDM]+[.)]\s/u.test(line) &&
+      (isSwedishHierarchyContinuation(line) ||
+        isCenteredPlainSwedishContinuation ||
+        element.attr('align')?.toLowerCase() === 'center')
+    ) {
       state[continuationKind] = `${state[continuationKind]} ${line}`;
       continue;
     }
 
     continuationKind = null;
+    continuationCanAppend = false;
   }
 }
 
@@ -1531,7 +1708,7 @@ function slugSegment(value) {
 
 function normalizeDocumentLabel(label) {
   return cleanText(label)
-    .replace(/^cf\.?\s+/i, '')
+    .replace(/^(?:cf|jfr|jmfr)\.?\s+/i, '')
     .replace(/^see also\s+/i, '')
     .replace(/^see\s+/i, '')
     .replace(/\s+/g, ' ')
@@ -1539,7 +1716,7 @@ function normalizeDocumentLabel(label) {
 }
 
 function isCompareOnlyLabel(label) {
-  return /^[,.;:\s]*cf\.?[,.;:\s]*$/i.test(cleanText(label));
+  return /^[,.;:\s]*(?:cf|jfr|jmfr)\.?[,.;:\s]*$/i.test(cleanText(label));
 }
 
 function normalizeBookAlias(value) {
@@ -1594,7 +1771,7 @@ function splitFootnoteIntoReferenceSegments(noteHtml) {
       let index = 0;
 
       while (index < text.length) {
-        const nextCompare = text.slice(index).match(/\bcf\.?(?=\s|$)/i);
+        const nextCompare = text.slice(index).match(/\b(?:cf|jfr|jmfr)\.?(?=\s|$)/i);
         const nextCompareIndex = nextCompare ? index + nextCompare.index : -1;
         const nextSemicolonIndex = text.indexOf(';', index);
         const nextSplitIndex =
@@ -1787,6 +1964,14 @@ function extractInlineReferenceFootnotes(text, noteIdPrefix) {
   return footnotes;
 }
 
+function extractReaderInlineFootnotes(text, noteIdPrefix, includeDocuments) {
+  const footnotes = extractInlineReferenceFootnotes(text, noteIdPrefix);
+  if (includeDocuments) return footnotes;
+  return footnotes.filter((footnote) =>
+    extractExternalReferences([footnote]).some((reference) => reference.kind === 'scripture'),
+  );
+}
+
 function buildPreview(text) {
   return text.length > 220 ? `${text.slice(0, 217).trimEnd()}...` : text;
 }
@@ -1840,7 +2025,9 @@ async function getCachedBuffer(url) {
         }
 
         if (response.status !== 429 || attempt === 5) {
-          throw new Error(`Request failed with ${response.status} for ${url}`);
+          const error = new Error(`Request failed with ${response.status} for ${url}`);
+          error.nonRetryable = response.status !== 429;
+          throw error;
         }
 
         const retryAfterSeconds = Number(response.headers.get('retry-after') ?? '0');
@@ -1849,7 +2036,7 @@ async function getCachedBuffer(url) {
         await new Promise((resolve) => setTimeout(resolve, delayMs));
         continue;
       } catch (error) {
-        if (attempt === 5) {
+        if (error?.nonRetryable || attempt === 5) {
           throw error;
         }
 
@@ -2050,7 +2237,212 @@ function normalizeSwedishLegacyText(value) {
   return value.replace(/[\u0080-\u009f]/g, (character) => replacements.get(character) ?? '');
 }
 
-function parseSwedishParagraphsFromHtml(html, sourceUrl) {
+function containsSwedishParagraphMarker($, element) {
+  let containsMarker = false;
+  element.find('a[name]').addBack('a[name]').each((_, anchor) => {
+    const id = Number($(anchor).attr('name'));
+    if (Number.isFinite(id) && id >= 1 && id <= 2865) {
+      containsMarker = true;
+    }
+  });
+  return containsMarker;
+}
+
+function isSwedishNavigationText(text) {
+  return /^(?:hem|navigation|navigera|[«<>]+\s*navigera\s*[»<>]+)$/iu.test(cleanText(text));
+}
+
+function isSwedishHierarchyMarker(text) {
+  const normalized = cleanText(text);
+  if (!normalized || /^(?:prolog|artikel\s+\d+|paragraf\s+\d+)$/iu.test(normalized)) {
+    return Boolean(normalized);
+  }
+
+  const parsed = parseLocalizedHierarchyLine(normalized, 'sv');
+  if (!parsed) {
+    return false;
+  }
+
+  return !parsed.title || normalized === normalized.toLocaleUpperCase('sv-SE');
+}
+
+function swedishHeadingBlocksBeforeMarker($, marker) {
+  let cursor = marker.closest('tr').length > 0 ? marker.closest('tr') : marker.closest('p');
+  const blocks = [];
+  let steps = 0;
+
+  while (cursor.length > 0 && steps < 200) {
+    steps += 1;
+    const previous = cursor.prev();
+    if (!previous.length) {
+      cursor = cursor.parent();
+      if (!cursor.length || cursor.is('body, html')) {
+        break;
+      }
+      continue;
+    }
+
+    cursor = previous;
+    if (containsSwedishParagraphMarker($, cursor)) {
+      break;
+    }
+
+    const text = normalizeSwedishLegacyText(cleanText(cursor.text()));
+    if (text) {
+      blocks.unshift({ element: cursor, text });
+    }
+  }
+
+  return blocks;
+}
+
+function rewriteSwedishLinks($, container, sourceUrl, paragraphId, footnoteSources) {
+  container.find('a[href]').each((_, link) => {
+    const anchor = $(link);
+    const href = absoluteSwedishHref(anchor.attr('href'), sourceUrl);
+    const footnoteNumber = Number(cleanText(anchor.text()).match(/\d+/)?.[0]);
+    if (/\/noter\//i.test(href) && Number.isFinite(footnoteNumber)) {
+      footnoteSources.push({ number: footnoteNumber, url: href });
+      anchor.attr('href', `#!/search/s1/fn/${paragraphId}:${footnoteNumber}`);
+    } else {
+      anchor.attr('href', href);
+    }
+    anchor.attr('target', '_blank');
+    anchor.attr('rel', 'noreferrer');
+  });
+}
+
+function swedishHeadingHtml($, element, sourceUrl, paragraphId, footnoteSources) {
+  const content = $('<div></div>');
+  content.append(element.clone());
+  content.find('script, style').remove();
+  content.find('a[name]:not([href])').each((_, anchor) => {
+    $(anchor).replaceWith($(anchor).contents());
+  });
+  rewriteSwedishLinks($, content, sourceUrl, paragraphId, footnoteSources);
+
+  return normalizeSwedishLegacyText(content.html() ?? '')
+    .replace(/<\/p\s*>/gi, '<br>')
+    .replace(/<\/?(?:p|blockquote|small)(?:\s[^>]*)?>/gi, '')
+    .replace(/(?:<br>\s*)+$/i, '')
+    .trim();
+}
+
+function extractSwedishHeadings(
+  $,
+  marker,
+  hierarchyTitles,
+  baseNode,
+  sourceUrl,
+  paragraphId,
+  footnoteSources,
+) {
+  const localizedHierarchyTitles = new Set(
+    (baseNode?.breadcrumbs ?? [])
+      .map((breadcrumb) => hierarchyTitles.get(breadcrumb))
+      .filter(Boolean)
+      .map((title) => cleanText(title).toLocaleUpperCase('sv-SE')),
+  );
+  const headings = [];
+  let hierarchyContext = false;
+
+  for (const { element, text } of swedishHeadingBlocksBeforeMarker($, marker)) {
+    const normalized = text.toLocaleUpperCase('sv-SE');
+    const isHierarchy =
+      isSwedishHierarchyMarker(text) || localizedHierarchyTitles.has(normalized);
+    if (isHierarchy) {
+      hierarchyContext = true;
+      continue;
+    }
+    if (isSwedishNavigationText(text) || element.is('table, tbody, thead, tfoot')) {
+      continue;
+    }
+
+    const hasBold = element.is('b, strong') || element.find('b, strong').length > 0;
+    const isQuotation =
+      element.is('small, blockquote') || element.find('blockquote').length > 0;
+    if (!hasBold && !(isQuotation && (hierarchyContext || headings.length > 0))) {
+      continue;
+    }
+
+    const isCentered =
+      element.attr('align')?.toLowerCase() === 'center' ||
+      element.find('[align="center" i]').length > 0;
+    const heading = {
+      kind: isCentered && !isQuotation ? 'major' : 'minor',
+      text,
+      html: swedishHeadingHtml($, element, sourceUrl, paragraphId, footnoteSources),
+    };
+    const previous = headings.at(-1);
+    if (!previous || previous.kind !== heading.kind || previous.text !== heading.text) {
+      headings.push(heading);
+    }
+  }
+
+  return headings;
+}
+
+function localizedSwedishNodeTitle(baseNode, headings, hierarchyTitles, id) {
+  if (headings.length > 0) {
+    return headings.at(-1).text;
+  }
+
+  const lastBreadcrumb = baseNode?.breadcrumbs?.at(-1);
+  return hierarchyTitles.get(lastBreadcrumb) ?? lastBreadcrumb ?? `Paragraf ${id}`;
+}
+
+function swedishContinuationBlocks($, sourceBlock) {
+  const blocks = [];
+  let cursor = sourceBlock;
+  let steps = 0;
+
+  while (cursor.length > 0 && steps < 200) {
+    steps += 1;
+    const next = cursor.next();
+    if (!next.length) {
+      cursor = cursor.parent();
+      if (!cursor.length || cursor.is('body, html')) {
+        break;
+      }
+      continue;
+    }
+
+    cursor = next;
+    if (containsSwedishParagraphMarker($, cursor)) {
+      break;
+    }
+
+    const tagName = cursor[0]?.tagName?.toLowerCase() ?? '';
+    if (tagName === 'br' || tagName === 'hr') {
+      break;
+    }
+
+    const text = normalizeSwedishLegacyText(cleanText(cursor.text()));
+    if (!text) {
+      continue;
+    }
+    const hasBold = cursor.is('b, strong') || cursor.find('b, strong').length > 0;
+    const isCentered =
+      cursor.attr('align')?.toLowerCase() === 'center' ||
+      cursor.find('[align="center" i]').length > 0;
+    if (
+      isSwedishNavigationText(text) ||
+      isSwedishHierarchyMarker(text) ||
+      hasBold ||
+      isCentered
+    ) {
+      break;
+    }
+
+    if (/^(?:p|blockquote|small|table|div)$/i.test(tagName)) {
+      blocks.push(cursor.clone());
+    }
+  }
+
+  return blocks;
+}
+
+function parseSwedishParagraphsFromHtml(html, sourceUrl, hierarchyTitles, graphNodesById) {
   const $ = cheerio.load(html);
   const paragraphs = new Map();
 
@@ -2071,12 +2463,18 @@ function parseSwedishParagraphsFromHtml(html, sourceUrl) {
     if (row.length > 0) {
       content.append(sourceContainer.html() ?? '');
     } else {
-      content.append(sourceContainer.clone());
-      if (id === 83 && sourceContainer.parent().is('small')) {
-        sourceContainer.nextAll('p').each((__, continuation) => {
-          content.append($(continuation).clone());
-        });
+      const isSmallPrint = sourceContainer.parents('small').length > 0;
+      if (isSmallPrint) {
+        const smallPrint = $('<small class="smaller"></small>');
+        smallPrint.append(sourceContainer.clone());
+        content.append(smallPrint);
+      } else {
+        content.append(sourceContainer.clone());
       }
+    }
+    const sourceBlock = row.length > 0 ? row : sourceContainer;
+    for (const continuation of swedishContinuationBlocks($, sourceBlock)) {
+      content.append(continuation);
     }
 
     if (row.length === 0) {
@@ -2085,35 +2483,39 @@ function parseSwedishParagraphsFromHtml(html, sourceUrl) {
       clonedMarker.remove();
     }
 
-    content.find('script, style').remove();
     const footnoteSources = [];
-    content.find('a[href]').each((__, link) => {
-      const anchor = $(link);
-      const href = absoluteSwedishHref(anchor.attr('href'), sourceUrl);
-      const footnoteNumber = Number(cleanText(anchor.text()).match(/\d+/)?.[0]);
-      if (/\/noter\//i.test(href) && Number.isFinite(footnoteNumber)) {
-        footnoteSources.push({ number: footnoteNumber, url: href });
-        anchor.attr('href', `#!/search/s1/fn/${id}:${footnoteNumber}`);
-      } else {
-        anchor.attr('href', href);
-      }
-      anchor.attr('target', '_blank');
-      anchor.attr('rel', 'noreferrer');
-    });
+    content.find('script, style').remove();
+    rewriteSwedishLinks($, content, sourceUrl, id, footnoteSources);
 
     const text = normalizeSwedishLegacyText(cleanText(content.text()));
     if (!text) {
       return;
     }
 
-    const textHtml = normalizeSwedishLegacyText((content.html() ?? '').trim());
+    const textHtml = linkSwedishInlineScriptureReferences(
+      normalizeSwedishLegacyText((content.html() ?? '').trim()),
+    );
 
     const sourceWithAnchor = `${sourceUrl}#${id}`;
+    const baseNode = graphNodesById.get(id);
+    const headings = extractSwedishHeadings(
+      $,
+      marker,
+      hierarchyTitles,
+      baseNode,
+      sourceUrl,
+      id,
+      footnoteSources,
+    ).map((heading) => heading.html
+      ? { ...heading, html: linkSwedishInlineScriptureReferences(heading.html) }
+      : heading);
     paragraphs.set(id, {
       id,
+      title: localizedSwedishNodeTitle(baseNode, headings, hierarchyTitles, id),
       text,
       textHtml,
       preview: buildPreview(text),
+      headings,
       footnotes: [],
       externalReferences: [],
       swedishFootnoteSources: footnoteSources,
@@ -2155,7 +2557,7 @@ function parseSwedishFootnoteHtml(html, sourceUrl, paragraphId, number) {
     number,
     html: footnoteHtml,
     text,
-    compare: /^(?:jfr|jmfr)\b/i.test(text),
+    compare: /^(?:cf|jfr|jmfr)\b/i.test(text),
   };
 }
 
@@ -2193,17 +2595,60 @@ async function buildSwedishLanguagePack(config, nodeIds, graphNodesById) {
   const pageUrls = discoverSwedishPageUrls(indexHtml, config.indexUrl);
   const localized = new Map();
   const hierarchyTitles = new Map();
+  const pages = [];
 
   for (const pageUrl of pageUrls) {
     const html = await fetchHtml(pageUrl);
-    const pageParagraphs = parseSwedishParagraphsFromHtml(html, pageUrl);
+    pages.push({ html, pageUrl });
     collectLocalizedHierarchyTitlesFromHtml(hierarchyTitles, html, config.code, graphNodesById);
+  }
+  hierarchyTitles.set('Prologue', 'Prolog');
+  const finalPrayerTitles = {
+    'Chapter 1: "The Summary of the Whole Gospel"': '”SAMMANFATTNING AV HELA EVANGELIET”',
+    'Chapter 2: "Our Father Who Art in Heaven"': '”FADER VÅR SOM ÄR I HIMMELEN”',
+    'Chapter 3: The Seven Petitions': 'DE SJU BÖNERNA',
+    'Chapter 4: The Final Doxology': 'AVSLUTANDE LOVPRISNING',
+    'Article 3: The Prayer of the Hour of Jesus': 'JESU ÖVERSTEPRÄSTERLIGA BÖN',
+    'Article 4: The Final Doxology': 'AVSLUTANDE LOVPRISNING',
+  };
+  for (const [canonicalTitle, localizedTitle] of Object.entries(finalPrayerTitles)) {
+    hierarchyTitles.set(canonicalTitle, localizedTitle);
+  }
+
+  for (const { html, pageUrl } of pages) {
+    const pageParagraphs = parseSwedishParagraphsFromHtml(
+      html,
+      pageUrl,
+      hierarchyTitles,
+      graphNodesById,
+    );
 
     for (const [id, payload] of pageParagraphs) {
       if (nodeIds.has(id) && !localized.has(id)) {
         localized.set(id, payload);
       }
     }
+  }
+
+  let inBriefMode = false;
+  let previousBreadcrumbs = [];
+  for (const node of [...localized.values()].sort((left, right) => left.id - right.id)) {
+    const breadcrumbs = graphNodesById.get(node.id)?.breadcrumbs ?? [];
+    const hierarchyChanged = breadcrumbs.some(
+      (breadcrumb, index) => previousBreadcrumbs[index] !== breadcrumb,
+    );
+    if (hierarchyChanged) {
+      inBriefMode = false;
+    }
+    if (node.headings.length > 0) {
+      inBriefMode = node.headings.some(
+        (heading) => cleanText(heading.text).toLocaleUpperCase('sv-SE') === 'SAMMANFATTNING',
+      );
+    }
+    if (inBriefMode) {
+      node.title = 'SAMMANFATTNING';
+    }
+    previousBreadcrumbs = breadcrumbs;
   }
 
   const footnoteJobs = [...localized.values()].flatMap((node) =>
@@ -2221,16 +2666,77 @@ async function buildSwedishLanguagePack(config, nodeIds, graphNodesById) {
     delete node.swedishFootnoteSources;
   }
 
-  const finalPrayerTitles = {
-    'Chapter 1: "The Summary of the Whole Gospel"': '”SAMMANFATTNING AV HELA EVANGELIET”',
-    'Chapter 2: "Our Father Who Art in Heaven"': '”FADER VÅR SOM ÄR I HIMMELEN”',
-    'Chapter 3: The Seven Petitions': 'DE SJU BÖNERNA',
-    'Chapter 4: The Final Doxology': 'AVSLUTANDE LOVPRISNING',
-    'Article 3: The Prayer of the Hour of Jesus': 'JESU ÖVERSTEPRÄSTERLIGA BÖN',
-    'Article 4: The Final Doxology': 'AVSLUTANDE LOVPRISNING',
-  };
-  for (const [canonicalTitle, localizedTitle] of Object.entries(finalPrayerTitles)) {
-    hierarchyTitles.set(canonicalTitle, localizedTitle);
+  const localizedNodes = [...localized.values()].sort((left, right) => left.id - right.id);
+  const localizedReferenceReport = attachLocalizedFootnoteReferences(
+    localizedNodes,
+    [...graphNodesById.values()],
+    {
+      documentAliases: Object.fromEntries(
+        Object.values(documentCatalog).map((document) => [
+          slugSegment(document.id),
+          [document.id, document.title],
+        ]),
+      ),
+    },
+  );
+  const unresolvedLocalizedFootnotes = findUnresolvedLocalizedFootnotes(localizedNodes);
+  debugLog(
+    'Swedish references linked',
+    localizedReferenceReport.linked,
+    'footnotes,',
+    localizedReferenceReport.scriptureResolved,
+    'scripture passages and',
+    localizedReferenceReport.ibidResolved,
+    'ibid notes;',
+    unresolvedLocalizedFootnotes.length,
+    'compare/ibid notes remain without an imported source',
+  );
+
+  const brokenFootnoteMarkers = [];
+  const duplicateFootnoteNumbers = [];
+  for (const node of localized.values()) {
+    const footnoteNumbers = node.footnotes.map((footnote) => String(footnote.number));
+    if (new Set(footnoteNumbers).size !== footnoteNumbers.length) {
+      duplicateFootnoteNumbers.push(node.id);
+    }
+    const availableFootnotes = new Set(footnoteNumbers);
+    const linkedHtml = [
+      node.textHtml,
+      ...node.headings.map((heading) => heading.html ?? ''),
+    ].join(' ');
+    for (const match of linkedHtml.matchAll(/#!\/search\/s1\/fn\/\d+:(\d+)/g)) {
+      if (!availableFootnotes.has(match[1])) {
+        brokenFootnoteMarkers.push(`${node.id}:${match[1]}`);
+      }
+    }
+  }
+  if (duplicateFootnoteNumbers.length > 0) {
+    throw new Error(`Swedish paragraphs contain duplicate footnote numbers: ${duplicateFootnoteNumbers.join(', ')}`);
+  }
+  if (brokenFootnoteMarkers.length > 0) {
+    throw new Error(`Swedish footnote markers are missing entries: ${brokenFootnoteMarkers.join(', ')}`);
+  }
+  const swedishFootnotes = assertFootnoteIntegrity([...localized.values()], 'sv');
+  debugLog(
+    'Swedish footnotes verified',
+    swedishFootnotes.markerCount,
+    'markers and objects',
+  );
+  assertNoUnlinkedInlineScriptureReferences([...localized.values()], 'sv');
+
+  const missingParagraphs = [...nodeIds].filter((id) => !localized.has(id));
+  if (missingParagraphs.length > 0) {
+    throw new Error(`Swedish source is missing paragraphs: ${missingParagraphs.join(', ')}`);
+  }
+
+  const canonicalHierarchyTitles = new Set(
+    [...graphNodesById.values()].flatMap((node) => node.breadcrumbs ?? []),
+  );
+  const missingHierarchyTitles = [...canonicalHierarchyTitles].filter(
+    (title) => !hierarchyTitles.has(title),
+  );
+  if (missingHierarchyTitles.length > 0) {
+    throw new Error(`Swedish source is missing hierarchy titles: ${missingHierarchyTitles.join('; ')}`);
   }
 
   return {
@@ -2650,26 +3156,41 @@ function normalizeParagraphHierarchy(nodes, vaticanLookup) {
       .map((level) => nextContext[level])
       .filter(Boolean);
 
+    const hierarchyChanged = hierarchyOrder.some(
+      (level) => context[level] !== nextContext[level],
+    );
     context = nextContext;
 
+    if (hierarchyChanged) {
+      inBriefMode = false;
+    }
     if (node.headings.length > 0) {
       inBriefMode = node.headings.some((heading) => cleanText(heading.text).toUpperCase() === 'IN BRIEF');
     }
 
     const isInBrief = inBriefMode;
-    const inlineFootnotes =
-      isInBrief && node.footnotes.length === 0
-        ? extractInlineReferenceFootnotes(node.text, `inline:${node.id}`)
-        : [];
-    const footnotes = inlineFootnotes.length > 0 ? inlineFootnotes : node.footnotes;
-    const externalReferences =
-      inlineFootnotes.length > 0 ? extractExternalReferences(inlineFootnotes) : node.externalReferences;
+    const inlineFootnotes = extractReaderInlineFootnotes(
+      node.text,
+      `inline:${node.id}`,
+      isInBrief,
+    );
+    const footnotes = [...node.footnotes, ...inlineFootnotes];
+    const externalReferences = [
+      ...node.externalReferences,
+      ...extractExternalReferences(inlineFootnotes),
+    ];
+    const title =
+      isInBrief
+        ? 'IN BRIEF'
+        : cleanText(node.title).toUpperCase() === 'IN BRIEF'
+          ? normalizedBreadcrumbs.at(-1) ?? node.title
+          : node.title;
 
     return {
       ...node,
       part: inferPart(normalizedBreadcrumbs),
       breadcrumbs: [...normalizedBreadcrumbs, ...extras],
-      title: isInBrief ? 'IN BRIEF' : node.title,
+      title,
       footnotes,
       externalReferences,
     };
@@ -2991,7 +3512,7 @@ function parseNumberedSectionsFromHtml(html, parser) {
       return;
     }
 
-    if (parser === 'legacy' && /^notes$/i.test(text)) {
+    if (/^notes$/i.test(text)) {
       reachedNotes = true;
     }
 
@@ -3001,8 +3522,8 @@ function parseNumberedSectionsFromHtml(html, parser) {
 
     const match = text.match(/^(\d+)\.\s*(.*)$/);
     if (match) {
-      if (parser === 'legacy' && current && Number(match[1]) < current.number) {
-        reachedNotes = true;
+      const number = Number(match[1]);
+      if (current && number <= current.number) {
         return;
       }
 
@@ -3011,7 +3532,7 @@ function parseNumberedSectionsFromHtml(html, parser) {
       }
 
       current = {
-        number: Number(match[1]),
+        number,
         parts: [match[2] ? `<p>${escapeHtml(match[2])}</p>` : ''],
       };
       return;
@@ -3048,6 +3569,60 @@ function parseNumberedSectionsFromHtml(html, parser) {
       })(),
     ]),
   );
+}
+
+function parseIndulgentiarumSections(html) {
+  const sections = parseNumberedSectionsFromHtml(html, 'modern');
+  const $ = cheerio.load(html);
+  const container = extractModernDocumentContainer($);
+  const root = container.length ? container : $.root();
+  let inNorms = false;
+  let current = null;
+
+  function flushCurrent() {
+    if (!current) {
+      return;
+    }
+    sections.set(`norm:${current.number}`, buildHtmlParagraphs(current.parts));
+    current = null;
+  }
+
+  root.find('p').each((_, element) => {
+    const entry = $(element);
+    const text = cleanText(entry.text());
+    if (!text) {
+      return;
+    }
+
+    if (/^NORMS$/i.test(text)) {
+      inNorms = true;
+      return;
+    }
+    if (!inNorms) {
+      return;
+    }
+    if (/^notes$/i.test(text)) {
+      flushCurrent();
+      return false;
+    }
+
+    const normMatch = text.match(/^n\.\s*(\d+)\s*[—–-]\s*(.*)$/i);
+    if (normMatch) {
+      flushCurrent();
+      current = {
+        number: Number(normMatch[1]),
+        parts: [normMatch[2] ? `<p>${escapeHtml(normMatch[2])}</p>` : ''],
+      };
+      return;
+    }
+
+    if (current) {
+      current.parts.push(`<p>${entry.html()?.trim() ?? escapeHtml(text)}</p>`);
+    }
+  });
+
+  flushCurrent();
+  return sections;
 }
 
 function numberToRomanNumeral(value) {
@@ -3285,9 +3860,16 @@ function parseCanonsFromHtml(html, selector = '#corpo p') {
 
 async function loadCicSections() {
   const indexHtml = await fetchHtml(documentCatalog.CIC.url);
-  const indexLinks = extractLinks(indexHtml, documentCatalog.CIC.url).filter((url) =>
-    /\/archive\/cod-iuris-canonici\/eng\/documents\/cic_.*_en\.html$/i.test(url),
-  );
+  const indexLinks = [...new Set(
+    extractLinks(indexHtml, documentCatalog.CIC.url)
+      .filter((url) => /\/archive\/cod-iuris-canonici\/eng\/documents\/cic_.*_en\.html$/i.test(url))
+      .map((url) => {
+        const normalizedUrl = new URL(url);
+        normalizedUrl.protocol = 'https:';
+        normalizedUrl.hostname = 'press.vatican.va';
+        return normalizedUrl.toString();
+      }),
+  )];
   const pageEntries = indexLinks
     .map((url) => ({ url, range: canonRangeForUrl(url) }))
     .filter((entry) => entry.range)
@@ -3295,19 +3877,28 @@ async function loadCicSections() {
   const sections = new Map();
 
   for (const entry of pageEntries) {
-    let html;
-    try {
-      html = await fetchHtml(entry.url);
-    } catch (error) {
-      if (String(error).includes('404') || String(error).includes('Offline cache miss')) {
-        continue;
+    let html = null;
+    let resolvedUrl = entry.url;
+    const alternateUrl = new URL(entry.url);
+    alternateUrl.hostname = 'www.vatican.va';
+    for (const candidateUrl of [entry.url, alternateUrl.toString()]) {
+      try {
+        html = await fetchHtml(candidateUrl);
+        resolvedUrl = candidateUrl;
+        break;
+      } catch (error) {
+        if (!String(error).includes('404') && !String(error).includes('Offline cache miss')) {
+          throw error;
+        }
       }
-      throw error;
+    }
+    if (!html) {
+      continue;
     }
     const pageSections = parseCanonsFromHtml(html);
     for (const [number, payload] of pageSections) {
       if (!sections.has(number)) {
-        sections.set(number, { ...payload, url: entry.url });
+        sections.set(number, { ...payload, url: resolvedUrl });
       }
     }
   }
@@ -3456,6 +4047,20 @@ async function loadDocumentSections(documentId, override = null) {
     sections = new Map(
       [...parsed.entries()].map(([key, payload]) => [key, { ...payload, url }]),
     );
+  } else if (parser === 'indulgentiarum') {
+    let html;
+    try {
+      html = await fetchHtml(url);
+    } catch (error) {
+      if (String(error).includes('Offline cache miss')) {
+        return null;
+      }
+      throw error;
+    }
+    const parsed = parseIndulgentiarumSections(html);
+    sections = new Map(
+      [...parsed.entries()].map(([key, payload]) => [key, { ...payload, url }]),
+    );
   } else {
     let html;
     try {
@@ -3480,7 +4085,10 @@ async function loadDocumentSections(documentId, override = null) {
 function findDocumentCatalogMatch(label) {
   for (const [documentId, config] of Object.entries(documentCatalog)) {
     const patterns = [
-      new RegExp(`(?:^|[\\s,(;])${escapeRegExp(documentId)}(?=$|[\\s,;:§])`, 'i'),
+      new RegExp(
+        `(?:^|[\\s,(;])${escapeRegExp(documentId)}(?=$|\\s*,?\\s*(?:\\d|§|cann?\\.?))`,
+        'i',
+      ),
       ...(documentAliasPatterns[documentId] ?? []),
       new RegExp(escapeRegExp(config.title), 'i'),
     ];
@@ -3574,14 +4182,18 @@ function parseDocumentLocator(locatorText) {
 
   for (const token of tokens) {
     if (/^§+\s*/.test(token)) {
+      const sectionOrPinpoint = Number(token.replace(/^§+\s*/, '').match(/^\d+/)?.[0] ?? NaN);
       if (currentSection === null) {
+        if (Number.isFinite(sectionOrPinpoint)) {
+          sections.push(sectionOrPinpoint);
+          currentSection = sectionOrPinpoint;
+        }
         continue;
       }
 
-      const pinpointValue = Number(token.replace(/^§+\s*/, '').match(/^\d+/)?.[0] ?? NaN);
-      if (Number.isFinite(pinpointValue)) {
+      if (Number.isFinite(sectionOrPinpoint)) {
         const existing = pinpointMap.get(currentSection) ?? [];
-        existing.push(pinpointValue);
+        existing.push(sectionOrPinpoint);
         pinpointMap.set(currentSection, [...new Set(existing)]);
       }
       continue;
@@ -3617,6 +4229,36 @@ function parseDocumentLocator(locatorText) {
     sections: [...new Set(sections)],
     pinpointMap,
   };
+}
+
+function parseCanonLawLocator(locatorText) {
+  const sections = [];
+  const normalized = cleanText(locatorText)
+    .replace(/^(?:cann?|canons?)\.?\s*/i, '')
+    .replace(/\bpara(?:graph)?\.?\s*/gi, '§ ');
+
+  for (const segment of normalized.split(/\s*;\s*/).map((entry) => entry.trim()).filter(Boolean)) {
+    const rangeMatch = segment.match(/^(\d+)\s*-\s*(\d+)/);
+    if (rangeMatch) {
+      const start = Number(rangeMatch[1]);
+      const end = Number(rangeMatch[2]);
+      const safeEnd = end >= start && end - start <= 32 ? end : start;
+      for (let number = start; number <= safeEnd; number += 1) {
+        sections.push(number);
+      }
+    } else {
+      const firstNumber = Number(segment.match(/^(\d+)/)?.[1] ?? NaN);
+      if (Number.isFinite(firstNumber)) {
+        sections.push(firstNumber);
+      }
+    }
+
+    for (const match of segment.matchAll(/,\s*(\d{2,4})(?=\s*(?:§|#|$|[.)]))/g)) {
+      sections.push(Number(match[1]));
+    }
+  }
+
+  return [...new Set(sections)];
 }
 
 const deiFiliusDenzingerMap = [
@@ -3728,6 +4370,33 @@ function parseDocumentReference(reference) {
   if (documentId === 'DF') {
     return parseDeiFiliusReference(label, locatorText);
   }
+  if (documentId === 'CIC' || documentId === 'CCEO') {
+    const sections = parseCanonLawLocator(locatorText);
+    if (sections.length === 0) {
+      return null;
+    }
+    return {
+      documentId,
+      title: documentCatalog[documentId].title,
+      citation: label,
+      sections,
+      pinpointMap: new Map(),
+    };
+  }
+  if (documentId === 'IndD') {
+    const normMatch = locatorText.match(/\bNorm\s+(\d+)/i);
+    if (normMatch) {
+      const section = `norm:${Number(normMatch[1])}`;
+      return {
+        documentId,
+        title: documentCatalog[documentId].title,
+        citation: label,
+        sections: [section],
+        pinpointMap: new Map(),
+        sectionLabelMap: new Map([[section, `Norm ${Number(normMatch[1])}`]]),
+      };
+    }
+  }
   const { sections, pinpointMap } = parseDocumentLocator(locatorText);
   if (sections.length === 0) {
     return null;
@@ -3790,7 +4459,7 @@ function renderDocumentSectionEntry(entry, pinpoints = []) {
   };
 }
 
-function shouldRebuildAquinasSource(existing) {
+function shouldRebuildAquinasSource(existing, parsed) {
   if (existing?.kind !== 'document') {
     return false;
   }
@@ -3800,7 +4469,16 @@ function shouldRebuildAquinasSource(existing) {
     return false;
   }
 
-  return !existing.contentByLanguage;
+  if (!existing.contentByLanguage) {
+    return true;
+  }
+
+  if (parsed?.kind === 'aquinas-compendium') {
+    return !new RegExp(`\\bCaput\\s+${parsed.chapter}\\b`, 'i').test(existing.contentText ?? '');
+  }
+
+  return parsed?.kind === 'aquinas-ten-commandments'
+    && !existing.url?.endsWith(`#${parsed.article + 2}`);
 }
 
 function ensureContentByLanguage(source, fallbackLanguage, fallbackTranslationNote = source?.translationNote) {
@@ -3892,6 +4570,46 @@ function parseAquinasPinpoint(text) {
 function parseAquinasReference(reference) {
   const label = normalizeDocumentLabel(reference.canonicalLabel ?? reference.label);
 
+  const compendiumMatch = label.match(
+    /^St\.\s*Thomas\s*Aquinas[.,]\s*Comp\.\s*theol\.\s*(\d+)\s*,\s*(\d+)\.?$/i,
+  );
+  if (compendiumMatch) {
+    const book = Number(compendiumMatch[1]);
+    const chapter = Number(compendiumMatch[2]);
+    if (!Number.isFinite(book) || !Number.isFinite(chapter)) {
+      return null;
+    }
+
+    return {
+      kind: 'aquinas-compendium',
+      title: 'St. Thomas Aquinas, Compendium Theologiae',
+      citation: label,
+      sourceId: `document:aquinas-compendium:${slugSegment(`${book}-${chapter}`)}`,
+      book,
+      chapter,
+    };
+  }
+
+  const opusculumMatch = label.match(
+    /^St\.\s*Thomas\s*Aquinas,\s*Opusc\.\s*57\s*,\s*(\d+)\s*-\s*(\d+)\.?$/i,
+  );
+  if (opusculumMatch) {
+    const start = Number(opusculumMatch[1]);
+    const end = Number(opusculumMatch[2]);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+      return null;
+    }
+
+    return {
+      kind: 'aquinas-opusculum-57',
+      title: 'St. Thomas Aquinas, In festo Corporis Christi',
+      citation: label,
+      sourceId: `document:aquinas-opusculum-57:${slugSegment(`${start}-${end}`)}`,
+      start,
+      end,
+    };
+  }
+
   const sthMatch = label.match(
     /^St\.\s*Thomas\s*Aquinas,\s*STh\.?\s*([IVX]+(?:-[IVX]+)?)\s*,?\s*(\d+)[,\s]+(\d+)(.*)$/i,
   );
@@ -3973,7 +4691,7 @@ function parseAquinasReference(reference) {
     };
   }
 
-  const commandmentsMatch = label.match(/St\.\s*Thomas\s*Aquinas,\s*Dec\.\s*pr[æa]c\.\s*([IVXLC]+|\d+)\.?/i);
+  const commandmentsMatch = label.match(/St\.\s*Thomas\s*Aquinas,\s*Dec\.\s*pr(?:æ|ae|a)c\.\s*([IVXLC]+|\d+)\.?/i);
   if (commandmentsMatch) {
     const article = romanNumeralToNumber(commandmentsMatch[1]);
     if (!Number.isFinite(article)) {
@@ -4330,8 +5048,102 @@ async function buildAquinasTenCommandmentsSource(parsed) {
   return buildAquinasAnchoredBilingualSource(
     parsed,
     'https://isidore.co/aquinas/TenCommandments.htm',
-    String(parsed.article),
+    String(parsed.article + 2),
   );
+}
+
+async function buildAquinasCompendiumSource(parsed) {
+  if (parsed.book !== 1) {
+    return null;
+  }
+  const url = 'https://isidore.co/aquinas/Compendium.htm';
+  const html = await fetchHtml(url);
+  const $ = cheerio.load(html);
+  const anchor = $(`a[name="${parsed.chapter}"], a[id="${parsed.chapter}"]`).first();
+  const table = anchor.closest('table');
+  if (!table.length) {
+    return null;
+  }
+
+  const bilingual = buildBilingualTableContent(table, url);
+  if (!bilingual.latinText && !bilingual.englishText) {
+    return null;
+  }
+
+  return {
+    id: parsed.sourceId,
+    kind: 'document',
+    title: parsed.title,
+    citation: parsed.citation,
+    url: `${url}#${parsed.chapter}`,
+    language: 'la',
+    sourceLabel: 'Isidore.co',
+    translationStatus: 'public-domain',
+    translationNote: 'Open-source bilingual Latin and English text.',
+    contentHtml: `<p><strong>Latin</strong></p>${bilingual.latinHtml}<p><strong>English</strong></p>${bilingual.englishHtml}`,
+    contentText: cleanText(`${bilingual.latinText} ${bilingual.englishText}`),
+    contentByLanguage: {
+      la: { html: bilingual.latinHtml, text: bilingual.latinText },
+      en: { html: bilingual.englishHtml, text: bilingual.englishText },
+    },
+  };
+}
+
+async function buildAquinasOpusculum57Source(parsed) {
+  const url = 'https://isidore.co/aquinas/CorpusChristiRd.htm';
+  const html = await fetchHtml(url);
+  const $ = cheerio.load(html);
+  const latinParts = [];
+  const englishParts = [];
+
+  $('tr').each((_, row) => {
+    const cells = $(row).children('td');
+    if (cells.length !== 2) {
+      return;
+    }
+
+    const readingMatch = cleanText($(cells[0]).text()).match(/^Reading\s+(\d+)\b/i);
+    const reading = Number(readingMatch?.[1] ?? NaN);
+    if (!Number.isFinite(reading) || reading < parsed.start || reading > parsed.end) {
+      return;
+    }
+
+    const latinHtml = absolutizeFragmentLinks($(cells[0]).html() ?? '', url);
+    const englishHtml = absolutizeFragmentLinks($(cells[1]).html() ?? '', url);
+    if (cleanText($(cells[0]).text())) {
+      latinParts.push(`<p>${latinHtml}</p>`);
+    }
+    if (cleanText($(cells[1]).text())) {
+      englishParts.push(`<p><strong>Reading ${reading}</strong></p><p>${englishHtml}</p>`);
+    }
+  });
+
+  if (latinParts.length === 0 || englishParts.length === 0) {
+    return null;
+  }
+
+  const latinHtml = latinParts.join('');
+  const englishHtml = englishParts.join('');
+  const latinText = cleanText(cheerio.load(`<div>${latinHtml}</div>`)('div').text());
+  const englishText = cleanText(cheerio.load(`<div>${englishHtml}</div>`)('div').text());
+
+  return {
+    id: parsed.sourceId,
+    kind: 'document',
+    title: parsed.title,
+    citation: parsed.citation,
+    url,
+    language: 'la',
+    sourceLabel: 'Isidore.co',
+    translationStatus: 'public-domain',
+    translationNote: 'Open-source Latin and English text.',
+    contentHtml: `<p><strong>Latin</strong></p>${latinHtml}<p><strong>English</strong></p>${englishHtml}`,
+    contentText: cleanText(`${latinText} ${englishText}`),
+    contentByLanguage: {
+      la: { html: latinHtml, text: latinText },
+      en: { html: englishHtml, text: englishText },
+    },
+  };
 }
 
 async function buildAquinasAdoroTeSource(parsed) {
@@ -4561,6 +5373,12 @@ async function buildAquinasSource(parsed) {
   }
   if (parsed.kind === 'aquinas-ten-commandments') {
     return buildAquinasTenCommandmentsSource(parsed);
+  }
+  if (parsed.kind === 'aquinas-compendium') {
+    return buildAquinasCompendiumSource(parsed);
+  }
+  if (parsed.kind === 'aquinas-opusculum-57') {
+    return buildAquinasOpusculum57Source(parsed);
   }
   if (parsed.kind === 'aquinas-psalms') {
     return buildAquinasPsalmsSource(parsed);
@@ -5394,10 +6212,22 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
 
   const externalSources = {};
   const missingScriptureQueries = [...scriptureQueries];
-  debugLog('scripture queries', scriptureQueries.size, 'rebuilding', missingScriptureQueries.length);
+  debugLog('scripture queries', scriptureQueries.size, 'checking', missingScriptureQueries.length);
   debugLog('document queries', documentQueries.size, 'aquinas', aquinasQueries.size);
 
   for (const query of missingScriptureQueries) {
+    const sourceId = `scripture:${slugSegment(query)}`;
+    const existing = existingExternalSources[sourceId];
+    if (existing?.kind === 'scripture' && existing.contentHtml) {
+      externalSources[sourceId] = {
+        ...existing,
+        id: sourceId,
+        citation: query,
+        contentByLanguage: ensureContentByLanguage(existing, existing.language ?? 'en'),
+      };
+      continue;
+    }
+
     const variants = {};
     let defaultSource = null;
 
@@ -5426,7 +6256,6 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
       continue;
     }
 
-    const sourceId = `scripture:${slugSegment(query)}`;
     const preferredLanguage = variants.en ? 'en' : Object.keys(variants)[0];
     const preferredContent = variants[preferredLanguage];
     externalSources[sourceId] = {
@@ -5471,10 +6300,6 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
         translationNote,
         contentByLanguage: ensureContentByLanguage(existing, existing.language ?? config?.language ?? 'en', translationNote),
       };
-      continue;
-    }
-
-    if (parsed.documentId === 'CIC') {
       continue;
     }
 
@@ -5530,15 +6355,24 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
       contentHtml = contentByLanguage[preferredLanguage]?.html ?? contentHtml;
       contentText = contentByLanguage[preferredLanguage]?.text ?? contentText;
     } else if (config.language && config.language !== 'en') {
-      const translated = await translateHtmlParagraphs(contentHtml, config.language);
-      if (!translated.contentHtml) {
-        continue;
+      if (config.translate === false) {
+        translationNote = `Official ${languageLabel(config.language)} Vatican text.`;
+      } else {
+        let translated = null;
+        try {
+          translated = await translateHtmlParagraphs(contentHtml, config.language);
+        } catch (error) {
+          console.warn(`Translation unavailable for ${sourceId}: ${error.message}`);
+        }
+        if (translated?.contentHtml) {
+          contentHtml = translated.contentHtml;
+          contentText = translated.contentText;
+          translationStatus = 'ai';
+          translationNote = `Translated with AI from the official ${languageLabel(config.language)} Vatican text.`;
+        } else {
+          translationNote = `Official ${languageLabel(config.language)} Vatican text.`;
+        }
       }
-
-      contentHtml = translated.contentHtml;
-      contentText = translated.contentText;
-      translationStatus = 'ai';
-      translationNote = `Translated with AI from the official ${languageLabel(config.language)} Vatican text.`;
     }
 
     externalSources[sourceId] = {
@@ -5572,7 +6406,7 @@ async function buildExternalSourcePayload(nodes, existingExternalSources = {}) {
     aquinasIndex += 1;
     debugLog('building aquinas source', aquinasIndex, aquinasQueries.size, parsed.kind, parsed.citation);
     const existing = existingExternalSources[parsed.sourceId] ?? existingDocumentSourceByKey.get(parsed.sourceId);
-    if (existing?.kind === 'document' && !shouldRebuildAquinasSource(existing)) {
+    if (existing?.kind === 'document' && !shouldRebuildAquinasSource(existing, parsed)) {
       externalSources[parsed.sourceId] = {
         ...existing,
         id: parsed.sourceId,
@@ -5756,11 +6590,39 @@ async function buildBaseGraphPayload() {
     );
     const hasSuspiciousPrologueAssignments =
       parsed?.nodes?.some((node) => node.id > 25 && node.part === 'Prologue') ?? false;
+    const hasInBriefHierarchyLeaks =
+      parsed?.nodes?.some((node, index, nodes) => {
+        const previous = nodes[index - 1];
+        if (!previous || cleanText(node.title).toUpperCase() !== 'IN BRIEF') {
+          return false;
+        }
+        const hierarchyChanged =
+          previous.breadcrumbs.join('|') !== node.breadcrumbs.join('|');
+        const startsInBrief = node.headings.some(
+          (heading) => cleanText(heading.text).toUpperCase() === 'IN BRIEF',
+        );
+        return hierarchyChanged && !startsInBrief;
+      }) ?? false;
+    const hasUnlinkedInlineReferences =
+      parsed?.nodes?.some((node) => {
+        const isInBrief = cleanText(node.title).toUpperCase() === 'IN BRIEF';
+        const expected = extractReaderInlineFootnotes(
+          node.text,
+          `inline:${node.id}`,
+          isInBrief,
+        ).length;
+        const linked = node.footnotes.filter((footnote) =>
+          String(footnote.id).startsWith(`inline:${node.id}:`),
+        ).length;
+        return linked < expected;
+      }) ?? false;
     if (
       parsed?.nodes?.length > 0 &&
       parsed?.edges?.length > 0 &&
       maxRelativePagerank > 1 &&
-      !hasSuspiciousPrologueAssignments
+      !hasSuspiciousPrologueAssignments &&
+      !hasInBriefHierarchyLeaks &&
+      !hasUnlinkedInlineReferences
     ) {
       return parsed;
     }
@@ -5842,6 +6704,21 @@ async function buildBaseGraphPayload() {
   };
 }
 
+async function loadExistingExternalSources() {
+  const merged = {};
+  for (let index = 1; index <= 4; index += 1) {
+    const chunkPath = path.join(path.dirname(outputPath), `external-sources-${index}.json`);
+    try {
+      Object.assign(merged, JSON.parse(await readFile(chunkPath, 'utf8')));
+    } catch (error) {
+      if (error?.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+  }
+  return merged;
+}
+
 async function main() {
   const languageFilter = process.env.ONLY_LANGUAGE_PACKS
     ?.split(',')
@@ -5863,10 +6740,20 @@ async function main() {
 
   debugLog('loading base payload');
   const basePayload = await buildBaseGraphPayload();
+  repairEnglishFootnoteIntegrity(basePayload.nodes);
+  const englishFootnotes = assertFootnoteIntegrity(basePayload.nodes, 'en');
+  assertNoUnlinkedInlineScriptureReferences(basePayload.nodes, 'en');
+  debugLog(
+    'English footnotes verified',
+    englishFootnotes.markerCount,
+    'markers and objects',
+  );
   debugLog('base payload ready', basePayload.nodes.length, 'nodes');
+  const existingExternalSources = await loadExistingExternalSources();
+  debugLog('existing external sources ready', Object.keys(existingExternalSources).length, 'sources');
   const externalPayload = await buildExternalSourcePayload(
     basePayload.nodes,
-    basePayload.externalSources ?? {},
+    existingExternalSources,
   );
   debugLog('external payload ready', Object.keys(externalPayload.externalSources).length, 'sources');
   const payload = {
@@ -5889,8 +6776,21 @@ async function main() {
         new Map(payload.nodes.map((node) => [node.id, node])),
       );
 
+  const externalSourceChunks = Array.from({ length: 4 }, () => ({}));
+  Object.entries(payload.externalSources).forEach(([sourceId, source], index) => {
+    externalSourceChunks[index % externalSourceChunks.length][sourceId] = source;
+  });
+
   await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, JSON.stringify(payload, null, 2));
+  await Promise.all([
+    writeFile(outputPath, JSON.stringify({ ...payload, externalSources: {} })),
+    ...externalSourceChunks.map((sources, index) =>
+      writeFile(
+        path.join(path.dirname(outputPath), `external-sources-${index + 1}.json`),
+        JSON.stringify(sources),
+      ),
+    ),
+  ]);
   if (!skipLanguagePacks) {
     await writeLanguagePacks(packs);
   }
