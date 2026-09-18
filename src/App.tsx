@@ -2,10 +2,11 @@ import { memo, type CSSProperties, type FormEvent, type MouseEvent as ReactMouse
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 
 import { loadExternalSource, useCatechismData } from './lib/data';
+import { paragraphTarget, sourceLanguageName } from './lib/citation-ui';
 import { cleanHierarchyLabel } from './lib/hierarchy';
 import type { AppLanguage } from './lib/i18n';
 import { abbreviateLinkedCitation, sourceCitation, sourceWorkTitle, scriptureWorkTitle } from './lib/source-labels';
-import type { CatechismData, CatechismNode, ExternalReference, ExternalSource, Footnote } from './types';
+import type { CatechismData, CatechismNode, ExternalSource, Footnote } from './types';
 
 type Citation = {
   key: string;
@@ -132,7 +133,7 @@ const copy = {
     reference: 'Paragrafhänvisning',
     footnote: 'Fotnot',
     citationUnavailable: 'Den fullständiga hänvisningen saknas i denna utgåva.',
-    englishFallback: 'Engelsk källa visas eftersom hänvisningen saknas på svenska.',
+    englishFallback: 'Hänvisningen saknas på svenska.',
   },
 };
 
@@ -465,11 +466,6 @@ function SwedishBiblePassage({ reference, fallbackSource }: { reference: string;
   return <><div className="citation-text" dangerouslySetInnerHTML={{ __html: passage }} /><p className="source-work-title">{scriptureWorkTitle(reference, 'sv')}</p><p className="source-note">Svenska 1917 (public domain)</p></>;
 }
 
-function paragraphTarget(reference?: ExternalReference) {
-  const match = reference?.label.match(/(?:CCC|CC|KKK|§)\s*(\d+)/i);
-  return match ? Number(match[1]) : undefined;
-}
-
 function normalizedCitationText(value: string) {
   return value
     .replace(/<(?:br|\/p|\/div|\/li)\b[^>]*>/gi, ' ')
@@ -515,7 +511,7 @@ function CitationSourceContent({ item, language }: {
   const swedishScripture = language === 'sv' && Boolean(swedishBibleRef);
 
   return <>
-    {swedishScripture ? <SwedishBiblePassage fallbackSource={source} reference={swedishBibleRef!} /> : content ? <><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(content) }} /><SourceWorkTitle language={language} reference={label} source={source!} /></> : <p>{copy[language].citationUnavailable}</p>}
+    {swedishScripture ? <SwedishBiblePassage fallbackSource={source} reference={swedishBibleRef!} /> : content ? <><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(content) }} lang={fallback ? source?.language : language} /><SourceWorkTitle language={language} reference={label} source={source!} /></> : <p>{copy[language].citationUnavailable}</p>}
     {fallback && !swedishScripture ? <p className="fallback-note">{copy[language].englishFallback}</p> : null}
   </>;
 }
@@ -568,8 +564,6 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
   const visibleGroupedSources = groupedSources.citationKey === citation.key
     ? groupedSources.values
     : [];
-  const languageNames: Record<string, string> = { en: 'English', sv: 'Svenska', la: 'Latina', it: 'Italiano', es: 'Español', zh: '中文' };
-
   return (
     <aside aria-label={`${citation.eyebrow}: ${displayedName ?? citation.title}`} className="citation-panel" ref={panelRef} tabIndex={-1}>
       <button aria-label={t.close} className="citation-close" onClick={onClose} type="button">×</button>
@@ -589,7 +583,7 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
             </details>
           ))}</div>
         )}
-      </> : targetNode ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(targetNode.textHtml) }} /> : currentTranslation ? repeatsCitationName(currentTranslation.html, citation.name) || repeatsCitationName(currentTranslation.html, displayedName) ? null : <><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(currentTranslation.html) }} /><SourceWorkTitle language={language} source={source!} /></> : translations.length > 1 ? visibleTranslations.length ? <div className="citation-translations">{visibleTranslations.map(([code, translation]) => <details key={code}><summary>{languageNames[code] ?? code.toUpperCase()}</summary><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(translation.html) }} /><SourceWorkTitle language={language} source={source!} /></details>)}</div> : null : sourceContent ? sourceRepeatsName ? null : <><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(sourceContent) }} /><SourceWorkTitle language={language} source={source!} /></> : citation.html ? citationRepeatsName ? null : <div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(citation.html) }} /> : <p>{t.citationUnavailable}</p>}
+      </> : targetNode ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(targetNode.textHtml) }} /> : currentTranslation ? repeatsCitationName(currentTranslation.html, citation.name) || repeatsCitationName(currentTranslation.html, displayedName) ? null : <><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(currentTranslation.html) }} lang={language} /><SourceWorkTitle language={language} source={source!} /></> : translations.length > 1 ? visibleTranslations.length ? <div className="citation-translations">{visibleTranslations.map(([code, translation]) => <details key={code}><summary>{sourceLanguageName(code, language)}</summary><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(translation.html) }} lang={code} /><SourceWorkTitle language={language} source={source!} /></details>)}</div> : null : sourceContent ? sourceRepeatsName ? null : <><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(sourceContent) }} lang={source?.language} /><SourceWorkTitle language={language} source={source!} /></> : citation.html ? citationRepeatsName ? null : <div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(citation.html) }} /> : <p>{t.citationUnavailable}</p>}
       {isFallback && !sourceRepeatsName ? <p className="fallback-note">{t.englishFallback}</p> : null}
       {citation.target ? <button className="jump-citation" onClick={() => onJump(citation.target!)} title={t.open} type="button"><span>↗</span>{t.open}</button> : null}
     </aside>
