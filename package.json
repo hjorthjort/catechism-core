@@ -7,9 +7,10 @@
     "dev": "node scripts/build-reader-data.mjs && vite",
     "build:data": "node scripts/build-catechism-data.mjs && node scripts/build-liturgical-schedule.mjs",
     "audit:sources": "node scripts/audit-source-coverage.mjs --strict",
-    "build": "npm test && node scripts/build-reader-data.mjs && tsc -b && vite build && node scripts/build-sites-worker.mjs",
+    "build": "npm test && tsc -b && vite build && node scripts/build-sites-worker.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
+    "pretest": "node scripts/build-reader-data.mjs",
     "test": "node --experimental-strip-types --test tests/*.test.ts"
   },
   "dependencies": {
