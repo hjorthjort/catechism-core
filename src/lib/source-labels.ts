@@ -83,6 +83,7 @@ const bibleBooks: BibleBook[] = [
   { aliases: ['3 jn', '3jn', 'iii jn', '3 john', '3 joh'], abbreviation: '3 Jn', en: 'The Third Letter of John', sv: 'Tredje Johannesbrevet' },
   { aliases: ['jude', 'jud'], abbreviation: 'Jude', en: 'The Letter of Jude', sv: 'Judasbrevet' },
   { aliases: ['rev', 'apoc', 'revelation', 'upp'], abbreviation: 'Rev', en: 'The Book of Revelation', sv: 'Uppenbarelseboken' },
+  { aliases: ['pr azar', 'prayer of azariah', 'till dan b'], abbreviation: 'Pr Azar', en: 'The Prayer of Azariah', sv: 'Azarjas bön' },
 ];
 
 const bibleAliases = bibleBooks
@@ -126,9 +127,13 @@ function normalizedReference(value: string) {
   return value.replace(/\u00a0/g, ' ').replace(/^([1-3])(?=[A-Za-zÅÄÖåäö])/u, '$1 ').replace(/\s+/g, ' ').trim();
 }
 
-function bibleBookForReference(reference: string) {
+function bibleBookMatch(reference: string) {
   const normalized = normalizedReference(reference).toLocaleLowerCase('en');
-  return bibleAliases.find(({ alias }) => normalized === alias || normalized.startsWith(`${alias} `))?.book;
+  return bibleAliases.find(({ alias }) => normalized === alias || normalized.startsWith(`${alias} `) || normalized.startsWith(`${alias}:`));
+}
+
+function bibleBookForReference(reference: string) {
+  return bibleBookMatch(reference)?.book;
 }
 
 export function abbreviateScriptureReference(reference: string) {
@@ -140,6 +145,30 @@ export function abbreviateScriptureReference(reference: string) {
 
 export function scriptureWorkTitle(reference: string, language: ReaderLanguage) {
   return bibleBookForReference(reference)?.[language] ?? '';
+}
+
+const swedishBibleBookNumbers: Record<string, number> = {
+  Gen: 1, Ex: 2, Lev: 3, Num: 4, Deut: 5, Josh: 6, Judg: 7, Ruth: 8,
+  '1 Sam': 9, '2 Sam': 10, '1 Kgs': 11, '2 Kgs': 12, '1 Chr': 13, '2 Chr': 14,
+  Ezra: 15, Neh: 16, Est: 17, Job: 18, Ps: 19, Prov: 20, Eccl: 21, Song: 22,
+  Isa: 23, Jer: 24, Lam: 25, Ezek: 26, Dan: 27, Hos: 28, Joel: 29, Am: 30,
+  Obad: 31, Jon: 32, Mic: 33, Nah: 34, Hab: 35, Zeph: 36, Hag: 37, Zech: 38,
+  Mal: 39, Mt: 40, Mk: 41, Lk: 42, Jn: 43, Acts: 44, Rom: 45, '1 Cor': 46,
+  '2 Cor': 47, Gal: 48, Eph: 49, Phil: 50, Col: 51, '1 Thess': 52, '2 Thess': 53,
+  '1 Tim': 54, '2 Tim': 55, Titus: 56, Philem: 57, Heb: 58, Jas: 59, '1 Pet': 60,
+  '2 Pet': 61, '1 Jn': 62, '2 Jn': 63, '3 Jn': 64, Jude: 65, Rev: 66,
+  Tob: 69, Jdt: 70, Wis: 73, Sir: 74, Bar: 75, '1 Macc': 80, '2 Macc': 81,
+  'Pr Azar': 76,
+};
+
+export function swedishBibleReferenceStart(reference: string) {
+  const match = bibleBookMatch(reference);
+  if (!match) return undefined;
+  const bookNumber = swedishBibleBookNumbers[match.book.abbreviation];
+  if (!bookNumber) return undefined;
+  const normalized = normalizedReference(reference);
+  const locator = normalized.slice(match.alias.length).trim().replace(/^:/, '').replace(/\.$/, '');
+  return locator ? { bookNumber, locator } : undefined;
 }
 
 function documentKey(sourceId?: string | null) {
