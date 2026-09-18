@@ -37,6 +37,23 @@ test('every stored source id resolves to a source payload', () => {
   assert.deepEqual(dangling, []);
 });
 
+test('cross-chapter Scripture citations include every requested chapter', () => {
+  const unresolvedCrossChapter = references.filter((reference: {
+    canonicalLabel?: string;
+    label?: string;
+    sourceId?: string;
+  }) => /\d+:\d+[a-z]?-\d+:\d+[a-z]?/i.test(reference.canonicalLabel ?? reference.label ?? '') &&
+    (!reference.sourceId || !sources[reference.sourceId]));
+  assert.deepEqual(unresolvedCrossChapter, []);
+
+  const source = sources['scripture:2-cor-1-20-3-16-4-6'];
+  assert.ok(source);
+  assert.match(source.contentText, /2 Corinthians 1:/);
+  assert.match(source.contentText, /2 Corinthians 3:/);
+  assert.match(source.contentText, /2 Corinthians 4:/);
+  assert.match(source.contentText, /6\. For God who said/);
+});
+
 test('Aquinas and canon-law references retain complete source coverage', () => {
   assert.deepEqual(unresolvedReferences(/Thomas Aquinas/i), []);
   assert.deepEqual(unresolvedReferences(/^CIC\b/i), []);
