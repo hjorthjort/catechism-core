@@ -2,7 +2,7 @@ import { memo, type CSSProperties, type FormEvent, type MouseEvent as ReactMouse
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 
 import { loadExternalSource, useCatechismData } from './lib/data';
-import { paragraphTarget, sourceLanguageName } from './lib/citation-ui';
+import { paragraphTarget, sourceDocumentUrl, sourceLanguageName } from './lib/citation-ui';
 import { cleanHierarchyLabel } from './lib/hierarchy';
 import type { AppLanguage } from './lib/i18n';
 import { abbreviateLinkedCitation, sourceCitation, sourceWorkTitle, scriptureWorkTitle } from './lib/source-labels';
@@ -112,6 +112,7 @@ const copy = {
     results: 'Search results',
     close: 'Close',
     open: 'Read paragraph',
+    openSource: 'Read source',
     reference: 'Paragraph reference',
     footnote: 'Footnote',
     citationUnavailable: 'The full citation is not available in this edition.',
@@ -130,6 +131,7 @@ const copy = {
     results: 'Sökresultat',
     close: 'Stäng',
     open: 'Läs paragraf',
+    openSource: 'Läs källan',
     reference: 'Paragrafhänvisning',
     footnote: 'Fotnot',
     citationUnavailable: 'Den fullständiga hänvisningen saknas i denna utgåva.',
@@ -561,6 +563,7 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
   const visibleTranslations = translations.filter(([, translation]) => !repeatsCitationName(translation.html, citation.name) && !repeatsCitationName(translation.html, displayedName));
   const sourceRepeatsName = repeatsCitationName(sourceContent, citation.name) || repeatsCitationName(sourceContent, displayedName);
   const citationRepeatsName = repeatsCitationName(citation.html, citation.name);
+  const sourceUrl = sourceDocumentUrl(source);
   const visibleGroupedSources = groupedSources.citationKey === citation.key
     ? groupedSources.values
     : [];
@@ -586,6 +589,7 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
       </> : targetNode ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(targetNode.textHtml) }} /> : currentTranslation ? repeatsCitationName(currentTranslation.html, citation.name) || repeatsCitationName(currentTranslation.html, displayedName) ? null : <><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(currentTranslation.html) }} lang={language} /><SourceWorkTitle language={language} source={source!} /></> : translations.length > 1 ? visibleTranslations.length ? <div className="citation-translations">{visibleTranslations.map(([code, translation]) => <details key={code}><summary>{sourceLanguageName(code, language)}</summary><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(translation.html) }} lang={code} /><SourceWorkTitle language={language} source={source!} /></details>)}</div> : null : sourceContent ? sourceRepeatsName ? null : <><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(sourceContent) }} lang={source?.language} /><SourceWorkTitle language={language} source={source!} /></> : citation.html ? citationRepeatsName ? null : <div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(citation.html) }} /> : <p>{t.citationUnavailable}</p>}
       {isFallback && !sourceRepeatsName ? <p className="fallback-note">{t.englishFallback}</p> : null}
       {citation.target ? <button className="jump-citation" onClick={() => onJump(citation.target!)} title={t.open} type="button"><span>↗</span>{t.open}</button> : null}
+      {!citation.target && sourceUrl ? <a className="jump-citation" href={sourceUrl} rel="noreferrer" target="_blank" title={t.openSource}><span>↗</span>{t.openSource}</a> : null}
     </aside>
   );
 }

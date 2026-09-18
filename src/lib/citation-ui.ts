@@ -1,4 +1,4 @@
-import type { ExternalReference } from '../types';
+import type { ExternalReference, ExternalSource } from '../types';
 
 type InterfaceLanguage = 'en' | 'sv';
 
@@ -28,4 +28,15 @@ export function paragraphTarget(reference?: ExternalReference) {
   const standaloneSection = label.match(/^\s*§\s*(\d+)\b/);
   const match = namedCatechism ?? standaloneSection;
   return match ? Number(match[1]) : undefined;
+}
+
+export function sourceDocumentUrl(source?: ExternalSource | null) {
+  if (!source?.url) return undefined;
+
+  try {
+    const url = new URL(source.url);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
 }
