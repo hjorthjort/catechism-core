@@ -73,6 +73,13 @@ function normalizeBibleReference(reference: string) {
     .trim();
 }
 
+function paragraphFromLocation() {
+  const queryValue = Number(new URLSearchParams(location.search).get('p'));
+  if (Number.isInteger(queryValue) && queryValue > 0) return queryValue;
+  const hashValue = Number(location.hash.match(/^#paragraph-(\d+)$/)?.[1]);
+  return Number.isInteger(hashValue) && hashValue > 0 ? hashValue : null;
+}
+
 type TocBranch = {
   label: string;
   start: number;
@@ -316,12 +323,14 @@ function showNodeCitation(
   if (footnote) onCitation(footnoteCitation(node, footnote, language));
 }
 
-const ReaderParagraph = memo(function ReaderParagraph({ node, previous, next, selectedKey, onCitation, language, titles }: {
+const ReaderParagraph = memo(function ReaderParagraph({ node, previous, next, selectedKey, selectedParagraph, onCitation, onParagraphLink, language, titles }: {
   node: CatechismNode;
   previous?: CatechismNode;
   next?: CatechismNode;
   selectedKey?: string;
+  selectedParagraph?: boolean;
   onCitation: (citation: Citation) => void;
+  onParagraphLink: (id: number) => void;
   language: 'en' | 'sv';
   titles?: Record<string, string>;
 }) {
@@ -348,7 +357,17 @@ const ReaderParagraph = memo(function ReaderParagraph({ node, previous, next, se
           ))}
         </div>
         <div className={`paragraph-copy ${smallPrint ? 'is-small-print' : ''}`} onClick={(event) => showNodeCitation(event, node, language, onCitation)}>
-          <span className="paragraph-number" id={`paragraph-number-${node.id}`}>{node.number}</span>
+          <a
+            aria-current={selectedParagraph ? 'location' : undefined}
+            className={`paragraph-number ${selectedParagraph ? 'is-selected' : ''}`}
+            href={`?${language === 'sv' ? 'lang=sv&' : ''}p=${node.id}#paragraph-${node.id}`}
+            id={`paragraph-number-${node.id}`}
+            onClick={(event) => {
+              if (event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+              event.preventDefault();
+              onParagraphLink(node.id);
+            }}
+          ><span>{node.number}</span></a>
           <div className="paragraph-text" dangerouslySetInnerHTML={{ __html: paragraphHtml }} />
         </div>
       </div>
@@ -476,6 +495,31 @@ function SourceWorkTitle({ source, language, reference }: {
   return title ? <p className="source-work-title">{title}</p> : null;
 }
 
+function withoutCitationLinks(html: string) {
+  return html.replace(/<a\b[^>]*>/gi, '').replace(/<\/a>/gi, '');
+}
+
+type ResolvedCitationSource = {
+  label: string;
+  source: ExternalSource | null;
+  swedishBibleRef?: string;
+};
+
+function CitationSourceContent({ item, language }: {
+  item: ResolvedCitationSource;
+  language: 'en' | 'sv';
+}) {
+  const { label, source, swedishBibleRef } = item;
+  const content = source?.contentByLanguage?.[language]?.html ?? source?.contentHtml;
+  const fallback = language === 'sv' && source && !source.contentByLanguage?.sv;
+  const swedishScripture = language === 'sv' && Boolean(swedishBibleRef);
+
+  return <>
+    {swedishScripture ? <SwedishBiblePassage fallbackSource={source} reference={swedishBibleRef!} /> : content ? <><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(content) }} /><SourceWorkTitle language={language} reference={label} source={source!} /></> : <p>{copy[language].citationUnavailable}</p>}
+    {fallback && !swedishScripture ? <p className="fallback-note">{copy[language].englishFallback}</p> : null}
+  </>;
+}
+
 function CitationPanel({ citation, data, language, onClose, onJump }: {
   citation: Citation;
   data: CatechismData;
@@ -487,7 +531,7 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
   const [source, setSource] = useState<ExternalSource | null>(null);
   const [groupedSources, setGroupedSources] = useState<{
     citationKey: string;
-    values: Array<{ label: string; source: ExternalSource | null; swedishBibleRef?: string }>;
+    values: ResolvedCitationSource[];
   }>({ citationKey: '', values: [] });
   const panelRef = useRef<HTMLElement>(null);
   const targetNode = citation.target ? data.nodes.find((node) => node.id === citation.target) : undefined;
@@ -531,11 +575,21 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
       <button aria-label={t.close} className="citation-close" onClick={onClose} type="button">×</button>
       <p className="citation-eyebrow">{citation.eyebrow}</p>
       <h2>{citation.title ? <span>{citation.title}</span> : null}{displayedName ? <strong>{displayedName}</strong> : null}</h2>
-      {citation.swedishBibleRef ? <SwedishBiblePassage reference={citation.swedishBibleRef} /> : visibleGroupedSources.length > 0 ? <><div className="citation-text citation-reference-list" dangerouslySetInnerHTML={{ __html: citation.html }} /><div className="citation-source-group">{visibleGroupedSources.map(({ label, source: groupedSource, swedishBibleRef }) => {
-        const groupedContent = groupedSource?.contentByLanguage?.[language]?.html ?? groupedSource?.contentHtml;
-        const groupedFallback = language === 'sv' && groupedSource && !groupedSource.contentByLanguage?.sv;
-        return <details key={label}><summary>{groupedSource ? sourceCitation(groupedSource) : label}</summary>{language === 'sv' && swedishBibleRef ? <SwedishBiblePassage fallbackSource={groupedSource} reference={swedishBibleRef} /> : groupedContent ? <><div className="citation-text" dangerouslySetInnerHTML={{ __html: groupedContent }} /><SourceWorkTitle language={language} reference={label} source={groupedSource!} /></> : <p>{t.citationUnavailable}</p>}{groupedFallback && !(language === 'sv' && swedishBibleRef) ? <p className="fallback-note">{t.englishFallback}</p> : null}</details>;
-      })}</div></> : targetNode ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: targetNode.textHtml }} /> : currentTranslation ? repeatsCitationName(currentTranslation.html, citation.name) || repeatsCitationName(currentTranslation.html, displayedName) ? null : <><div className="citation-text" dangerouslySetInnerHTML={{ __html: currentTranslation.html }} /><SourceWorkTitle language={language} source={source!} /></> : translations.length > 1 ? visibleTranslations.length ? <div className="citation-translations">{visibleTranslations.map(([code, translation]) => <details key={code}><summary>{languageNames[code] ?? code.toUpperCase()}</summary><div className="citation-text" dangerouslySetInnerHTML={{ __html: translation.html }} /><SourceWorkTitle language={language} source={source!} /></details>)}</div> : null : sourceContent ? sourceRepeatsName ? null : <><div className="citation-text" dangerouslySetInnerHTML={{ __html: sourceContent }} /><SourceWorkTitle language={language} source={source!} /></> : citation.html ? citationRepeatsName ? null : <div className="citation-text" dangerouslySetInnerHTML={{ __html: citation.html }} /> : <p>{t.citationUnavailable}</p>}
+      {citation.swedishBibleRef ? <SwedishBiblePassage reference={citation.swedishBibleRef} /> : visibleGroupedSources.length > 0 ? <>
+        <div className="citation-text citation-reference-list" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(citation.html) }} />
+        {visibleGroupedSources.length === 1 ? (
+          <section aria-label={visibleGroupedSources[0].source ? sourceCitation(visibleGroupedSources[0].source) : visibleGroupedSources[0].label} className="citation-source-single">
+            <CitationSourceContent item={visibleGroupedSources[0]} language={language} />
+          </section>
+        ) : (
+          <div className="citation-source-group">{visibleGroupedSources.map((item) => (
+            <details key={item.label}>
+              <summary>{item.source ? sourceCitation(item.source) : item.label}</summary>
+              <CitationSourceContent item={item} language={language} />
+            </details>
+          ))}</div>
+        )}
+      </> : targetNode ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(targetNode.textHtml) }} /> : currentTranslation ? repeatsCitationName(currentTranslation.html, citation.name) || repeatsCitationName(currentTranslation.html, displayedName) ? null : <><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(currentTranslation.html) }} /><SourceWorkTitle language={language} source={source!} /></> : translations.length > 1 ? visibleTranslations.length ? <div className="citation-translations">{visibleTranslations.map(([code, translation]) => <details key={code}><summary>{languageNames[code] ?? code.toUpperCase()}</summary><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(translation.html) }} /><SourceWorkTitle language={language} source={source!} /></details>)}</div> : null : sourceContent ? sourceRepeatsName ? null : <><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(sourceContent) }} /><SourceWorkTitle language={language} source={source!} /></> : citation.html ? citationRepeatsName ? null : <div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(citation.html) }} /> : <p>{t.citationUnavailable}</p>}
       {isFallback && !sourceRepeatsName ? <p className="fallback-note">{t.englishFallback}</p> : null}
       {citation.target ? <button className="jump-citation" onClick={() => onJump(citation.target!)} title={t.open} type="button"><span>↗</span>{t.open}</button> : null}
     </aside>
@@ -547,6 +601,7 @@ function App() {
   const { data, error, loading, language: dataLanguage } = useCatechismData(language as AppLanguage);
   const [tocOpen, setTocOpen] = useState(true);
   const [activeId, setActiveId] = useState(1);
+  const [linkedParagraphId, setLinkedParagraphId] = useState<number | null>(() => paragraphFromLocation());
   const [jumpValue, setJumpValue] = useState('');
   const [jumpInvalid, setJumpInvalid] = useState(false);
   const [search, setSearch] = useState('');
@@ -572,9 +627,11 @@ function App() {
     if (!element) return;
     element.scrollIntoView({ behavior: 'auto', block: 'start' });
     setActiveId(id);
+    setLinkedParagraphId(id);
     setSearchOpen(false);
     const url = new URL(location.href);
     url.searchParams.set('p', String(id));
+    url.hash = `paragraph-${id}`;
     history.replaceState({}, '', url);
   }, []);
 
@@ -624,7 +681,7 @@ function App() {
       if (visible) setActiveId(Number((visible.target as HTMLElement).dataset.paragraph));
     }, { rootMargin: '-22% 0px -58% 0px', threshold: 0 });
     document.querySelectorAll('[data-paragraph]').forEach((element) => observerRef.current?.observe(element));
-    const requested = Number(new URLSearchParams(location.search).get('p'));
+    const requested = paragraphFromLocation();
     if (requested) requestAnimationFrame(() => jumpTo(requested));
     return () => observerRef.current?.disconnect();
   }, [jumpTo, nodes.length]);
@@ -721,7 +778,7 @@ function App() {
 
       <main className="book-column" id="reader-content" tabIndex={-1}>
         <div className="edition-title"><span>CCC</span><h1>{t.title}</h1><p>{language === 'sv' ? 'Den fullständiga texten' : 'The complete text'}</p></div>
-        {nodes.map((node, index) => <ReaderParagraph key={node.id} language={language} next={nodes[index + 1]} node={node} onCitation={setCitation} previous={nodes[index - 1]} selectedKey={selectedCitationNodeId === node.id ? citation?.key : undefined} titles={data.hierarchyTitles} />)}
+        {nodes.map((node, index) => <ReaderParagraph key={node.id} language={language} next={nodes[index + 1]} node={node} onCitation={setCitation} onParagraphLink={jumpTo} previous={nodes[index - 1]} selectedKey={selectedCitationNodeId === node.id ? citation?.key : undefined} selectedParagraph={linkedParagraphId === node.id} titles={data.hierarchyTitles} />)}
       </main>
 
       {searchOpen ? (
