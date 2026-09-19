@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { paragraphTarget, sourceDocumentUrl, sourceLanguageName } from '../src/lib/citation-ui.ts';
+import { footnoteHeading, paragraphTarget, sourceDocumentUrl, sourceLanguageName } from '../src/lib/citation-ui.ts';
 import type { ExternalReference, ExternalSource } from '../src/types.ts';
 
 function reference(label: string): ExternalReference {
@@ -50,4 +50,11 @@ test('source links require a valid web URL', () => {
   assert.equal(sourceDocumentUrl(source('javascript:alert(1)')), undefined);
   assert.equal(sourceDocumentUrl(source('/missing-source')), undefined);
   assert.equal(sourceDocumentUrl(null), undefined);
+});
+
+test('uses the complete footnote as its heading and resolves ibid headings', () => {
+  const scripture = { ...reference('Lk 10:16'), kind: 'scripture' as const, sourceId: 'scripture:lk-10-16' };
+  const document = { ...reference('LG 20.'), sourceId: 'document:lg:lg-20' };
+  assert.equal(footnoteHeading('Lk 10:16; cf. LG 20.', [scripture, document]), 'Lk 10:16; cf. LG 20.');
+  assert.equal(footnoteHeading('ibid.', [scripture, document]), 'Lk 10:16; LG 20.');
 });

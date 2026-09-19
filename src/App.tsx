@@ -2,7 +2,7 @@ import { memo, type CSSProperties, type FormEvent, type MouseEvent as ReactMouse
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 
 import { loadExternalSource, useCatechismData } from './lib/data';
-import { paragraphTarget, sourceDocumentUrl, sourceLanguageName } from './lib/citation-ui';
+import { footnoteHeading, paragraphTarget, sourceDocumentUrl, sourceLanguageName } from './lib/citation-ui';
 import { cleanHierarchyLabel } from './lib/hierarchy';
 import type { AppLanguage } from './lib/i18n';
 import { abbreviateLinkedCitation, sourceCitation, sourceWorkTitle, scriptureWorkTitle } from './lib/source-labels';
@@ -18,6 +18,7 @@ type Citation = {
   sourceId?: string | null;
   sources?: Array<{ label: string; sourceId?: string; swedishBibleRef?: string }>;
   name?: string;
+  nameHtml?: string;
   swedishBibleRef?: string;
   nodeId?: number;
   footnoteIndex?: number;
@@ -370,24 +371,24 @@ function footnoteCitation(node: CatechismNode, footnote: Footnote, language: 'en
   const references = node.externalReferences.filter((item) => item.footnoteId === footnote.id);
   const reference = references[0];
   const inlineReference = footnote.id.startsWith('inline:');
-  const scriptureSources = references
-    .filter((item) => item.kind === 'scripture' && (language === 'sv' || Boolean(item.sourceId)))
+  const linkedSources = references
+    .filter((item) => item.kind === 'scripture' ? language === 'sv' || Boolean(item.sourceId) : Boolean(item.sourceId))
     .map((item) => ({
       label: abbreviateLinkedCitation(item.label, item.kind, item.sourceId),
       sourceId: item.sourceId ?? undefined,
-      swedishBibleRef: language === 'sv' ? normalizeBibleReference(item.label) : undefined,
+      swedishBibleRef: language === 'sv' && item.kind === 'scripture' ? normalizeBibleReference(item.label) : undefined,
     }));
+  const heading = footnoteHeading(footnote.text, references, inlineReference);
   return {
     key: `fn-${node.id}-${footnote.id}`,
     eyebrow: inlineReference ? copy[language].reference : copy[language].footnote,
     title: inlineReference ? '' : String(footnote.number),
-    name: inlineReference && references.length > 0
-      ? references.map((item) => abbreviateLinkedCitation(item.label, item.kind, item.sourceId)).join('; ')
-      : reference ? abbreviateLinkedCitation(reference.label, reference.kind, reference.sourceId) : footnote.text,
+    name: heading,
+    nameHtml: !inlineReference && heading === footnote.text.trim() ? footnote.html : undefined,
     html: footnote.html || footnote.text,
     target: paragraphTarget(reference),
-    sourceId: scriptureSources.length === 0 ? reference?.sourceId : undefined,
-    sources: scriptureSources.length > 0 ? scriptureSources : undefined,
+    sourceId: linkedSources.length === 0 ? reference?.sourceId : undefined,
+    sources: linkedSources.length > 0 ? linkedSources : undefined,
     nodeId: node.id,
     footnoteIndex: node.footnotes.findIndex((item) => item.id === footnote.id),
   };
@@ -529,6 +530,7 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
   const translations = Object.entries(source?.contentByLanguage ?? {});
   const currentTranslation = source?.contentByLanguage?.[language];
   const displayedName = source ? sourceCitation(source) : citation.name;
+  const displayedNameHtml = source ? undefined : citation.nameHtml;
   const visibleTranslations = translations.filter(([, translation]) => !repeatsCitationName(translation.html, citation.name) && !repeatsCitationName(translation.html, displayedName));
   const sourceRepeatsName = repeatsCitationName(sourceContent, citation.name) || repeatsCitationName(sourceContent, displayedName);
   const citationRepeatsName = repeatsCitationName(citation.html, citation.name);
@@ -536,25 +538,32 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
   const visibleGroupedSources = groupedSources.citationKey === citation.key
     ? groupedSources.values
     : [];
+  const scriptureGroupedSources = visibleGroupedSources.filter((item) => Boolean(item.swedishBibleRef) || item.source?.kind === 'scripture');
+  const directGroupedSource = visibleGroupedSources.length === 1
+    ? visibleGroupedSources[0]
+    : scriptureGroupedSources.length === 1
+      ? scriptureGroupedSources[0]
+      : undefined;
+  const collapsedGroupedSources = visibleGroupedSources.filter((item) => item !== directGroupedSource);
   return (
     <aside aria-label={`${citation.eyebrow}: ${displayedName ?? citation.title}`} className="citation-panel" ref={panelRef} tabIndex={-1}>
       <button aria-label={t.close} className="citation-close" onClick={onClose} type="button">×</button>
       <p className="citation-eyebrow">{citation.eyebrow}</p>
-      <h2>{citation.title ? <span>{citation.title}</span> : null}{displayedName ? <strong>{displayedName}</strong> : null}</h2>
+      <h2>{citation.title ? <span>{citation.title}</span> : null}{displayedNameHtml ? <strong dangerouslySetInnerHTML={{ __html: withoutCitationLinks(displayedNameHtml) }} /> : displayedName ? <strong>{displayedName}</strong> : null}</h2>
       {citation.swedishBibleRef ? <SwedishBiblePassage reference={citation.swedishBibleRef} /> : visibleGroupedSources.length > 0 ? <>
-        <div className="citation-text citation-reference-list" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(citation.html) }} />
-        {visibleGroupedSources.length === 1 ? (
-          <section aria-label={visibleGroupedSources[0].source ? sourceCitation(visibleGroupedSources[0].source) : visibleGroupedSources[0].label} className="citation-source-single">
-            <CitationSourceContent item={visibleGroupedSources[0]} language={language} />
+        {directGroupedSource ? (
+          <section aria-label={directGroupedSource.source ? sourceCitation(directGroupedSource.source) : directGroupedSource.label} className="citation-source-single">
+            <CitationSourceContent item={directGroupedSource} language={language} />
           </section>
-        ) : (
-          <div className="citation-source-group">{visibleGroupedSources.map((item) => (
+        ) : null}
+        {collapsedGroupedSources.length > 0 ? (
+          <div className="citation-source-group">{collapsedGroupedSources.map((item) => (
             <details key={item.label}>
               <summary>{item.source ? sourceCitation(item.source) : item.label}</summary>
               <CitationSourceContent item={item} language={language} />
             </details>
           ))}</div>
-        )}
+        ) : null}
       </> : targetNode ? <div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(targetNode.textHtml) }} /> : currentTranslation ? repeatsCitationName(currentTranslation.html, citation.name) || repeatsCitationName(currentTranslation.html, displayedName) ? null : <><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(currentTranslation.html) }} lang={language} /><SourceWorkTitle language={language} source={source!} /></> : translations.length > 1 ? visibleTranslations.length ? <div className="citation-translations">{visibleTranslations.map(([code, translation]) => <details key={code}><summary>{sourceLanguageName(code, language)}</summary><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(translation.html) }} lang={code} /><SourceWorkTitle language={language} source={source!} /></details>)}</div> : null : sourceContent ? sourceRepeatsName ? null : <><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(sourceContent) }} lang={source?.language} /><SourceWorkTitle language={language} source={source!} /></> : citation.html ? citationRepeatsName ? null : <div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(citation.html) }} /> : <p>{t.citationUnavailable}</p>}
       {isFallback && !sourceRepeatsName ? <p className="fallback-note">{t.englishFallback}</p> : null}
       {citation.target ? <button className="jump-citation" onClick={() => onJump(citation.target!)} title={t.open} type="button"><span>↗</span>{t.open}</button> : null}
