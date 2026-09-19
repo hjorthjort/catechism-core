@@ -74,7 +74,16 @@ const readerStorage = {
   paragraph: 'catholic-core-reader-paragraph',
   tocOpen: 'catholic-core-toc-open',
   citationWidth: 'catholic-core-citation-width',
+  textSize: 'catholic-core-text-size',
 };
+
+const minimumTextSize = -2;
+const maximumTextSize = 2;
+
+function storedTextSize() {
+  const value = Number(localStorage.getItem(readerStorage.textSize));
+  return Number.isInteger(value) ? Math.min(maximumTextSize, Math.max(minimumTextSize, value)) : 0;
+}
 
 function storedParagraph() {
   const value = Number(localStorage.getItem(readerStorage.paragraph));
@@ -126,6 +135,10 @@ const copy = {
     footnote: 'Footnote',
     citationUnavailable: 'The full citation is not available in this edition.',
     englishFallback: 'English source shown because this citation is unavailable in Swedish.',
+    decreaseTextSize: 'Decrease text size',
+    defaultTextSize: 'Reset text size to default',
+    increaseTextSize: 'Increase text size',
+    textSize: 'Text size',
   },
   sv: {
     title: 'Katolska kyrkans katekes',
@@ -145,6 +158,10 @@ const copy = {
     footnote: 'Fotnot',
     citationUnavailable: 'Den fullständiga hänvisningen saknas i denna utgåva.',
     englishFallback: 'Hänvisningen saknas på svenska.',
+    decreaseTextSize: 'Minska textstorleken',
+    defaultTextSize: 'Återställ standardstorlek',
+    increaseTextSize: 'Öka textstorleken',
+    textSize: 'Textstorlek',
   },
 };
 
@@ -613,6 +630,7 @@ function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [citation, setCitation] = useState<Citation | null>(null);
   const [toolbarHidden, setToolbarHidden] = useState(false);
+  const [textSize, setTextSize] = useState(storedTextSize);
   const [citationWidth, setCitationWidth] = useState(() => {
     const stored = Number(localStorage.getItem(readerStorage.citationWidth));
     return Number.isFinite(stored) ? Math.min(620, Math.max(280, stored)) : 340;
@@ -659,6 +677,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem(readerStorage.citationWidth, String(citationWidth));
   }, [citationWidth]);
+
+  useEffect(() => {
+    localStorage.setItem(readerStorage.textSize, String(textSize));
+  }, [textSize]);
 
   useEffect(() => {
     if (nodes.some((node) => node.id === activeId)) {
@@ -771,7 +793,7 @@ function App() {
   if (error || !data) return <main className="loading">{error ?? 'Unable to load the Catechism.'}</main>;
 
   return (
-    <div className={`book-app ${tocOpen ? '' : 'toc-hidden'} ${citation ? 'citation-open' : ''} ${toolbarHidden ? 'toolbar-hidden' : ''}`} lang={language} style={{ '--aside': `${citationWidth}px` } as CSSProperties}>
+    <div className={`book-app ${tocOpen ? '' : 'toc-hidden'} ${citation ? 'citation-open' : ''} ${toolbarHidden ? 'toolbar-hidden' : ''}`} lang={language} style={{ '--aside': `${citationWidth}px`, '--text-scale': 1 + textSize * .125 } as CSSProperties}>
       <a className="skip-link" href="#reader-content">{language === 'sv' ? 'Hoppa till texten' : 'Skip to text'}</a>
       <header className="reader-toolbar">
         <button aria-expanded={tocOpen} aria-label={tocOpen ? t.hideContents : t.showContents} className="toc-toggle" onClick={() => setTocOpen((value) => !value)} type="button"><span /><span /><span /></button>
@@ -785,6 +807,11 @@ function App() {
           <div className="search-control">
             <span aria-hidden="true">⌕</span>
             <input aria-label={t.search} onChange={(event) => { setSearch(event.currentTarget.value); setSearchOpen(event.currentTarget.value.trim().length >= 2); }} onFocus={() => search.trim().length >= 2 && setSearchOpen(true)} placeholder={t.search} value={search} />
+          </div>
+          <div className="text-size-control" aria-label={t.textSize} role="group">
+            <button aria-label={t.decreaseTextSize} disabled={textSize === minimumTextSize} onClick={() => setTextSize((size) => Math.max(minimumTextSize, size - 1))} type="button">A−</button>
+            <button aria-label={t.defaultTextSize} aria-pressed={textSize === 0} className={textSize === 0 ? 'is-default' : ''} onClick={() => setTextSize(0)} type="button">A</button>
+            <button aria-label={t.increaseTextSize} disabled={textSize === maximumTextSize} onClick={() => setTextSize((size) => Math.min(maximumTextSize, size + 1))} type="button">A+</button>
           </div>
           <div className="language-control" aria-label="Language">
             <button aria-pressed={language === 'en'} className={language === 'en' ? 'is-active' : ''} onClick={() => setLanguage('en')} type="button">EN</button>
