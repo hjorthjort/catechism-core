@@ -78,7 +78,7 @@ const readerStorage = {
 };
 
 const minimumTextSize = -2;
-const maximumTextSize = 2;
+const maximumTextSize = 4;
 
 function storedTextSize() {
   const value = Number(localStorage.getItem(readerStorage.textSize));
@@ -635,6 +635,7 @@ function App() {
   const [citation, setCitation] = useState<Citation | null>(null);
   const [toolbarHidden, setToolbarHidden] = useState(false);
   const [textSize, setTextSize] = useState(storedTextSize);
+  const textSizeChangeTimeRef = useRef(0);
   const [citationWidth, setCitationWidth] = useState(() => {
     const stored = Number(localStorage.getItem(readerStorage.citationWidth));
     return Number.isFinite(stored) ? Math.min(620, Math.max(280, stored)) : 340;
@@ -738,6 +739,11 @@ function App() {
     let lastY = window.scrollY;
     function onScroll() {
       const currentY = window.scrollY;
+      if (Date.now() - textSizeChangeTimeRef.current < 500) {
+        setToolbarHidden(false);
+        lastY = currentY;
+        return;
+      }
       if (Math.abs(currentY - lastY) > 8) setToolbarHidden(currentY > lastY && currentY > 120);
       lastY = currentY;
     }
@@ -793,12 +799,19 @@ function App() {
     setJumpInvalid(true);
   }
 
+  function changeTextSize(nextSize: number) {
+    textSizeChangeTimeRef.current = Date.now();
+    setToolbarHidden(false);
+    setTextSize(Math.min(maximumTextSize, Math.max(minimumTextSize, nextSize)));
+  }
+
   if (loading) return <main className="loading">{language === 'sv' ? 'Öppnar katekesen…' : 'Opening the Catechism…'}</main>;
   if (error || !data) return <main className="loading">{error ?? 'Unable to load the Catechism.'}</main>;
 
   const textScale = 1 + textSize * .125;
   const readerStyle = {
     '--aside': `${citationWidth}px`,
+    fontSize: `${16 * textScale}px`,
     '--edition-title-size': `${42 * textScale}px`,
     '--mobile-edition-title-size': `${34 * textScale}px`,
     '--edition-subtitle-size': `${17 * textScale}px`,
@@ -833,9 +846,9 @@ function App() {
             <input aria-label={t.search} onChange={(event) => { setSearch(event.currentTarget.value); setSearchOpen(event.currentTarget.value.trim().length >= 2); }} onFocus={() => search.trim().length >= 2 && setSearchOpen(true)} placeholder={t.search} value={search} />
           </div>
           <div className="text-size-control" aria-label={t.textSize} role="group">
-            <button aria-label={t.decreaseTextSize} disabled={textSize === minimumTextSize} onClick={() => setTextSize((size) => Math.max(minimumTextSize, size - 1))} type="button">A−</button>
-            <button aria-label={t.defaultTextSize} aria-pressed={textSize === 0} className={textSize === 0 ? 'is-default' : ''} onClick={() => setTextSize(0)} type="button">A</button>
-            <button aria-label={t.increaseTextSize} disabled={textSize === maximumTextSize} onClick={() => setTextSize((size) => Math.min(maximumTextSize, size + 1))} type="button">A+</button>
+            <button aria-label={t.decreaseTextSize} disabled={textSize === minimumTextSize} onClick={() => changeTextSize(textSize - 1)} type="button">A−</button>
+            <button aria-label={t.defaultTextSize} aria-pressed={textSize === 0} className={textSize === 0 ? 'is-default' : ''} onClick={() => changeTextSize(0)} type="button">A</button>
+            <button aria-label={t.increaseTextSize} disabled={textSize === maximumTextSize} onClick={() => changeTextSize(textSize + 1)} type="button">A+</button>
           </div>
           <div className="language-control" aria-label="Language">
             <button aria-pressed={language === 'en'} className={language === 'en' ? 'is-active' : ''} onClick={() => setLanguage('en')} type="button">EN</button>

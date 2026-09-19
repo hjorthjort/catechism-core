@@ -64,4 +64,21 @@
 .citation-panel h2>strong{font-size:var(--citation-size)}
 .citation-source-group summary{font-size:var(--citation-size)}
 
+.book-title{font-size:1em}
+.jump-form button,.language-control button,.text-size-control button{font-size:.625em}
+.toc-heading{font-size:.6875em}
+.toc-item button,.toc-item .toc-branch-link>span{font-size:.8125em}
+.toc-item button span,.toc-item .toc-branch-link small{font-size:.6154em}
+.edition-title span{font-size:.6875em}
+.hierarchy-title>span{font-size:.625em}
+.paragraph-copy sup,.text-heading sup,.verse-number{font-size:.625em}
+.search-overlay-heading span,.citation-eyebrow{font-size:.5625em}
+.search-results>button>span,.jump-citation{font-size:.6875em}
+.search-results p{font-size:.875em}
+.fallback-note{font-size:.8125em}
+.source-work-title{font-size:.9375em}
+.source-note{font-size:.75em}
+.margin-references button{font-size:1.1875em}
+.margin-references.is-small-print button{font-size:.9975em}
+
 @media(max-width:760px){:root{--toolbar:158px}.reader-tools{display:grid;grid-template-columns:106px minmax(0,1fr);height:82px}.jump-form{grid-column:1}.search-control{grid-column:2}.text-size-control{grid-column:1;grid-row:2;width:max-content}.language-control{grid-column:2;grid-row:2;justify-self:end;width:max-content}.text-size-control button{padding:10px 7px}.edition-title h1{font-size:var(--mobile-edition-title-size)}.paragraph-copy{font-size:var(--mobile-paragraph-size)}.hierarchy-part h2{font-size:var(--mobile-part-size)}}
