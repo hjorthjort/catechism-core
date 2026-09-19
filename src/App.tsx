@@ -78,7 +78,7 @@ const readerStorage = {
 };
 
 const minimumTextSize = -2;
-const maximumTextSize = 4;
+const maximumTextSize = 8;
 
 function storedTextSize() {
   const value = Number(localStorage.getItem(readerStorage.textSize));
@@ -811,6 +811,13 @@ function App() {
   const textScale = 1 + textSize * .125;
   const readerStyle = {
     '--aside': `${citationWidth}px`,
+    '--desktop-toolbar': `${72 + Math.max(0, textScale - 1) * 24}px`,
+    '--mobile-toolbar': `${158 + Math.max(0, textScale - 1) * 40}px`,
+    '--mobile-tools-height': `${82 + Math.max(0, textScale - 1) * 36}px`,
+    '--control-height': `${38 + Math.max(0, textScale - 1) * 18}px`,
+    '--margin-reference-width': `${48 * textScale}px`,
+    '--margin-reference-gap': `${12 * textScale}px`,
+    '--paragraph-indent-size': `${64 * textScale}px`,
     fontSize: `${16 * textScale}px`,
     '--edition-title-size': `${42 * textScale}px`,
     '--mobile-edition-title-size': `${34 * textScale}px`,
