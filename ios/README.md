@@ -4,7 +4,7 @@ The Apple app is a SwiftUI shell around the repository's existing reader. It use
 
 ## Run locally
 
-1. Install current Xcode from the Mac App Store and open `CatholicCore.xcodeproj`.
+1. Install an [App Store Connect-supported Xcode version](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds) from the Mac App Store and open `CatholicCore.xcodeproj`.
 2. Select the **CatholicCore** scheme and an iPhone or iPad simulator.
 3. Press **Run**. The build phase runs the root `npm run build` and embeds the result for offline use.
 
@@ -17,10 +17,10 @@ You need a paid Apple Developer Program membership, a unique bundle identifier, 
 1. In Xcode, select the app target, then **Signing & Capabilities**.
 2. Choose your Apple Developer team and replace `se.catholiccore.reader` if that identifier is not yours.
 3. Keep **Automatically manage signing** enabled unless your organization manages profiles manually.
-4. In App Store Connect, create a new iOS app using the exact bundle identifier. The SKU is an internal value such as `catholic-core-ios`.
+4. In App Store Connect, [create a new iOS app record](https://developer.apple.com/help/app-store-connect/create-an-app-record/add-a-new-app) using the exact bundle identifier. Do this before the first upload. The SKU is an internal value such as `catholic-core-ios`.
 5. Fill in the app name, subtitle, description, category, age rating, copyright, support URL, and privacy-policy URL.
 6. Supply iPhone and iPad screenshots from supported simulator sizes. The project already contains the required 1024×1024 App Store icon, but review it before release.
-7. Complete **App Privacy** accurately. The app currently has no analytics, ads, accounts, or native tracking; revisit the answers whenever that changes. External links can still take users to third-party sites.
+7. Complete [App Privacy](https://developer.apple.com/help/app-store-connect/manage-app-information/manage-app-privacy) accurately and provide the required privacy-policy URL. The app currently has no analytics, ads, accounts, or native tracking; revisit the answers whenever that changes. External links can still take users to third-party sites.
 
 ## TestFlight
 
@@ -32,6 +32,8 @@ You need a paid Apple Developer Program membership, a unique bundle identifier, 
 
 ## App Store release
 
-Attach the tested build to the App Store version, complete export-compliance questions, add review contact information and useful review notes, and submit for review. Choose manual, automatic, or phased release. After approval, monitor crashes, reviews, and accessibility feedback before expanding functionality.
+Attach the tested build to the App Store version, complete export-compliance questions, add review contact information and useful review notes, then [add and submit the version for review](https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-an-app). Choose manual, automatic, or phased release. After approval, monitor crashes, reviews, and accessibility feedback before expanding functionality.
 
 Before the first submission, replace the placeholder share domain in `ReaderWebView.swift` with the deployed reader URL if `https://catholiccore.app/` is not the production address. Also verify that distribution rights and attribution for the catechism corpus, Bible text, and bundled fonts cover App Store distribution.
+
+Apple may scrutinize apps that feel like repackaged websites under guideline 4.2. In review notes, explain the offline corpus, iPhone/iPad adaptation, native sharing, system link handling, state restoration, accessibility, and privacy behavior. Continue moving features that benefit from platform integration—such as bookmarks, reading progress, Spotlight search, widgets, and Shortcuts—into Swift as the product develops.
