@@ -81,8 +81,9 @@
 .margin-references button{font-size:1.1875em}
 .margin-references.is-small-print button{font-size:.9975em}
 .margin-references{right:calc(100% + var(--margin-reference-gap));width:var(--margin-reference-width)}
+.reader-paragraph{padding-left:var(--reader-left-gutter)}
 .paragraph-copy{--paragraph-indent:var(--paragraph-indent-size)}
 .book-app{--toolbar:var(--desktop-toolbar)}
 .jump-form,.search-control{height:var(--control-height)}
 
-@media(max-width:760px){.book-app{--toolbar:var(--mobile-toolbar)}.reader-tools{display:grid;grid-template-columns:106px minmax(0,1fr);height:var(--mobile-tools-height)}.jump-form{grid-column:1}.search-control{grid-column:2}.text-size-control{grid-column:1;grid-row:2;width:max-content}.language-control{grid-column:2;grid-row:2;justify-self:end;width:max-content}.text-size-control button{padding:10px 7px}.edition-title h1{font-size:var(--mobile-edition-title-size)}.paragraph-copy{font-size:var(--mobile-paragraph-size)}.hierarchy-part h2{font-size:var(--mobile-part-size)}.margin-references,.in-brief .margin-references{position:static;display:flex;width:auto;flex-flow:row wrap;justify-content:flex-start;align-items:baseline;margin:0 0 4px;padding-left:var(--paragraph-indent-size);gap:3px 8px}.margin-references button{flex:none}}
+@media(max-width:760px){.book-app{--toolbar:var(--mobile-toolbar)}.reader-tools{display:grid;grid-template-columns:106px minmax(0,1fr);height:var(--mobile-tools-height)}.jump-form{grid-column:1}.search-control{grid-column:2}.text-size-control{grid-column:1;grid-row:2;width:max-content}.language-control{grid-column:2;grid-row:2;justify-self:end;width:max-content}.text-size-control button{padding:10px 7px}.edition-title h1{font-size:var(--mobile-edition-title-size)}.paragraph-copy{font-size:var(--mobile-paragraph-size)}.hierarchy-part h2{font-size:var(--mobile-part-size)}.reader-paragraph{padding-left:0;padding-right:0}.margin-references,.in-brief .margin-references{position:static;display:flex;width:auto;flex-flow:row wrap;justify-content:flex-start;align-items:baseline;margin:0 0 4px;padding-left:var(--paragraph-indent-size);gap:3px 8px}.margin-references button{flex:none}}

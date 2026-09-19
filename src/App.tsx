@@ -817,6 +817,7 @@ function App() {
     '--control-height': `${38 + Math.max(0, textScale - 1) * 18}px`,
     '--margin-reference-width': `${48 * textScale}px`,
     '--margin-reference-gap': `${12 * textScale}px`,
+    '--reader-left-gutter': `${64 * textScale}px`,
     '--paragraph-indent-size': `${64 * textScale}px`,
     fontSize: `${16 * textScale}px`,
     '--edition-title-size': `${42 * textScale}px`,
