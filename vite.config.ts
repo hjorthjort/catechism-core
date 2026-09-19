@@ -13,6 +13,7 @@ const gitCommitHash = (() => {
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: './',
   plugins: [preact()],
   define: {
     'import.meta.env.VITE_GIT_COMMIT_HASH': JSON.stringify(gitCommitHash),
