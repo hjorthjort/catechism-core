@@ -1,4 +1,5 @@
 import type { ExternalReference, ExternalSource } from '../types';
+import { abbreviateLinkedCitation } from './source-labels.ts';
 
 type InterfaceLanguage = 'en' | 'sv';
 
@@ -39,4 +40,12 @@ export function sourceDocumentUrl(source?: ExternalSource | null) {
   } catch {
     return undefined;
   }
+}
+
+export function footnoteHeading(text: string, references: ExternalReference[], inlineReference = false) {
+  const resolved = references
+    .map((reference) => abbreviateLinkedCitation(reference.label, reference.kind, reference.sourceId))
+    .join('; ');
+  const ibid = /^(?:(?:cf|jfr|jmfr)\.\s*)?ibid\b/i.test(text.trim());
+  return inlineReference || ibid ? resolved || text : text.trim() || resolved;
 }
