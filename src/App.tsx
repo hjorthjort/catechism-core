@@ -134,6 +134,7 @@ const copy = {
     reference: 'Paragraph reference',
     footnote: 'Footnote',
     citationUnavailable: 'The full citation is not available in this edition.',
+    citationLoading: 'Loading source…',
     englishFallback: 'English source shown because this citation is unavailable in Swedish.',
     decreaseTextSize: 'Decrease text size',
     defaultTextSize: 'Reset text size to default',
@@ -157,6 +158,7 @@ const copy = {
     reference: 'Paragrafhänvisning',
     footnote: 'Fotnot',
     citationUnavailable: 'Den fullständiga hänvisningen saknas i denna utgåva.',
+    citationLoading: 'Hämtar källa…',
     englishFallback: 'Hänvisningen saknas på svenska.',
     decreaseTextSize: 'Minska textstorleken',
     defaultTextSize: 'Återställ standardstorlek',
@@ -512,19 +514,20 @@ type ResolvedCitationSource = {
   label: string;
   source: ExternalSource | null;
   swedishBibleRef?: string;
+  loading?: boolean;
 };
 
 function CitationSourceContent({ item, language }: {
   item: ResolvedCitationSource;
   language: 'en' | 'sv';
 }) {
-  const { label, source, swedishBibleRef } = item;
+  const { label, source, swedishBibleRef, loading } = item;
   const content = source?.contentByLanguage?.[language]?.html ?? source?.contentHtml;
   const fallback = language === 'sv' && source && !source.contentByLanguage?.sv;
   const swedishScripture = language === 'sv' && Boolean(swedishBibleRef);
 
   return <>
-    {swedishScripture ? <SwedishBiblePassage fallbackSource={source} reference={swedishBibleRef!} /> : content ? <><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(content) }} lang={fallback ? source?.language : language} /><SourceWorkTitle language={language} reference={label} source={source!} /></> : <p>{copy[language].citationUnavailable}</p>}
+    {loading ? <p className="citation-source-status">{copy[language].citationLoading}</p> : swedishScripture ? <SwedishBiblePassage fallbackSource={source} reference={swedishBibleRef!} /> : content ? <><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(content) }} lang={fallback ? source?.language : language} /><SourceWorkTitle language={language} reference={label} source={source!} /></> : <p className="citation-source-status">{copy[language].citationUnavailable}</p>}
     {fallback && !swedishScripture ? <p className="fallback-note">{copy[language].englishFallback}</p> : null}
   </>;
 }
@@ -550,13 +553,14 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
     setSource(null);
     setGroupedSources({
       citationKey: citation.key,
-      values: citation.sources?.map(({ label, swedishBibleRef }) => ({ label, source: null, swedishBibleRef })) ?? [],
+      values: citation.sources?.map(({ label, swedishBibleRef }) => ({ label, source: null, swedishBibleRef, loading: true })) ?? [],
     });
     if (citation.sources?.length) {
       Promise.all(citation.sources.map(async ({ label, sourceId, swedishBibleRef }) => ({
         label,
         source: sourceId ? await loadExternalSource(sourceId) : null,
         swedishBibleRef,
+        loading: false,
       }))).then((values) => { if (!cancelled) setGroupedSources({ citationKey: citation.key, values }); });
     } else if (citation.sourceId) {
       loadExternalSource(citation.sourceId).then((value) => { if (!cancelled) setSource(value); });
