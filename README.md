@@ -25,3 +25,15 @@ npm run build
 ```
 
 The derived graph data is written to `public/data/catechism-graph.json`.
+
+## Android
+
+The Android app is a native Kotlin WebView shell around the bundled reader. It works offline and keeps the last paragraph, language, contents-panel state, expanded contents branches, and citation-panel width in WebView local storage.
+
+Open the `android/` directory in Android Studio, or build from the repository root:
+
+```bash
+npm run android:build
+```
+
+`npm run android:assets` rebuilds the web app and copies it into the Android asset bundle without compiling an APK.

@@ -1,0 +1,130 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		100000000000000000000101 /* CatholicCoreApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000001 /* CatholicCoreApp.swift */; };
+		100000000000000000000102 /* ReaderScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000002 /* ReaderScreen.swift */; };
+		100000000000000000000103 /* ReaderModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000003 /* ReaderModel.swift */; };
+		100000000000000000000104 /* ReaderWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000004 /* ReaderWebView.swift */; };
+		100000000000000000000105 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000005 /* Assets.xcassets */; };
+		100000000000000000000106 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000006 /* PrivacyInfo.xcprivacy */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		100000000000000000000001 /* CatholicCoreApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatholicCoreApp.swift; sourceTree = "<group>"; };
+		100000000000000000000002 /* ReaderScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderScreen.swift; sourceTree = "<group>"; };
+		100000000000000000000003 /* ReaderModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderModel.swift; sourceTree = "<group>"; };
+		100000000000000000000004 /* ReaderWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderWebView.swift; sourceTree = "<group>"; };
+		100000000000000000000005 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		100000000000000000000006 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		100000000000000000000007 /* CatholicCore.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CatholicCore.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		100000000000000000000201 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		100000000000000000000301 = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000302 /* CatholicCore */,
+				100000000000000000000303 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		100000000000000000000302 /* CatholicCore */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000001 /* CatholicCoreApp.swift */,
+				100000000000000000000002 /* ReaderScreen.swift */,
+				100000000000000000000003 /* ReaderModel.swift */,
+				100000000000000000000004 /* ReaderWebView.swift */,
+				100000000000000000000005 /* Assets.xcassets */,
+				100000000000000000000006 /* PrivacyInfo.xcprivacy */,
+			);
+			path = CatholicCore;
+			sourceTree = "<group>";
+		};
+		100000000000000000000303 /* Products */ = {isa = PBXGroup; children = (100000000000000000000007 /* CatholicCore.app */,); name = Products; sourceTree = "<group>"; };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		100000000000000000000401 /* CatholicCore */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 100000000000000000000701 /* Build configuration list for PBXNativeTarget "CatholicCore" */;
+			buildPhases = (
+				100000000000000000000202 /* Sources */,
+				100000000000000000000201 /* Frameworks */,
+				100000000000000000000203 /* Resources */,
+				100000000000000000000204 /* Package shared reader */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = CatholicCore;
+			productName = CatholicCore;
+			productReference = 100000000000000000000007 /* CatholicCore.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		100000000000000000000501 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 1600; LastUpgradeCheck = 1600; TargetAttributes = {100000000000000000000401 = {CreatedOnToolsVersion = 16.0; };};};
+			buildConfigurationList = 100000000000000000000702 /* Build configuration list for PBXProject "CatholicCore" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base);
+			mainGroup = 100000000000000000000301;
+			productRefGroup = 100000000000000000000303 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (100000000000000000000401 /* CatholicCore */,);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		100000000000000000000203 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (100000000000000000000105 /* Assets.xcassets in Resources */, 100000000000000000000106 /* PrivacyInfo.xcprivacy in Resources */,); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		100000000000000000000204 /* Package shared reader */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputFileListPaths = ();
+			inputPaths = ();
+			name = "Package shared reader";
+			outputFileListPaths = ();
+			outputPaths = ("$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/WebAssets/index.html",);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"$SRCROOT/../scripts/build-ios-assets.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		100000000000000000000202 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (100000000000000000000101, 100000000000000000000102, 100000000000000000000103, 100000000000000000000104,); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		100000000000000000000601 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_ASSET_PATHS = "\"CatholicCore/Preview Content\""; ENABLE_PREVIEWS = YES; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_CFBundleDisplayName = "Catholic Core"; INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.reference"; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault; IPHONEOS_DEPLOYMENT_TARGET = 17.0; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = se.catholiccore.reader; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+		100000000000000000000602 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_CFBundleDisplayName = "Catholic Core"; INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.reference"; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault; IPHONEOS_DEPLOYMENT_TARGET = 17.0; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = se.catholiccore.reader; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; VALIDATE_PRODUCT = YES; }; name = Release; };
+		100000000000000000000603 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; COPY_PHASE_STRIP = NO; DEBUG_INFORMATION_FORMAT = dwarf; ENABLE_TESTABILITY = YES; GCC_C_LANGUAGE_STANDARD = gnu17; GCC_OPTIMIZATION_LEVEL = 0; ONLY_ACTIVE_ARCH = YES; SDKROOT = iphoneos; SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)"; }; name = Debug; };
+		100000000000000000000604 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; COPY_PHASE_STRIP = NO; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; ENABLE_NS_ASSERTIONS = NO; GCC_C_LANGUAGE_STANDARD = gnu17; SDKROOT = iphoneos; SWIFT_OPTIMIZATION_LEVEL = "-O"; }; name = Release; };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		100000000000000000000701 /* Build configuration list for PBXNativeTarget "CatholicCore" */ = {isa = XCConfigurationList; buildConfigurations = (100000000000000000000601, 100000000000000000000602,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		100000000000000000000702 /* Build configuration list for PBXProject "CatholicCore" */ = {isa = XCConfigurationList; buildConfigurations = (100000000000000000000603, 100000000000000000000604,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+	};
+	rootObject = 100000000000000000000501 /* Project object */;
+}

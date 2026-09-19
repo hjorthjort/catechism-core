@@ -70,6 +70,35 @@ function paragraphFromLocation() {
   return Number.isInteger(hashValue) && hashValue > 0 ? hashValue : null;
 }
 
+const readerStorage = {
+  paragraph: 'catholic-core-reader-paragraph',
+  tocOpen: 'catholic-core-toc-open',
+  citationWidth: 'catholic-core-citation-width',
+  textSize: 'catholic-core-text-size',
+};
+
+const minimumTextSize = -2;
+const maximumTextSize = 8;
+
+function storedTextSize() {
+  const value = Number(localStorage.getItem(readerStorage.textSize));
+  return Number.isInteger(value) ? Math.min(maximumTextSize, Math.max(minimumTextSize, value)) : 0;
+}
+
+function storedParagraph() {
+  const value = Number(localStorage.getItem(readerStorage.paragraph));
+  return Number.isInteger(value) && value > 0 ? value : null;
+}
+
+function storedBoolean(key: string, fallback: boolean) {
+  const value = localStorage.getItem(key);
+  return value === null ? fallback : value === 'true';
+}
+
+function storedTocBranchOpen(label: string, fallback: boolean) {
+  return storedBoolean(`catholic-core-toc-branch:${label}`, fallback);
+}
+
 type TocBranch = {
   label: string;
   start: number;
@@ -105,7 +134,12 @@ const copy = {
     reference: 'Paragraph reference',
     footnote: 'Footnote',
     citationUnavailable: 'The full citation is not available in this edition.',
+    citationLoading: 'Loading source…',
     englishFallback: 'English source shown because this citation is unavailable in Swedish.',
+    decreaseTextSize: 'Decrease text size',
+    defaultTextSize: 'Reset text size to default',
+    increaseTextSize: 'Increase text size',
+    textSize: 'Text size',
   },
   sv: {
     title: 'Katolska kyrkans katekes',
@@ -124,7 +158,12 @@ const copy = {
     reference: 'Paragrafhänvisning',
     footnote: 'Fotnot',
     citationUnavailable: 'Den fullständiga hänvisningen saknas i denna utgåva.',
+    citationLoading: 'Hämtar källa…',
     englishFallback: 'Hänvisningen saknas på svenska.',
+    decreaseTextSize: 'Minska textstorleken',
+    defaultTextSize: 'Återställ standardstorlek',
+    increaseTextSize: 'Öka textstorleken',
+    textSize: 'Textstorlek',
   },
 };
 
@@ -169,12 +208,16 @@ function TocItem({ branch, activePath, onJump, titles, language, depth = 0 }: {
   const active = activePath.includes(branch.label);
   const hasChildren = branch.children.length > 0;
   const display = displayHierarchy(branch.label, language, titles);
-  const [open, setOpen] = useState(active || depth === 0);
+  const [open, setOpen] = useState(() => storedTocBranchOpen(branch.label, active || depth === 0));
   const childrenId = `toc-children-${depth}-${branch.start}`;
 
   useEffect(() => {
     if (active) setOpen(true);
   }, [active]);
+
+  useEffect(() => {
+    localStorage.setItem(`catholic-core-toc-branch:${branch.label}`, String(open));
+  }, [branch.label, open]);
 
   return (
     <li className={`toc-item toc-depth-${depth} ${active ? 'is-active' : ''}`}>
@@ -471,19 +514,20 @@ type ResolvedCitationSource = {
   label: string;
   source: ExternalSource | null;
   swedishBibleRef?: string;
+  loading?: boolean;
 };
 
 function CitationSourceContent({ item, language }: {
   item: ResolvedCitationSource;
   language: 'en' | 'sv';
 }) {
-  const { label, source, swedishBibleRef } = item;
+  const { label, source, swedishBibleRef, loading } = item;
   const content = source?.contentByLanguage?.[language]?.html ?? source?.contentHtml;
   const fallback = language === 'sv' && source && !source.contentByLanguage?.sv;
   const swedishScripture = language === 'sv' && Boolean(swedishBibleRef);
 
   return <>
-    {swedishScripture ? <SwedishBiblePassage fallbackSource={source} reference={swedishBibleRef!} /> : content ? <><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(content) }} lang={fallback ? source?.language : language} /><SourceWorkTitle language={language} reference={label} source={source!} /></> : <p>{copy[language].citationUnavailable}</p>}
+    {loading ? <p className="citation-source-status">{copy[language].citationLoading}</p> : swedishScripture ? <SwedishBiblePassage fallbackSource={source} reference={swedishBibleRef!} /> : content ? <><div className="citation-text" dangerouslySetInnerHTML={{ __html: withoutCitationLinks(content) }} lang={fallback ? source?.language : language} /><SourceWorkTitle language={language} reference={label} source={source!} /></> : <p className="citation-source-status">{copy[language].citationUnavailable}</p>}
     {fallback && !swedishScripture ? <p className="fallback-note">{copy[language].englishFallback}</p> : null}
   </>;
 }
@@ -509,13 +553,14 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
     setSource(null);
     setGroupedSources({
       citationKey: citation.key,
-      values: citation.sources?.map(({ label, swedishBibleRef }) => ({ label, source: null, swedishBibleRef })) ?? [],
+      values: citation.sources?.map(({ label, swedishBibleRef }) => ({ label, source: null, swedishBibleRef, loading: true })) ?? [],
     });
     if (citation.sources?.length) {
       Promise.all(citation.sources.map(async ({ label, sourceId, swedishBibleRef }) => ({
         label,
         source: sourceId ? await loadExternalSource(sourceId) : null,
         swedishBibleRef,
+        loading: false,
       }))).then((values) => { if (!cancelled) setGroupedSources({ citationKey: citation.key, values }); });
     } else if (citation.sourceId) {
       loadExternalSource(citation.sourceId).then((value) => { if (!cancelled) setSource(value); });
@@ -573,18 +618,28 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
 }
 
 function App() {
-  const [language, setLanguage] = useState<'en' | 'sv'>(() => new URLSearchParams(location.search).get('lang') === 'sv' ? 'sv' : 'en');
+  const [language, setLanguage] = useState<'en' | 'sv'>(() => {
+    const requested = new URLSearchParams(location.search).get('lang');
+    if (requested === 'sv' || requested === 'en') return requested;
+    return localStorage.getItem('catholic-core-language') === 'sv' ? 'sv' : 'en';
+  });
   const { data, error, loading, language: dataLanguage } = useCatechismData(language as AppLanguage);
-  const [tocOpen, setTocOpen] = useState(true);
-  const [activeId, setActiveId] = useState(1);
-  const [linkedParagraphId, setLinkedParagraphId] = useState<number | null>(() => paragraphFromLocation());
+  const initialParagraph = useMemo(() => paragraphFromLocation() ?? storedParagraph(), []);
+  const [tocOpen, setTocOpen] = useState(() => storedBoolean(readerStorage.tocOpen, true));
+  const [activeId, setActiveId] = useState(initialParagraph ?? 1);
+  const [linkedParagraphId, setLinkedParagraphId] = useState<number | null>(initialParagraph);
   const [jumpValue, setJumpValue] = useState('');
   const [jumpInvalid, setJumpInvalid] = useState(false);
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [citation, setCitation] = useState<Citation | null>(null);
   const [toolbarHidden, setToolbarHidden] = useState(false);
-  const [citationWidth, setCitationWidth] = useState(340);
+  const [textSize, setTextSize] = useState(storedTextSize);
+  const textSizeChangeTimeRef = useRef(0);
+  const [citationWidth, setCitationWidth] = useState(() => {
+    const stored = Number(localStorage.getItem(readerStorage.citationWidth));
+    return Number.isFinite(stored) ? Math.min(620, Math.max(280, stored)) : 340;
+  });
   const observerRef = useRef<IntersectionObserver | null>(null);
   const t = copy[language];
 
@@ -619,6 +674,24 @@ function App() {
     document.title = language === 'sv' ? 'Katolska Kyrkans Katekes' : 'Catechism of the Catholic Church';
     document.documentElement.lang = language;
   }, [language]);
+
+  useEffect(() => {
+    localStorage.setItem(readerStorage.tocOpen, String(tocOpen));
+  }, [tocOpen]);
+
+  useEffect(() => {
+    localStorage.setItem(readerStorage.citationWidth, String(citationWidth));
+  }, [citationWidth]);
+
+  useEffect(() => {
+    localStorage.setItem(readerStorage.textSize, String(textSize));
+  }, [textSize]);
+
+  useEffect(() => {
+    if (nodes.some((node) => node.id === activeId)) {
+      localStorage.setItem(readerStorage.paragraph, String(activeId));
+    }
+  }, [activeId, nodes]);
 
   useEffect(() => {
     if (dataLanguage !== language || nodes.length === 0) return;
@@ -657,7 +730,7 @@ function App() {
       if (visible) setActiveId(Number((visible.target as HTMLElement).dataset.paragraph));
     }, { rootMargin: '-22% 0px -58% 0px', threshold: 0 });
     document.querySelectorAll('[data-paragraph]').forEach((element) => observerRef.current?.observe(element));
-    const requested = paragraphFromLocation();
+    const requested = paragraphFromLocation() ?? storedParagraph();
     if (requested) requestAnimationFrame(() => jumpTo(requested));
     return () => observerRef.current?.disconnect();
   }, [jumpTo, nodes.length]);
@@ -666,6 +739,11 @@ function App() {
     let lastY = window.scrollY;
     function onScroll() {
       const currentY = window.scrollY;
+      if (Date.now() - textSizeChangeTimeRef.current < 500) {
+        setToolbarHidden(false);
+        lastY = currentY;
+        return;
+      }
       if (Math.abs(currentY - lastY) > 8) setToolbarHidden(currentY > lastY && currentY > 120);
       lastY = currentY;
     }
@@ -721,11 +799,46 @@ function App() {
     setJumpInvalid(true);
   }
 
+  function changeTextSize(nextSize: number) {
+    textSizeChangeTimeRef.current = Date.now();
+    setToolbarHidden(false);
+    setTextSize(Math.min(maximumTextSize, Math.max(minimumTextSize, nextSize)));
+  }
+
   if (loading) return <main className="loading">{language === 'sv' ? 'Öppnar katekesen…' : 'Opening the Catechism…'}</main>;
   if (error || !data) return <main className="loading">{error ?? 'Unable to load the Catechism.'}</main>;
 
+  const textScale = 1 + textSize * .125;
+  const readerStyle = {
+    '--aside': `${citationWidth}px`,
+    '--desktop-toolbar': `${72 + Math.max(0, textScale - 1) * 24}px`,
+    '--mobile-toolbar': `${158 + Math.max(0, textScale - 1) * 40}px`,
+    '--mobile-tools-height': `${82 + Math.max(0, textScale - 1) * 36}px`,
+    '--control-height': `${38 + Math.max(0, textScale - 1) * 18}px`,
+    '--margin-reference-width': `${48 * textScale}px`,
+    '--margin-reference-gap': `${12 * textScale}px`,
+    '--reader-left-gutter': `${64 * textScale}px`,
+    '--paragraph-indent-size': `${64 * textScale}px`,
+    fontSize: `${16 * textScale}px`,
+    '--edition-title-size': `${42 * textScale}px`,
+    '--mobile-edition-title-size': `${34 * textScale}px`,
+    '--edition-subtitle-size': `${17 * textScale}px`,
+    '--paragraph-size': `${19 * textScale}px`,
+    '--mobile-paragraph-size': `${18 * textScale}px`,
+    '--hierarchy-size': `${27 * textScale}px`,
+    '--part-size': `${38 * textScale}px`,
+    '--mobile-part-size': `${30 * textScale}px`,
+    '--section-size': `${32 * textScale}px`,
+    '--article-size': `${24 * textScale}px`,
+    '--paragraph-heading-size': `${22 * textScale}px`,
+    '--major-heading-size': `${23 * textScale}px`,
+    '--minor-heading-size': `${20 * textScale}px`,
+    '--citation-heading-size': `${24 * textScale}px`,
+    '--citation-size': `${17 * textScale}px`,
+  } as CSSProperties;
+
   return (
-    <div className={`book-app ${tocOpen ? '' : 'toc-hidden'} ${citation ? 'citation-open' : ''} ${toolbarHidden ? 'toolbar-hidden' : ''}`} lang={language} style={{ '--aside': `${citationWidth}px` } as CSSProperties}>
+    <div className={`book-app ${tocOpen ? '' : 'toc-hidden'} ${citation ? 'citation-open' : ''} ${toolbarHidden ? 'toolbar-hidden' : ''}`} lang={language} style={readerStyle}>
       <a className="skip-link" href="#reader-content">{language === 'sv' ? 'Hoppa till texten' : 'Skip to text'}</a>
       <header className="reader-toolbar">
         <button aria-expanded={tocOpen} aria-label={tocOpen ? t.hideContents : t.showContents} className="toc-toggle" onClick={() => setTocOpen((value) => !value)} type="button"><span /><span /><span /></button>
@@ -739,6 +852,11 @@ function App() {
           <div className="search-control">
             <span aria-hidden="true">⌕</span>
             <input aria-label={t.search} onChange={(event) => { setSearch(event.currentTarget.value); setSearchOpen(event.currentTarget.value.trim().length >= 2); }} onFocus={() => search.trim().length >= 2 && setSearchOpen(true)} placeholder={t.search} value={search} />
+          </div>
+          <div className="text-size-control" aria-label={t.textSize} role="group">
+            <button aria-label={t.decreaseTextSize} disabled={textSize === minimumTextSize} onClick={() => changeTextSize(textSize - 1)} type="button">A−</button>
+            <button aria-label={t.defaultTextSize} aria-pressed={textSize === 0} className={textSize === 0 ? 'is-default' : ''} onClick={() => changeTextSize(0)} type="button">A</button>
+            <button aria-label={t.increaseTextSize} disabled={textSize === maximumTextSize} onClick={() => changeTextSize(textSize + 1)} type="button">A+</button>
           </div>
           <div className="language-control" aria-label="Language">
             <button aria-pressed={language === 'en'} className={language === 'en' ? 'is-active' : ''} onClick={() => setLanguage('en')} type="button">EN</button>

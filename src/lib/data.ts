@@ -136,9 +136,14 @@ export function useCatechismData(language: AppLanguage): LoadState {
 export function loadExternalSource(sourceId: string) {
   const cached = sourcePromises.get(sourceId);
   if (cached) return cached;
-  sourceIndexPromise ??= fetch('/data/reader-generated/source-index.json').then((response) => {
-    if (!response.ok) throw new Error('Failed to load citation index');
+  sourceIndexPromise ??= fetch('/data/reader-generated/source-index.json').then(async (response) => {
+    if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) {
+      throw new Error('Failed to load citation index');
+    }
     return response.json() as Promise<Record<string, string>>;
+  }).catch((error) => {
+    sourceIndexPromise = null;
+    throw error;
   });
   const promise = sourceIndexPromise.then(async (index) => {
     const file = index[sourceId];
@@ -146,7 +151,10 @@ export function loadExternalSource(sourceId: string) {
     const response = await fetch(`/data/reader-generated/sources/${file}`);
     if (!response.ok) return null;
     return response.json() as Promise<ExternalSource>;
-  }).catch(() => null);
+  }).catch(() => {
+    sourcePromises.delete(sourceId);
+    return null;
+  });
   sourcePromises.set(sourceId, promise);
   return promise;
 }
