@@ -8,6 +8,8 @@
     "build:data": "node scripts/build-catechism-data.mjs && node scripts/build-liturgical-schedule.mjs",
     "audit:sources": "node scripts/audit-source-coverage.mjs --strict",
     "build": "npm test && tsc -b && vite build && node scripts/build-sites-worker.mjs",
+    "android:assets": "npm run build && node scripts/copy-android-assets.mjs",
+    "android:build": "cd android && ./gradlew assembleDebug",
     "lint": "eslint .",
     "preview": "vite preview",
     "pretest": "node scripts/build-reader-data.mjs",

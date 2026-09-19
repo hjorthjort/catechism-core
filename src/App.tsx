@@ -70,6 +70,26 @@ function paragraphFromLocation() {
   return Number.isInteger(hashValue) && hashValue > 0 ? hashValue : null;
 }
 
+const readerStorage = {
+  paragraph: 'catholic-core-reader-paragraph',
+  tocOpen: 'catholic-core-toc-open',
+  citationWidth: 'catholic-core-citation-width',
+};
+
+function storedParagraph() {
+  const value = Number(localStorage.getItem(readerStorage.paragraph));
+  return Number.isInteger(value) && value > 0 ? value : null;
+}
+
+function storedBoolean(key: string, fallback: boolean) {
+  const value = localStorage.getItem(key);
+  return value === null ? fallback : value === 'true';
+}
+
+function storedTocBranchOpen(label: string, fallback: boolean) {
+  return storedBoolean(`catholic-core-toc-branch:${label}`, fallback);
+}
+
 type TocBranch = {
   label: string;
   start: number;
@@ -169,12 +189,16 @@ function TocItem({ branch, activePath, onJump, titles, language, depth = 0 }: {
   const active = activePath.includes(branch.label);
   const hasChildren = branch.children.length > 0;
   const display = displayHierarchy(branch.label, language, titles);
-  const [open, setOpen] = useState(active || depth === 0);
+  const [open, setOpen] = useState(() => storedTocBranchOpen(branch.label, active || depth === 0));
   const childrenId = `toc-children-${depth}-${branch.start}`;
 
   useEffect(() => {
     if (active) setOpen(true);
   }, [active]);
+
+  useEffect(() => {
+    localStorage.setItem(`catholic-core-toc-branch:${branch.label}`, String(open));
+  }, [branch.label, open]);
 
   return (
     <li className={`toc-item toc-depth-${depth} ${active ? 'is-active' : ''}`}>
@@ -573,18 +597,26 @@ function CitationPanel({ citation, data, language, onClose, onJump }: {
 }
 
 function App() {
-  const [language, setLanguage] = useState<'en' | 'sv'>(() => new URLSearchParams(location.search).get('lang') === 'sv' ? 'sv' : 'en');
+  const [language, setLanguage] = useState<'en' | 'sv'>(() => {
+    const requested = new URLSearchParams(location.search).get('lang');
+    if (requested === 'sv' || requested === 'en') return requested;
+    return localStorage.getItem('catholic-core-language') === 'sv' ? 'sv' : 'en';
+  });
   const { data, error, loading, language: dataLanguage } = useCatechismData(language as AppLanguage);
-  const [tocOpen, setTocOpen] = useState(true);
-  const [activeId, setActiveId] = useState(1);
-  const [linkedParagraphId, setLinkedParagraphId] = useState<number | null>(() => paragraphFromLocation());
+  const initialParagraph = useMemo(() => paragraphFromLocation() ?? storedParagraph(), []);
+  const [tocOpen, setTocOpen] = useState(() => storedBoolean(readerStorage.tocOpen, true));
+  const [activeId, setActiveId] = useState(initialParagraph ?? 1);
+  const [linkedParagraphId, setLinkedParagraphId] = useState<number | null>(initialParagraph);
   const [jumpValue, setJumpValue] = useState('');
   const [jumpInvalid, setJumpInvalid] = useState(false);
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [citation, setCitation] = useState<Citation | null>(null);
   const [toolbarHidden, setToolbarHidden] = useState(false);
-  const [citationWidth, setCitationWidth] = useState(340);
+  const [citationWidth, setCitationWidth] = useState(() => {
+    const stored = Number(localStorage.getItem(readerStorage.citationWidth));
+    return Number.isFinite(stored) ? Math.min(620, Math.max(280, stored)) : 340;
+  });
   const observerRef = useRef<IntersectionObserver | null>(null);
   const t = copy[language];
 
@@ -619,6 +651,20 @@ function App() {
     document.title = language === 'sv' ? 'Katolska Kyrkans Katekes' : 'Catechism of the Catholic Church';
     document.documentElement.lang = language;
   }, [language]);
+
+  useEffect(() => {
+    localStorage.setItem(readerStorage.tocOpen, String(tocOpen));
+  }, [tocOpen]);
+
+  useEffect(() => {
+    localStorage.setItem(readerStorage.citationWidth, String(citationWidth));
+  }, [citationWidth]);
+
+  useEffect(() => {
+    if (nodes.some((node) => node.id === activeId)) {
+      localStorage.setItem(readerStorage.paragraph, String(activeId));
+    }
+  }, [activeId, nodes]);
 
   useEffect(() => {
     if (dataLanguage !== language || nodes.length === 0) return;
@@ -657,7 +703,7 @@ function App() {
       if (visible) setActiveId(Number((visible.target as HTMLElement).dataset.paragraph));
     }, { rootMargin: '-22% 0px -58% 0px', threshold: 0 });
     document.querySelectorAll('[data-paragraph]').forEach((element) => observerRef.current?.observe(element));
-    const requested = paragraphFromLocation();
+    const requested = paragraphFromLocation() ?? storedParagraph();
     if (requested) requestAnimationFrame(() => jumpTo(requested));
     return () => observerRef.current?.disconnect();
   }, [jumpTo, nodes.length]);

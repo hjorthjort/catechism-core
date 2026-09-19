@@ -12,7 +12,11 @@ dist
 dist-ssr
 public/data/reader-generated
 *.local
-app
+/app
+android/.gradle
+android/local.properties
+android/app/build
+android/app/src/main/assets
 tmp
 .venv
 
