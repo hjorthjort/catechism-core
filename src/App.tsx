@@ -796,8 +796,28 @@ function App() {
   if (loading) return <main className="loading">{language === 'sv' ? 'Öppnar katekesen…' : 'Opening the Catechism…'}</main>;
   if (error || !data) return <main className="loading">{error ?? 'Unable to load the Catechism.'}</main>;
 
+  const textScale = 1 + textSize * .125;
+  const readerStyle = {
+    '--aside': `${citationWidth}px`,
+    '--edition-title-size': `${42 * textScale}px`,
+    '--mobile-edition-title-size': `${34 * textScale}px`,
+    '--edition-subtitle-size': `${17 * textScale}px`,
+    '--paragraph-size': `${19 * textScale}px`,
+    '--mobile-paragraph-size': `${18 * textScale}px`,
+    '--hierarchy-size': `${27 * textScale}px`,
+    '--part-size': `${38 * textScale}px`,
+    '--mobile-part-size': `${30 * textScale}px`,
+    '--section-size': `${32 * textScale}px`,
+    '--article-size': `${24 * textScale}px`,
+    '--paragraph-heading-size': `${22 * textScale}px`,
+    '--major-heading-size': `${23 * textScale}px`,
+    '--minor-heading-size': `${20 * textScale}px`,
+    '--citation-heading-size': `${24 * textScale}px`,
+    '--citation-size': `${17 * textScale}px`,
+  } as CSSProperties;
+
   return (
-    <div className={`book-app ${tocOpen ? '' : 'toc-hidden'} ${citation ? 'citation-open' : ''} ${toolbarHidden ? 'toolbar-hidden' : ''}`} lang={language} style={{ '--aside': `${citationWidth}px`, '--text-scale': 1 + textSize * .125 } as CSSProperties}>
+    <div className={`book-app ${tocOpen ? '' : 'toc-hidden'} ${citation ? 'citation-open' : ''} ${toolbarHidden ? 'toolbar-hidden' : ''}`} lang={language} style={readerStyle}>
       <a className="skip-link" href="#reader-content">{language === 'sv' ? 'Hoppa till texten' : 'Skip to text'}</a>
       <header className="reader-toolbar">
         <button aria-expanded={tocOpen} aria-label={tocOpen ? t.hideContents : t.showContents} className="toc-toggle" onClick={() => setTocOpen((value) => !value)} type="button"><span /><span /><span /></button>

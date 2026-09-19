@@ -49,19 +49,19 @@
 .text-size-control button+button{border-left:1px solid #bbb}
 .text-size-control button:disabled{cursor:not-allowed;color:#aaa;background:#f4f4f2}
 .text-size-control .is-default{box-shadow:inset 0 -2px #111}
-.edition-title h1{font-size:calc(42px * var(--text-scale))}
-.edition-title p{font-size:calc(17px * var(--text-scale))}
-.paragraph-copy{font-size:calc(19px * var(--text-scale))}
-.hierarchy-title h2{font-size:calc(27px * var(--text-scale))}
-.hierarchy-part h2{font-size:calc(38px * var(--text-scale))}
-.hierarchy-section h2{font-size:calc(32px * var(--text-scale))}
-.hierarchy-article h2{font-size:calc(24px * var(--text-scale))}
-.hierarchy-paragraph h2{font-size:calc(22px * var(--text-scale))}
-.heading-major{font-size:calc(23px * var(--text-scale))}
-.heading-minor{font-size:calc(20px * var(--text-scale))}
-.citation-panel h2{font-size:calc(24px * var(--text-scale))}
-.citation-text{font-size:calc(17px * var(--text-scale))}
-.citation-panel h2>strong{font-size:calc(17px * var(--text-scale))}
-.citation-source-group summary{font-size:calc(17px * var(--text-scale))}
+.edition-title h1{font-size:var(--edition-title-size)}
+.edition-title p{font-size:var(--edition-subtitle-size)}
+.paragraph-copy{font-size:var(--paragraph-size)}
+.hierarchy-title h2{font-size:var(--hierarchy-size)}
+.hierarchy-part h2{font-size:var(--part-size)}
+.hierarchy-section h2{font-size:var(--section-size)}
+.hierarchy-article h2{font-size:var(--article-size)}
+.hierarchy-paragraph h2{font-size:var(--paragraph-heading-size)}
+.heading-major{font-size:var(--major-heading-size)}
+.heading-minor{font-size:var(--minor-heading-size)}
+.citation-panel h2{font-size:var(--citation-heading-size)}
+.citation-text{font-size:var(--citation-size)}
+.citation-panel h2>strong{font-size:var(--citation-size)}
+.citation-source-group summary{font-size:var(--citation-size)}
 
-@media(max-width:760px){.text-size-control button{padding:10px 7px}.edition-title h1{font-size:calc(34px * var(--text-scale))}.paragraph-copy{font-size:calc(18px * var(--text-scale))}.hierarchy-part h2{font-size:calc(30px * var(--text-scale))}}
+@media(max-width:760px){:root{--toolbar:158px}.reader-tools{display:grid;grid-template-columns:106px minmax(0,1fr);height:82px}.jump-form{grid-column:1}.search-control{grid-column:2}.text-size-control{grid-column:1;grid-row:2;width:max-content}.language-control{grid-column:2;grid-row:2;justify-self:end;width:max-content}.text-size-control button{padding:10px 7px}.edition-title h1{font-size:var(--mobile-edition-title-size)}.paragraph-copy{font-size:var(--mobile-paragraph-size)}.hierarchy-part h2{font-size:var(--mobile-part-size)}}
